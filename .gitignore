@@ -1,0 +1,8 @@
+node_modules/
+.env
+*.env
+server/.env
+server/passport.js
+dist/
+build/
+coverage/
