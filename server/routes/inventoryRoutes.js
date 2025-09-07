@@ -14,7 +14,8 @@ const {
   scanByQrCode,          // Exact text-based QR scan
   addToBorrowCart,
   reserveInventoryUnit,  // ✅ Reserve unit before adding to cart
-  updateBorrowQuantity,  // ✅ NEW: Update borrow quantity route
+  releaseInventoryUnit,  // ✅ NEW: Release unit/item back to inventory
+  updateBorrowQuantity,  // ✅ Update borrow quantity route
   updateInventoryQuantity,
   restoreInventoryQuantity,
   addInventoryItem,
@@ -51,7 +52,9 @@ router.get("/:id/units", getUnitsForItem);
 // -----------------------
 router.post("/borrow/cart", addToBorrowCart);
 router.post("/borrow/reserve-unit", reserveInventoryUnit);
-router.post("/borrow/update-borrow-quantity", updateBorrowQuantity); // ✅ Added new route
+router.post("/borrow/reserve-item", reserveInventoryUnit); // alias for frontend
+router.post("/borrow/release-unit", releaseInventoryUnit); // ✅ NEW route to release reserved units/items
+router.post("/borrow/update-borrow-quantity", updateBorrowQuantity);
 router.post("/borrow/update-quantity", updateInventoryQuantity);
 router.post("/borrow/restore-quantity", restoreInventoryQuantity);
 

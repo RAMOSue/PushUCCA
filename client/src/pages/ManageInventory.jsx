@@ -352,8 +352,6 @@ const handleSave = async (e) => {
   );
 
   try {
-    let newItemId;
-
     if (existingItem && !editingItem) {
       // Update existing item
       if (category === "costume") {
@@ -380,17 +378,14 @@ const handleSave = async (e) => {
 
       toast.success(`Updated quantity for ${existingItem.name}`);
 
-      // ✅ Always use numeric ID for backend
-      if (existingItem.id) {
-        await axios.post(`/api/inventory/${existingItem.id}/generate-units`, {
-          newQty: totalQty,
-          garment_type: newItem.garment_type || null,
-        });
-      } else {
-        console.error("Missing existingItem.id — cannot generate units");
-      }
+      // ✅ Always use UUID (server ensures this is the `id` field)
+      await axios.post(`/api/inventory/${existingItem.id}/generate-units`, {
+        newQty: totalQty,
+        garment_type: newItem.garment_type || null,
+      });
 
     } else if (editingItem) {
+      // Edit existing item
       await axios.put(`/api/inventory/${editingItem.id}`, payload);
       toast.success("Item updated successfully");
 
@@ -398,8 +393,8 @@ const handleSave = async (e) => {
       // Create new item
       const res = await axios.post("/api/inventory", payload);
 
-      // ✅ Only use numeric id for backend calls
-      newItemId = res?.data?.id || res?.data?.item_id;
+      // ✅ Use standardized UUID from server
+      const newItemId = res?.data?.newItemId;
       if (!newItemId) {
         throw new Error("Invalid newItemId received from server");
       }
@@ -413,6 +408,7 @@ const handleSave = async (e) => {
       });
     }
 
+    // Reset form
     setNewItem(buildEmptyItem(selectedGroup));
     setPreviewImage(null);
     setEditingItem(null);
@@ -423,6 +419,8 @@ const handleSave = async (e) => {
     toast.error(err?.response?.data?.error || "Failed to save item");
   }
 };
+
+
 
 
 
@@ -862,159 +860,139 @@ const handleSave = async (e) => {
       {/* Inventory Table */}
 <div className="overflow-x-auto">
   <table className="w-full border text-sm">
-    <thead>
-      <tr className="bg-gray-100 text-xs uppercase tracking-wide">
-        <th className="p-2 border text-center">Image</th>
-        <th className="p-2 border text-center">Group</th>
-        <th className="p-2 border text-center">Category</th>
-        <th className="p-2 border text-center">Name</th>
-        <th className="p-2 border text-center">Cultural Group</th>
-        <th className="p-2 border text-center">Dance Type</th>
-        <th className="p-2 border text-center">Qty</th>
-        <th className="p-2 border text-center">S</th>
-        <th className="p-2 border text-center">M</th>
-        <th className="p-2 border text-center">L</th>
-        <th className="p-2 border text-center">QR</th>
-        <th className="p-2 border text-center">Actions</th>
-        <th className="p-2 border text-center">Unit</th>
+  <thead>
+    <tr className="bg-gray-100 text-xs uppercase tracking-wide">
+      <th className="p-2 border text-center">Image</th>
+      <th className="p-2 border text-center">Group</th>
+      <th className="p-2 border text-center">Category</th>
+      <th className="p-2 border text-center">Name</th>
+      <th className="p-2 border text-center">Cultural Group</th>
+      <th className="p-2 border text-center">Dance Type</th>
+      <th className="p-2 border text-center">Qty</th>
+      <th className="p-2 border text-center">S</th>
+      <th className="p-2 border text-center">M</th>
+      <th className="p-2 border text-center">L</th>
+      <th className="p-2 border text-center">QR</th>
+      <th className="p-2 border text-center">Actions</th>
+      <th className="p-2 border text-center">Unit</th>
+    </tr>
+  </thead>
+  <tbody>
+    {filteredItems.length === 0 ? (
+      <tr>
+        <td colSpan={13} className="p-4 text-center text-gray-500">
+          No inventory items.
+        </td>
       </tr>
-    </thead>
-    <tbody>
-      {filteredItems.length === 0 ? (
-        <tr>
-          <td colSpan={13} className="p-4 text-center text-gray-500">
-            No inventory items.
-          </td>
-        </tr>
-      ) : (
-        filteredItems
-          .map((item) => ({
-            ...item,
-            units: Array.isArray(item.units) ? item.units : [],
-          }))
-          .map((item) => {
-            const isSizeCostume =
-              item.category === "costume" &&
-              item.garment_type !== "accessory";
-            const grp = item.group ?? item.collection_group ?? "";
+    ) : (
+      filteredItems
+        .map((item) => ({
+          ...item,
+          units: Array.isArray(item.units) ? item.units : [],
+        }))
+        .map((item) => {
+          const isSizeCostume =
+            item.category === "costume" && item.garment_type?.toLowerCase() !== "accessory";
+          const grp = item.group ?? item.collection_group ?? "";
 
-            const totalQty = (() => {
-              if (!item) return 0;
+          const totalQty = (() => {
+            if (!item) return 0;
 
-              if (item.category === "costume") {
-                if (item.garment_type?.toLowerCase() === "accessory") {
-                  return item.units.length > 0
-                    ? item.units.length
-                    : item.quantity ?? 0;
-                }
-                return (
-                  (item.qty_small || 0) +
-                  (item.qty_medium || 0) +
-                  (item.qty_large || 0)
-                );
-              }
+            if (item.category === "costume") {
+              return item.garment_type?.toLowerCase() === "accessory"
+                ? item.units.length ?? 0
+                : (item.qty_small || 0) + (item.qty_medium || 0) + (item.qty_large || 0);
+            }
 
-              // For instruments and other items
-              return item.units.length > 0
-                ? item.units.length
-                : item.quantity ?? 0;
-            })();
+            // For instruments and other items
+            return item.units.length ?? 0;
+          })();
 
-            return (
-              <tr key={item.id} className="hover:bg-gray-50">
-                <td className="p-2 border text-center">
-                  {item.image_url ? (
+          return (
+            <tr key={item.id} className="hover:bg-gray-50">
+              <td className="p-2 border text-center">
+                {item.image_url ? (
+                  <img
+                    src={item.image_url}
+                    alt="Item"
+                    className="mx-auto w-12 h-12 object-cover border"
+                  />
+                ) : (
+                  <span className="text-gray-400 text-xs">—</span>
+                )}
+              </td>
+              <td className="p-2 border capitalize">{grp || "—"}</td>
+              <td className="p-2 border capitalize">{item.category}</td>
+              <td className="p-2 border max-w-[12rem] truncate" title={item.description || ""}>
+                {item.name}
+              </td>
+              <td className="p-2 border">{item.cultural_group || "—"}</td>
+              <td className="p-2 border">{item.dance_type || "—"}</td>
+              <td className="p-2 border text-center">{totalQty}</td>
+              <td className="p-2 border text-center">{isSizeCostume ? item.qty_small ?? 0 : 0}</td>
+              <td className="p-2 border text-center">{isSizeCostume ? item.qty_medium ?? 0 : 0}</td>
+              <td className="p-2 border text-center">{isSizeCostume ? item.qty_large ?? 0 : 0}</td>
+              <td className="p-2 border text-center">
+                {item.qr_code_url ? (
+                  <>
                     <img
-                      src={item.image_url}
-                      alt="Item"
-                      className="mx-auto w-12 h-12 object-cover border"
+                      src={item.qr_code_url}
+                      alt="QR Code"
+                      className="mx-auto mb-1 w-10 h-10 border"
                     />
-                  ) : (
-                    <span className="text-gray-400 text-xs">—</span>
-                  )}
-                </td>
-                <td className="p-2 border capitalize">{grp || "—"}</td>
-                <td className="p-2 border capitalize">{item.category}</td>
-                <td
-                  className="p-2 border max-w-[12rem] truncate"
-                  title={item.description || ""}
-                >
-                  {item.name}
-                </td>
-                <td className="p-2 border">{item.cultural_group || "—"}</td>
-                <td className="p-2 border">{item.dance_type || "—"}</td>
-                <td className="p-2 border text-center">{totalQty}</td>
-                <td className="p-2 border text-center">
-                  {isSizeCostume ? item.qty_small ?? 0 : "—"}
-                </td>
-                <td className="p-2 border text-center">
-                  {isSizeCostume ? item.qty_medium ?? 0 : "—"}
-                </td>
-                <td className="p-2 border text-center">
-                  {isSizeCostume ? item.qty_large ?? 0 : "—"}
-                </td>
-                <td className="p-2 border text-center">
-                  {item.qr_code_url ? (
-                    <>
-                      <img
-                        src={item.qr_code_url}
-                        alt="QR Code"
-                        className="mx-auto mb-1 w-10 h-10 border"
-                      />
-                      <button
-                        onClick={() =>
-                          downloadQRCode(item.qr_code_url, item.name)
-                        }
-                        className="text-blue-500 text-xs underline"
-                        type="button"
-                      >
-                        Download
-                      </button>
-                    </>
-                  ) : (
-                    <span className="text-gray-400 text-xs">—</span>
-                  )}
-                </td>
-                <td className="p-2 border text-center space-x-1 whitespace-nowrap">
-                  <button
-                    onClick={() => handleEdit(item)}
-                    className="bg-yellow-500 text-white px-2 py-1 rounded text-xs"
-                    type="button"
-                  >
-                    Edit
-                  </button>
-                  <button
-                    onClick={() => handleDelete(item.id)}
-                    className="bg-red-500 text-white px-2 py-1 rounded text-xs"
-                    type="button"
-                  >
-                    Del
-                  </button>
-                </td>
-                <td className="p-2 border text-center">
-                  {(item.units.length > 0 ||
-                    item.category === "instrument" ||
-                    item.garment_type?.toLowerCase() === "accessory") ? (
                     <button
+                      onClick={() => downloadQRCode(item.qr_code_url, item.name)}
+                      className="text-blue-500 text-xs underline"
                       type="button"
-                      onClick={() => {
-                        setSelectedItemForQR(item);
-                        setUnitModalOpen(true);
-                      }}
-                      className="bg-blue-500 hover:bg-blue-600 text-white text-xs font-semibold py-1 px-2 rounded transition-colors duration-200"
                     >
-                      View {item.units.length} QR
+                      Download
                     </button>
-                  ) : (
-                    <span className="text-gray-400 text-xs">—</span>
-                  )}
-                </td>
-              </tr>
-            );
-          })
-      )}
-    </tbody>
-  </table>
+                  </>
+                ) : (
+                  <span className="text-gray-400 text-xs">—</span>
+                )}
+              </td>
+              <td className="p-2 border text-center space-x-1 whitespace-nowrap">
+                <button
+                  onClick={() => handleEdit(item)}
+                  className="bg-yellow-500 text-white px-2 py-1 rounded text-xs"
+                  type="button"
+                >
+                  Edit
+                </button>
+                <button
+                  onClick={() => handleDelete(item.id)}
+                  className="bg-red-500 text-white px-2 py-1 rounded text-xs"
+                  type="button"
+                >
+                  Del
+                </button>
+              </td>
+              <td className="p-2 border text-center">
+                {(item.units.length > 0 ||
+                  item.category === "instrument" ||
+                  item.garment_type?.toLowerCase() === "accessory") ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedItemForQR(item);
+                      setUnitModalOpen(true);
+                    }}
+                    className="bg-blue-500 hover:bg-blue-600 text-white text-xs font-semibold py-1 px-2 rounded transition-colors duration-200"
+                  >
+                    View {item.units.length ?? 0} QR
+                  </button>
+                ) : (
+                  <span className="text-gray-400 text-xs">0</span>
+                )}
+              </td>
+            </tr>
+          );
+        })
+    )}
+  </tbody>
+</table>
+
 
   <UnitModal
     isOpen={unitModalOpen}

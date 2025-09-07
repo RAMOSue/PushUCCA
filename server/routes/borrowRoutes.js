@@ -11,23 +11,28 @@ const {
   declineBorrowRequest,
   returnBorrowedItems,
   getInventoryUnitByQrText, // Scan QR for a unit
-  updateBorrowCartQuantity, // ✅ NEW for per-unit quantity updates
+  updateBorrowCartQuantity, // per-unit quantity updates
+  startBorrowingSession,    // ✅ new controller
 } = require("../controllers/borrowController");
 
-// TODO: plug in auth / role middleware when available
-// const requireAuth = require("../middleware/requireAuth");
-// const requireStaffOrAdmin = require("../middleware/requireStaffOrAdmin");
+// -----------------------
+// 🟢 Borrowing Session Init
+// -----------------------
+router.post("/start", startBorrowingSession);
 
 // -----------------------
 // 🛒 Borrow Cart Routes
 // -----------------------
 router.post("/cart", addToCart);
-router.post("/update-quantity", updateBorrowCartQuantity); // ✅ new endpoint
+router.post("/update-quantity", updateBorrowCartQuantity);
 
 // -----------------------
 // 📄 Borrow Request Routes
 // -----------------------
+// Support both /request and /submit so frontend stays flexible
 router.post("/request", submitBorrowRequest);
+router.post("/submit", submitBorrowRequest);
+
 router.get("/history/:userId", getBorrowHistory);
 router.get("/requests", getAllBorrowRequests);
 router.put("/requests/:id/approve", approveBorrowRequest);
@@ -41,7 +46,6 @@ router.post("/return", returnBorrowedItems);
 // -----------------------
 // 📲 QR Code Scan (Borrower)
 // -----------------------
-// Exact text scan for a single inventory unit
 router.get("/scan/:qrCodeText", getInventoryUnitByQrText);
 
 module.exports = router;

@@ -1,6 +1,7 @@
 // server/controllers/borrowController.js
 const pool = require("../db");
 const sendEmail = require("../utils/email");
+const { v4: uuidv4, validate: isUuid } = require("uuid");
 
 /*
  * ------------------------------------------------------------
@@ -21,93 +22,185 @@ const sendEmail = require("../utils/email");
 
 const addToCart = async (req, res) => {
   const { borrower_id, items } = req.body;
+
   if (!borrower_id || !Array.isArray(items) || items.length === 0) {
     return res.status(400).json({ error: "Missing borrower_id or items." });
   }
-  return res.status(200).json({ message: "Cart item received." });
+
+  try {
+    const updatedItems = [];
+
+    for (const item of items) {
+      const { unit_id, item_id, quantity } = item;
+      const q = Number(quantity) || 1;
+
+      if ((!unit_id && !item_id) || !Number.isInteger(q) || q <= 0) {
+        return res.status(400).json({ error: "Invalid unit_id/item_id or quantity." });
+      }
+
+      // Case 1: Specific unit (costumes with sizes OR instruments/accessories)
+      if (unit_id) {
+        const unitResult = await pool.query(
+          `SELECT iu.id, iu.status, ii.name, ii.category, ii.garment_type
+           FROM inventory_units iu
+           JOIN inventory_items ii ON ii.uuid = iu.inventory_item_id
+           WHERE iu.id = $1::uuid`,
+          [unit_id]
+        );
+
+        if (unitResult.rowCount === 0) {
+          return res.status(404).json({ error: `Unit ${unit_id} not found` });
+        }
+
+        const unit = unitResult.rows[0];
+        if (unit.status !== "available") {
+          return res.status(400).json({ error: `Unit ${unit_id} is not available` });
+        }
+
+        await pool.query(
+          `UPDATE inventory_units SET status = 'pending' WHERE id = $1::uuid`,
+          [unit_id]
+        );
+
+        updatedItems.push({ ...unit, reserved: true });
+
+      // Case 2: Reserve by item (instruments/accessories use nosize units)
+      } else if (item_id) {
+        // Pick q available units for this item (item_id is the numeric PK on inventory_items)
+        const availableUnits = await pool.query(
+          `SELECT iu.id, iu.status, ii.name, ii.category, ii.garment_type
+           FROM inventory_units iu
+           JOIN inventory_items ii ON ii.uuid = iu.inventory_item_id
+           WHERE ii.id = $1::int AND iu.status = 'available'
+           LIMIT $2`,
+          [item_id, q]
+        );
+
+        if (availableUnits.rowCount < q) {
+          return res.status(400).json({ error: `Not enough stock for item ${item_id}` });
+        }
+
+        const unitIds = availableUnits.rows.map((u) => u.id);
+
+        // ✅ IMPORTANT: UUID array cast
+        await pool.query(
+          `UPDATE inventory_units SET status = 'pending'
+           WHERE id = ANY($1::uuid[])`,
+          [unitIds]
+        );
+
+        updatedItems.push(...availableUnits.rows.map(u => ({ ...u, reserved: true })));
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Items reserved successfully.",
+      updatedItems,
+    });
+  } catch (err) {
+    console.error("❌ Error in addToCart:", err.message);
+    return res.status(500).json({ error: "Failed to add items to cart" });
+  }
 };
 
 const submitBorrowRequest = async (req, res) => {
-  const { borrower_id, items } = req.body;
-
-  if (!borrower_id || !Array.isArray(items) || items.length === 0) {
-    return res.status(400).json({ error: "Missing borrower_id or items." });
-  }
-
   const client = await pool.connect();
   try {
+    const { borrower_id, items } = req.body;
+
+    if (!borrower_id || !Array.isArray(items) || items.length === 0) {
+      return res
+        .status(400)
+        .json({ success: false, error: "Missing borrower_id or items" });
+    }
+
     await client.query("BEGIN");
 
-    const insertRequestQuery = `
-      INSERT INTO borrowing_requests (borrower_id, status, request_date, created_at)
-      VALUES ($1, 'pending', NOW(), NOW())
-      RETURNING id
+    // Insert main borrow request
+    const insertBorrowRequest = `
+      INSERT INTO borrowing_requests (borrower_id, status, request_date)
+      VALUES ($1, $2, NOW())
+      RETURNING id, borrower_id, status, request_date;
     `;
-    const requestResult = await client.query(insertRequestQuery, [borrower_id]);
-    const borrowingId = requestResult.rows[0].id;
+    const borrowRes = await client.query(insertBorrowRequest, [
+      borrower_id,
+      "pending",
+    ]);
+    const borrowRequestId = borrowRes.rows[0].id;
 
     for (const item of items) {
-      const { item_id, unit_id, quantity } = item;
+      if (item.unitId) {
+        // ✅ Individual unit (costume/instrument with unique QR)
+        if (!isUuid(item.unitId)) throw new Error(`Invalid unitId: ${item.unitId}`);
 
-      if ((!item_id && !unit_id) || quantity <= 0) {
-        throw new Error(`Invalid item entry: ${JSON.stringify(item)}`);
-      }
-
-      // If a specific unit is borrowed
-      if (unit_id) {
         await client.query(
-          `
-          INSERT INTO borrowing_items (borrowing_id, inventory_item_id, inventory_unit_id, quantity, returned_quantity)
-          VALUES ($1, (SELECT inventory_item_id FROM inventory_units WHERE id = $2), $2, 1, 0)
-          `,
-          [borrowingId, unit_id]
+          `INSERT INTO borrowing_items (borrowing_id, inventory_unit_id)
+           VALUES ($1, $2);`,
+          [borrowRequestId, item.unitId]
         );
 
         await client.query(
-          `UPDATE inventory_units SET status = 'borrowed' WHERE id = $1 AND status = 'reserved'`,
-          [unit_id]
+          `UPDATE inventory_units SET status = 'reserved' WHERE id = $1;`,
+          [item.unitId]
         );
-      } else {
-        // Borrow by item quantity (aggregate path)
-        await client.query(
-          `
-          INSERT INTO borrowing_items (borrowing_id, inventory_item_id, quantity, returned_quantity)
-          VALUES ($1, $2, $3, 0)
-          `,
-          [borrowingId, item_id, quantity]
-        );
+      } else if (item.itemId && item.quantity) {
+        // ✅ Accessories or instruments (quantity-based)
+        if (!isUuid(item.itemId)) throw new Error(`Invalid itemId: ${item.itemId}`);
 
-        const result = await client.query(
-          `
-          UPDATE inventory_items
-          SET quantity = quantity - $1
-          WHERE id = $2 AND quantity >= $1
-          `,
-          [quantity, item_id]
-        );
+        // Select available units
+        let unitQuery = `
+          SELECT id FROM inventory_units
+          WHERE inventory_item_id = $1 AND status = 'available'
+        `;
+        const params = [item.itemId];
 
-        if (result.rowCount === 0) {
-          throw new Error(
-            `Insufficient stock or invalid item ID for item_id=${item_id}`
+        if (item.size) {
+          unitQuery += ` AND size = $2`;
+          params.push(item.size);
+        }
+        unitQuery += ` LIMIT ${item.quantity};`;
+
+        const unitsRes = await client.query(unitQuery, params);
+        if (unitsRes.rows.length < item.quantity) {
+          throw new Error(`Not enough available units for item ${item.itemId}`);
+        }
+
+        // Reserve each unit
+        for (const unit of unitsRes.rows) {
+          await client.query(
+            `INSERT INTO borrowing_items (borrowing_id, inventory_unit_id)
+             VALUES ($1, $2);`,
+            [borrowRequestId, unit.id]
+          );
+
+          await client.query(
+            `UPDATE inventory_units SET status = 'reserved' WHERE id = $1;`,
+            [unit.id]
           );
         }
+
+        // ✅ Track reserved quantity in inventory_items (syncs with decline)
+        await client.query(
+          `UPDATE inventory_items
+           SET quantity = GREATEST(quantity - $1, 0)
+           WHERE id = $2;`,
+          [item.quantity, item.itemId]
+        );
       }
     }
 
     await client.query("COMMIT");
-    res.status(201).json({
-      message: "Borrow request submitted successfully.",
-      id: borrowingId,
+
+    res.status(200).json({
+      success: true,
+      message: "Borrow request submitted successfully",
+      borrowRequest: borrowRes.rows[0],
     });
   } catch (err) {
     await client.query("ROLLBACK");
-    console.error("❌ Borrow request error:", err.stack || err.message);
-    res.status(500).json({
-      error:
-        process.env.NODE_ENV === "development"
-          ? err.message
-          : "Internal server error",
-    });
+    console.error("❌ Borrow request error:", err.message);
+    res.status(500).json({ success: false, error: err.message });
   } finally {
     client.release();
   }
@@ -121,48 +214,56 @@ const getBorrowHistory = async (req, res) => {
     return res.status(400).json({ error: "Missing borrower ID" });
   }
 
-  const uuidRegex =
-    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-  if (!uuidRegex.test(userId)) {
-    return res
-      .status(400)
-      .json({ error: "Invalid borrower ID format. Must be UUID." });
-  }
-
   try {
-    const result = await pool.query(
-      `
-      SELECT 
-        br.id AS request_id,
-        u.name AS borrower_name,
-        br.status,
-        br.due_date,
-        br.returned_date,
-        br.request_date,
-        br.created_at,
-        json_agg(
-          json_build_object(
-            'unit_id', iu.id,
-            'item_id', ii.id,
-            'item_name', ii.name,
-            'quantity_borrowed', bi.quantity,
-            'returned_quantity', bi.returned_quantity,
-            'qr_code_url', iu.qr_code_url
-          )
-        ) AS items
-      FROM borrowing_requests br
-      JOIN users u ON u.id = br.borrower_id
-      JOIN borrowing_items bi ON bi.borrowing_id = br.id
-      LEFT JOIN inventory_units iu ON iu.id = bi.inventory_unit_id
-      JOIN inventory_items ii ON ii.id = bi.inventory_item_id
-      WHERE br.borrower_id = $1
-      GROUP BY br.id, u.name
-      ORDER BY br.created_at DESC
-      `,
+    const requestsRes = await pool.query(
+      `SELECT 
+         br.id AS request_id,
+         br.status,
+         br.request_date,
+         br.due_date,
+         br.returned_date,
+         br.returned_at,
+         u.name AS borrower_name
+       FROM borrowing_requests br
+       JOIN users u ON u.id = br.borrower_id
+       WHERE br.borrower_id = $1
+       ORDER BY br.created_at DESC`,
       [userId]
     );
 
-    res.json(result.rows);
+    const requests = requestsRes.rows;
+
+    for (let req of requests) {
+      const itemsRes = await pool.query(
+        `SELECT 
+           ii.uuid AS item_id,
+           ii.name AS item_name,
+           ii.garment_type,
+           ii.category,
+           json_agg(json_build_object(
+             'unit_id', iu.id,
+             'qr_code_url', iu.qr_code_url,
+             'unit_status', iu.status,
+             'size', iu.size
+           ) ORDER BY iu.id) AS unit_ids,
+           SUM(CASE WHEN iu.status = 'available' THEN 1 ELSE 0 END) AS returned_quantity,
+           COUNT(iu.id) AS borrowed_quantity
+         FROM borrowing_items bi
+         JOIN inventory_units iu ON iu.id = bi.inventory_unit_id
+         JOIN inventory_items ii ON ii.uuid = iu.inventory_item_id
+         WHERE bi.borrowing_id = $1
+         GROUP BY ii.uuid, ii.name, ii.garment_type, ii.category`,
+        [req.request_id]
+      );
+
+      req.items = itemsRes.rows.map((item) => ({
+        ...item,
+        borrowed_quantity: Number(item.borrowed_quantity),
+        returned_quantity: Number(item.returned_quantity),
+      }));
+    }
+
+    res.json(requests);
   } catch (err) {
     console.error("📦 Fetch borrow history error:", err.message);
     res.status(500).json({ error: "Internal server error" });
@@ -171,35 +272,59 @@ const getBorrowHistory = async (req, res) => {
 
 const getAllBorrowRequests = async (req, res) => {
   try {
-    const result = await pool.query(
-      `
-      SELECT br.id,
-             br.borrower_id,
-             u.name  AS borrower_name,
-             u.email AS borrower_email,
-             br.status,
-             br.request_date,
-             br.due_date,
-             json_agg(
-               json_build_object(
-                 'item_name',         ii.name,
-                 'item_id',           ii.id,
-                 'quantity',          bi.quantity,
-                 'returned_quantity', bi.returned_quantity
-               )
-             ) AS items
-      FROM borrowing_requests br
-      JOIN users u         ON u.id  = br.borrower_id
-      JOIN borrowing_items bi ON bi.borrowing_id = br.id
-      JOIN inventory_items ii ON ii.id = bi.inventory_item_id
-      GROUP BY br.id, u.name, u.email
-      ORDER BY br.request_date DESC
-      `
+    const requestsRes = await pool.query(
+      `SELECT 
+         br.id,
+         br.borrower_id,
+         u.name AS borrower_name,
+         u.email AS borrower_email,
+         br.status,
+         br.request_date,
+         br.due_date,
+         br.returned_date,
+         br.returned_at
+       FROM borrowing_requests br
+       JOIN users u ON u.id = br.borrower_id
+       ORDER BY br.request_date DESC`
     );
 
-    res.json(result.rows);
+    const requests = requestsRes.rows;
+
+    // For each request, attach items
+    for (let req of requests) {
+      const itemsRes = await pool.query(
+        `SELECT 
+           ii.uuid AS item_id,
+           ii.name AS item_name,
+           ii.garment_type,
+           ii.category,
+           ii.instrument_classification,
+           ii.instrument_type,
+           json_agg(json_build_object(
+             'unit_id', iu.id,
+             'unit_status', iu.status,
+             'size', COALESCE(iu.size,'N/A')
+           ) ORDER BY iu.id) AS unit_ids,
+           SUM(CASE WHEN iu.status = 'available' THEN 1 ELSE 0 END) AS returned_quantity,
+           COUNT(iu.id) AS borrowed_quantity
+         FROM borrowing_items bi
+         JOIN inventory_units iu ON iu.id = bi.inventory_unit_id
+         JOIN inventory_items ii ON ii.uuid = iu.inventory_item_id
+         WHERE bi.borrowing_id = $1
+         GROUP BY ii.uuid, ii.name, ii.garment_type, ii.category, ii.instrument_classification, ii.instrument_type`,
+        [req.id]
+      );
+
+      req.items = itemsRes.rows.map((item) => ({
+        ...item,
+        borrowed_quantity: Number(item.borrowed_quantity),
+        returned_quantity: Number(item.returned_quantity),
+      }));
+    }
+
+    res.json(requests);
   } catch (err) {
-    console.error("❌ Fetch all requests error:", err.message);
+    console.error("❌ Fetch all requests error:", err.stack);
     res.status(500).json({ error: "Failed to fetch requests" });
   }
 };
@@ -212,210 +337,219 @@ const approveBorrowRequest = async (req, res) => {
     return res.status(400).json({ error: "Staff ID and due date required" });
   }
 
+  const client = await pool.connect();
   try {
-    const result = await pool.query(
+    await client.query("BEGIN");
+
+    // Ensure it's still pending
+    const check = await client.query(
+      `SELECT status FROM borrowing_requests WHERE id = $1::int`,
+      [id]
+    );
+    if (check.rows.length === 0) throw new Error("Request not found");
+    if (check.rows[0].status !== "pending") {
+      throw new Error("Request is not pending");
+    }
+
+    // Approve request
+    await client.query(
       `
       UPDATE borrowing_requests
       SET status = 'approved', staff_id = $1, due_date = $2
-      WHERE id = $3
-      RETURNING borrower_id
+      WHERE id = $3::int
       `,
       [staff_id, due_date, id]
     );
 
-    if (result.rowCount === 0) {
-      return res.status(404).json({ error: "Request not found" });
-    }
-
-    const borrowerId = result.rows[0].borrower_id;
-    const borrowerRes = await pool.query(
-      `SELECT email, name FROM users WHERE id = $1`,
-      [borrowerId]
-    );
-    const borrowerEmail = borrowerRes.rows[0].email;
-    const borrowerName = borrowerRes.rows[0].name;
-
-    await sendEmail(
-      borrowerEmail,
-      "Borrow Request Approved",
-      `Hello ${borrowerName},\n\nYour borrow request (ID: ${id}) has been approved.\nDue date: ${due_date}.\n\nThank you!`
+    // ✅ Only change unit statuses
+    await client.query(
+      `
+      UPDATE inventory_units
+      SET status = 'borrowed'
+      WHERE id IN (
+        SELECT inventory_unit_id FROM borrowing_items WHERE borrowing_id = $1::int
+      )
+      `,
+      [id]
     );
 
-    res.json({ success: true, message: "Request approved and email sent" });
+    await client.query("COMMIT");
+    res.json({ success: true, message: "Request approved" });
   } catch (err) {
+    await client.query("ROLLBACK");
     console.error("❌ Approve request error:", err.message);
-    res.status(500).json({ error: "Failed to approve request" });
+    res.status(500).json({ error: err.message });
+  } finally {
+    client.release();
   }
 };
 
 const declineBorrowRequest = async (req, res) => {
   const { id } = req.params;
-
   const client = await pool.connect();
+
   try {
     await client.query("BEGIN");
 
-    const itemsRes = await client.query(
-      `SELECT inventory_item_id, quantity, inventory_unit_id FROM borrowing_items WHERE borrowing_id = $1`,
+    // Check if request exists and is still pending
+    const check = await client.query(
+      `SELECT status FROM borrowing_requests WHERE id = $1::int`,
       [id]
     );
-    if (itemsRes.rows.length === 0) {
-      throw new Error("Request not found or no items");
+    if (check.rows.length === 0) throw new Error("Request not found");
+    if (check.rows[0].status !== "pending") {
+      throw new Error("Request is not pending");
     }
 
-    for (const item of itemsRes.rows) {
-      if (item.inventory_unit_id) {
-        await client.query(
-          `UPDATE inventory_units SET status = 'available' WHERE id = $1`,
-          [item.inventory_unit_id]
-        );
-      } else {
-        await client.query(
-          `UPDATE inventory_items SET quantity = quantity + $1 WHERE id = $2`,
-          [item.quantity, item.inventory_item_id]
-        );
-      }
-    }
-
-    const updateRes = await client.query(
-      `UPDATE borrowing_requests SET status = 'declined' WHERE id = $1 RETURNING borrower_id`,
+    // Restore inventory_units linked to this request to available
+    await client.query(
+      `
+      UPDATE inventory_units u
+      SET status = 'available'
+      FROM borrowing_items bi
+      WHERE bi.borrowing_id = $1::int
+        AND bi.inventory_unit_id = u.id
+        AND u.status IN ('reserved', 'borrowed')
+      `,
       [id]
     );
 
-    const borrowerId = updateRes.rows[0].borrower_id;
-    const borrowerEmailRes = await client.query(
-      `SELECT email, name FROM users WHERE id = $1`,
-      [borrowerId]
+    // Restore quantity for instruments & accessories
+    await client.query(
+      `
+      UPDATE inventory_items ii
+      SET quantity = quantity + 1
+      FROM borrowing_items bi
+      JOIN inventory_units u ON bi.inventory_unit_id = u.id
+      WHERE bi.borrowing_id = $1::int
+        AND u.inventory_item_id = ii.uuid
+        AND (
+          ii.category = 'instrument'
+          OR ii.garment_type = 'accessory'
+        )
+      `,
+      [id]
     );
 
-    await sendEmail(
-      borrowerEmailRes.rows[0].email,
-      "Borrow Request Declined",
-      `Hello ${borrowerEmailRes.rows[0].name},\n\nYour borrow request (ID: ${id}) was declined.\n\nPlease contact support for more details.`
+    // Mark request as declined
+    await client.query(
+      `UPDATE borrowing_requests SET status = 'declined' WHERE id = $1::int`,
+      [id]
     );
 
     await client.query("COMMIT");
-    res.json({
-      success: true,
-      message: "Request declined, stock restored, and email sent",
-    });
+    res.json({ success: true, message: "Request declined and units restored" });
   } catch (err) {
     await client.query("ROLLBACK");
     console.error("❌ Decline request error:", err.message);
-    res.status(500).json({ error: "Failed to decline request" });
+    res.status(500).json({ error: err.message });
   } finally {
     client.release();
   }
 };
 
 const returnBorrowedItems = async (req, res) => {
-  const { request_id, items } = req.body;
+  const { request_id, unit_ids = [], quantity_items = [] } = req.body;
 
-  if (!request_id || !Array.isArray(items) || items.length === 0) {
-    return res.status(400).json({ error: "Missing request_id or items" });
+  if (!request_id || (unit_ids.length === 0 && quantity_items.length === 0)) {
+    return res
+      .status(400)
+      .json({ error: "Missing request_id or unit_ids/quantity_items" });
   }
 
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
 
-    for (const item of items) {
-      const { item_id, unit_id, quantity } = item;
+    // -----------------------------
+    // Check request status
+    // -----------------------------
+    const check = await client.query(
+      `SELECT status FROM borrowing_requests WHERE id = $1`,
+      [request_id]
+    );
+    if (check.rows.length === 0) throw new Error("Request not found");
+    if (!["approved", "pending_return"].includes(check.rows[0].status)) {
+      throw new Error("Request is not active for return");
+    }
 
-      if (!item_id && !unit_id) {
-        throw new Error("Invalid return item.");
-      }
+    // -----------------------------
+    // Handle individual units
+    // -----------------------------
+    if (unit_ids.length > 0) {
+      await client.query(
+        `UPDATE inventory_units
+         SET status = 'available'
+         WHERE id = ANY($1::uuid[])`,
+        [unit_ids]
+      );
 
-      if (unit_id) {
+      // Restore inventory_items.quantity for instruments/accessories
+      await client.query(
+        `UPDATE inventory_items ii
+         SET quantity = quantity + 1
+         FROM inventory_units iu
+         WHERE iu.id = ANY($1::uuid[])
+           AND iu.inventory_item_id = ii.uuid
+           AND (ii.category = 'instrument' OR ii.garment_type = 'accessory')`,
+        [unit_ids]
+      );
+    }
+
+    // -----------------------------
+    // Handle grouped quantity items
+    // -----------------------------
+    for (const q of quantity_items) {
+      if (q.item_id && q.quantity > 0) {
         await client.query(
-          `
-          UPDATE borrowing_items
-          SET returned_quantity = 1
-          WHERE borrowing_id = $1 AND inventory_unit_id = $2
-          `,
-          [request_id, unit_id]
-        );
-
-        await client.query(
-          `UPDATE inventory_units SET status = 'available' WHERE id = $1`,
-          [unit_id]
-        );
-      } else {
-        const checkRes = await client.query(
-          `
-          SELECT quantity, returned_quantity
-          FROM borrowing_items
-          WHERE borrowing_id = $1 AND inventory_item_id = $2
-          FOR UPDATE
-          `,
-          [request_id, item_id]
-        );
-
-        if (checkRes.rows.length === 0) {
-          throw new Error("Item not found in borrow request");
-        }
-
-        const {
-          quantity: borrowedQty,
-          returned_quantity: alreadyReturned,
-        } = checkRes.rows[0];
-        const remaining = borrowedQty - alreadyReturned;
-        if (quantity > remaining) {
-          throw new Error("Return quantity exceeds remaining borrowed items");
-        }
-
-        await client.query(
-          `
-          UPDATE borrowing_items
-          SET returned_quantity = returned_quantity + $1
-          WHERE borrowing_id = $2 AND inventory_item_id = $3
-          `,
-          [quantity, request_id, item_id]
-        );
-
-        await client.query(
-          `UPDATE inventory_items SET quantity = quantity + $1 WHERE id = $2`,
-          [quantity, item_id]
+          `UPDATE inventory_items
+           SET quantity = quantity + $1
+           WHERE uuid = $2`,
+          [q.quantity, q.item_id]
         );
       }
     }
 
-    const pendingCheck = await client.query(
-      `
-      SELECT COUNT(*) AS not_full
-      FROM borrowing_items
-      WHERE borrowing_id = $1 AND returned_quantity < quantity
-      `,
+    // -----------------------------
+    // Check if any items are still borrowed
+    // -----------------------------
+    const stillUnitsRes = await client.query(
+      `SELECT COUNT(*) AS still_borrowed
+       FROM inventory_units iu
+       JOIN borrowing_items bi ON bi.inventory_unit_id = iu.id
+       WHERE bi.borrowing_id = $1
+         AND iu.status = 'borrowed'`,
       [request_id]
     );
-    const notFull = Number(pendingCheck.rows[0].not_full);
 
-    if (notFull === 0) {
+    const stillUnits = Number(stillUnitsRes.rows[0].still_borrowed || 0);
+
+    // -----------------------------
+    // Update request status
+    // -----------------------------
+    if (stillUnits === 0) {
       await client.query(
-        `
-        UPDATE borrowing_requests
-        SET status = 'returned', returned_date = NOW()
-        WHERE id = $1
-        `,
+        `UPDATE borrowing_requests
+         SET status = 'returned',
+             returned_at = NOW()
+         WHERE id = $1`,
         [request_id]
       );
     } else {
       await client.query(
-        `
-        UPDATE borrowing_requests
-        SET status = 'pending_return'
-        WHERE id = $1 AND status <> 'returned'
-        `,
+        `UPDATE borrowing_requests
+         SET status = 'pending_return'
+         WHERE id = $1`,
         [request_id]
       );
     }
 
     await client.query("COMMIT");
-    res.json({ success: true, message: "Items successfully returned" });
+    res.json({ success: true, message: "Items returned successfully" });
   } catch (err) {
     await client.query("ROLLBACK");
     console.error("❌ Return items error:", err.message);
-    res.status(500).json({ error: err.message || "Failed to return items" });
+    res.status(500).json({ error: err.message });
   } finally {
     client.release();
   }
@@ -443,8 +577,18 @@ const updateInventoryQuantity = async (req, res) => {
   try {
     await client.query("BEGIN");
 
+    // Get the UUID of the inventory_item
+    const itemUuidResult = await client.query(
+      `SELECT uuid FROM inventory_items WHERE id = $1`,
+      [item_id]
+    );
+    if (itemUuidResult.rows.length === 0) {
+      throw new Error(`Invalid inventory item ID: ${item_id}`);
+    }
+    const itemUuid = itemUuidResult.rows[0].uuid;
+
     // Find available units for this item (optionally by size)
-    const params = [item_id, qty];
+    const params = [itemUuid, qty];
     const sizeClause = size ? "AND iu.size = $3" : "";
     if (size) params.push(size);
 
@@ -485,7 +629,7 @@ const updateInventoryQuantity = async (req, res) => {
     console.error("❌ updateInventoryQuantity error:", err.message);
     return res
       .status(500)
-      .json({ error: "Failed to update inventory quantity" });
+      .json({ error: process.env.NODE_ENV === "development" ? err.message : "Failed to update inventory quantity" });
   } finally {
     client.release();
   }
@@ -506,8 +650,18 @@ const restoreInventoryQuantity = async (req, res) => {
   try {
     await client.query("BEGIN");
 
+    // Get the UUID of the inventory_item
+    const itemUuidResult = await client.query(
+      `SELECT uuid FROM inventory_items WHERE id = $1`,
+      [item_id]
+    );
+    if (itemUuidResult.rows.length === 0) {
+      throw new Error(`Invalid inventory item ID: ${item_id}`);
+    }
+    const itemUuid = itemUuidResult.rows[0].uuid;
+
     // Pick currently RESERVED units for this item (optionally by size)
-    const params = [item_id, qty];
+    const params = [itemUuid, qty];
     const sizeClause = size ? "AND iu.size = $3" : "";
     if (size) params.push(size);
 
@@ -550,7 +704,7 @@ const restoreInventoryQuantity = async (req, res) => {
     console.error("❌ restoreInventoryQuantity error:", err.message);
     return res
       .status(500)
-      .json({ error: "Failed to restore inventory quantity" });
+      .json({ error: process.env.NODE_ENV === "development" ? err.message : "Failed to restore inventory quantity" });
   } finally {
     client.release();
   }
@@ -656,14 +810,18 @@ const updateBorrowCartQuantity = async (req, res) => {
     return res.status(400).json({ error: "QR code and action are required" });
   }
 
+  const client = await pool.connect();
   try {
+    await client.query("BEGIN");
+
     // Find the inventory unit by QR code
-    const unitResult = await pool.query(
-      "SELECT id, status FROM inventory_units WHERE qr_code_text = $1",
+    const unitResult = await client.query(
+      "SELECT id, status, inventory_item_id FROM inventory_units WHERE qr_code_text = $1 FOR UPDATE",
       [qrCodeText]
     );
 
     if (unitResult.rows.length === 0) {
+      await client.query("ROLLBACK");
       return res.status(404).json({ error: "Inventory unit not found" });
     }
 
@@ -671,36 +829,93 @@ const updateBorrowCartQuantity = async (req, res) => {
 
     if (action === "reserve") {
       if (unit.status !== "available") {
+        await client.query("ROLLBACK");
         return res.status(400).json({ error: "Unit is not available" });
       }
 
-      await pool.query(
+      await client.query(
         "UPDATE inventory_units SET status = 'reserved' WHERE id = $1",
         [unit.id]
       );
 
-      return res.json({ message: "Unit reserved successfully" });
+      await client.query("COMMIT");
+      return res.json({
+        message: "Unit reserved successfully",
+        unit_id: unit.id,
+        inventory_item_id: unit.inventory_item_id,
+      });
     }
 
     if (action === "release") {
       if (unit.status !== "reserved") {
+        await client.query("ROLLBACK");
         return res.status(400).json({ error: "Unit is not reserved" });
       }
 
-      await pool.query(
+      await client.query(
         "UPDATE inventory_units SET status = 'available' WHERE id = $1",
         [unit.id]
       );
 
-      return res.json({ message: "Unit released successfully" });
+      await client.query("COMMIT");
+      return res.json({
+        message: "Unit released successfully",
+        unit_id: unit.id,
+        inventory_item_id: unit.inventory_item_id,
+      });
     }
 
+    await client.query("ROLLBACK");
     return res.status(400).json({ error: "Invalid action" });
   } catch (err) {
-    console.error("Error updating borrow cart quantity:", err);
+    await client.query("ROLLBACK");
+    console.error("❌ updateBorrowCartQuantity error:", err.message || err);
     res.status(500).json({ error: "Internal server error" });
+  } finally {
+    client.release();
   }
 };
+
+// -----------------------
+// 🟢 Start Borrowing Session
+// -----------------------
+const startBorrowingSession = async (req, res) => {
+  const { borrower_id } = req.body;
+
+  if (!borrower_id) {
+    return res.status(400).json({ error: "Missing borrower_id" });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    const insertSql = `
+      INSERT INTO borrowing_requests (borrower_id, status, request_date)
+      VALUES ($1, 'pending', NOW())
+      RETURNING id, borrower_id, status, request_date;
+    `;
+
+    const result = await client.query(insertSql, [borrower_id]);
+    const borrowing = result.rows[0];
+
+    await client.query("COMMIT");
+
+    return res.status(200).json({
+      success: true,
+      message: "Borrowing session started",
+      borrowingId: borrowing.id,
+      borrowing,
+    });
+  } catch (err) {
+    await client.query("ROLLBACK");
+    console.error("❌ startBorrowingSession error:", err.message);
+    return res.status(500).json({ error: "Failed to start borrowing session" });
+  } finally {
+    client.release();
+  }
+};
+
 
 
 module.exports = {
@@ -716,4 +931,5 @@ module.exports = {
   updateInventoryQuantity,
   restoreInventoryQuantity,
   updateBorrowCartQuantity, // ✅ Add this line
+  startBorrowingSession, 
 };

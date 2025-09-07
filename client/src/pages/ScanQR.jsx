@@ -22,6 +22,8 @@ export default function ScanQR() {
   const [isStarting, setIsStarting] = useState(false);
   const [cameraDevices, setCameraDevices] = useState([]);
   const [activeCameraId, setActiveCameraId] = useState(null);
+  const [torchEnabled, setTorchEnabled] = useState(false);
+  const [contrastEnabled, setContrastEnabled] = useState(false);
 
   const html5QrcodeRef = useRef(null);
   const scannerRunningRef = useRef(false);
@@ -30,8 +32,14 @@ export default function ScanQR() {
   const lastGlobalScanRef = useRef(0);
   const cartRef = useRef([]);
   const userRef = useRef(null);
+  const videoTrackRef = useRef(null);
 
-  const { cart, addToCart } = useContext(BorrowingContext);
+  const {
+    cart,
+    addToCart,
+    currentBorrowingId,
+    setCurrentBorrowingId,
+  } = useContext(BorrowingContext);
   const { user } = useContext(UserContext);
   const navigate = useNavigate();
   const location = useLocation();
@@ -44,26 +52,51 @@ export default function ScanQR() {
     userRef.current = user;
   }, [user]);
 
+  // 🔑 Ensure borrowing session is initialized
+  useEffect(() => {
+    const initBorrowingSession = async () => {
+      try {
+        if (!currentBorrowingId && userRef.current?.id) {
+          const res = await axios.post("/api/borrow/start", {
+            borrower_id: userRef.current.id,
+          });
+          setCurrentBorrowingId(res.data.borrowingId);
+          console.log("✅ Borrowing session started:", res.data.borrowingId);
+        }
+      } catch (err) {
+        console.error("Failed to init borrowing session:", err);
+        toast.error("❌ Cannot start borrowing session.");
+      }
+    };
+    initBorrowingSession();
+  }, [currentBorrowingId, setCurrentBorrowingId]);
+
   const computeQrbox = useCallback(() => {
     const el = document.getElementById("qr-root");
-    if (!el) return 250;
+    if (!el) return 300;
     const w = el.offsetWidth;
     const h = el.offsetHeight || w;
-    const size = Math.min(w, h) * 0.8;
-    return Math.max(200, Math.min(size, 400));
+    const size = Math.min(w, h) * 0.9;
+    return Math.max(200, Math.min(size, 500));
   }, []);
 
   const normalizeScanPayload = (raw) => {
-    const type = raw?.type || (raw?.unit_id || raw?.inventory_unit_id ? "unit" : "item");
+    const type =
+      raw?.type || (raw?.unit_id || raw?.inventory_unit_id ? "unit" : "item");
     const data = raw?.data || raw || {};
-
     const unitId = data.unit_id || data.inventory_unit_id || data.id || null;
-    const itemName = type === "unit" ? (data.item_name || data.name) : (data.name || data.item_name);
+    const itemId = data.item_id || data.id || unitId;
+
+    const itemName =
+      type === "unit"
+        ? data.item_name || data.name
+        : data.name || data.item_name;
 
     return {
       type,
       data: {
         unit_id: unitId,
+        item_id: itemId,
         name: itemName,
         category: data.category ?? null,
         size: data.size ?? null,
@@ -89,33 +122,60 @@ export default function ScanQR() {
       try {
         let res;
         try {
-          res = await axios.get(`/api/inventory/scan/text/${encodeURIComponent(cleanQR)}`);
+          res = await axios.get(
+            `/api/inventory/scan/text/${encodeURIComponent(cleanQR)}`
+          );
         } catch (e) {
           if (e?.response?.status === 404) {
-            // Try flexible route next
-            try {
-              res = await axios.get(`/api/inventory/scan/flexible/${encodeURIComponent(cleanQR)}`);
-            } catch (flexErr) {
-              if (flexErr?.response?.status === 404) {
-                throw new Error("Item not found");
-              }
-              throw flexErr;
-            }
-          } else {
-            throw e;
-          }
+            res = await axios.get(
+              `/api/inventory/scan/flexible/${encodeURIComponent(cleanQR)}`
+            );
+          } else throw e;
         }
 
         const normalized = normalizeScanPayload(res.data);
         const { type, data } = normalized;
-        const uniqueId = data.unit_id || data.id;
-        const alreadyInCart = cartRef.current.some((c) => c.id === uniqueId);
+        const uniqueUnitId = data.unit_id || data.item_id;
+
+        const alreadyInCart = cartRef.current.some(
+          (c) => c.unitId === uniqueUnitId
+        );
 
         if (!alreadyInCart) {
-          await addToCart({ id: uniqueId, ...data });
-          toast.success(`✅ "${data.name}" added to cart`);
+          if (!currentBorrowingId) {
+            console.warn("⚠ BorrowingId not ready yet. Retrying shortly...");
+            toast.error("Please wait, setting up borrowing session...");
+            return;
+          }
+
+          if (data.status && data.status.toLowerCase() !== "available") {
+            toast.error(`❌ "${data.name}" is not available (status: ${data.status}).`);
+            return;
+          }
+
+          try {
+            await addToCart(
+              {
+                unitId: data.unit_id,
+                itemId: data.item_id,
+                name: data.name,
+                size: data.size,
+                image_url: data.qr_code_url,
+                category: data.category,
+                garment_type: data.garment_type,
+              },
+              currentBorrowingId
+            );
+            toast.success(`✅ "${data.name}" added to cart`);
+          } catch (err) {
+            console.error("❌ Failed to reserve unit:", err.response?.data || err.message);
+            toast.error(
+              err.response?.data?.error ||
+                `Failed to add "${data.name}" to cart.`
+            );
+          }
         } else {
-          toast(`+1 "${data.name}" (duplicate scan)`);
+          console.log(`🔁 Duplicate scan ignored: ${data.name}`);
         }
 
         setLastScannedItem({
@@ -132,26 +192,24 @@ export default function ScanQR() {
         setLastScannedItem(null);
       }
     },
-    [addToCart]
+    [addToCart, currentBorrowingId]
   );
 
   const onScanFailure = useCallback(() => {}, []);
 
   const stopScanner = useCallback(async () => {
     const inst = html5QrcodeRef.current;
-    if (!inst) return;
-    if (scannerRunningRef.current) {
+    if (inst && scannerRunningRef.current) {
       try {
         await inst.stop();
-      } catch (e) {
-        console.warn("Scanner stop error:", e);
-      }
+      } catch {}
+      try {
+        await inst.clear();
+      } catch {}
     }
-    try {
-      await inst.clear();
-    } catch {}
     html5QrcodeRef.current = null;
     scannerRunningRef.current = false;
+    videoTrackRef.current = null;
   }, []);
 
   const startScanner = useCallback(
@@ -170,84 +228,82 @@ export default function ScanQR() {
       html5QrcodeRef.current = inst;
 
       const config = {
-        fps: 10,
+        fps: 30,
         qrbox: computeQrbox(),
-        experimentalFeatures: { useBarCodeDetectorIfSupported: true },
         aspectRatio: 1.7778,
+        disableFlip: false,
+        experimentalFeatures: {
+          useBarCodeDetectorIfSupported: true,
+        },
       };
 
       try {
-        await new Promise((r) => setTimeout(r, 300));
         await inst.start(
-          cameraId ? { deviceId: { exact: cameraId } } : { facingMode: "environment" },
+          cameraId
+            ? { deviceId: { exact: cameraId } }
+            : { facingMode: "environment" },
           config,
           onScanSuccess,
           onScanFailure
         );
         scannerRunningRef.current = true;
+
+        const videoEl = container.querySelector("video");
+        if (videoEl) {
+          const stream = videoEl.srcObject;
+          if (stream) {
+            const track = stream.getVideoTracks()[0];
+            videoTrackRef.current = track;
+          }
+        }
+
+        if (contrastEnabled && container) {
+          const video = container.querySelector("video");
+          if (video) video.style.filter = "contrast(1.5) brightness(1.2)";
+        }
       } catch (err) {
         console.error("Failed to start scanner:", err);
-        setError(
-          err.name === "NotAllowedError"
-            ? "❌ Camera permission denied."
-            : err.name === "AbortError"
-            ? "❌ Camera startup timed out."
-            : "❌ Unable to access camera."
-        );
+        if (err.name === "AbortError") {
+          setError("❌ Camera took too long to start. Please retry.");
+        } else {
+          setError("❌ Unable to access camera. Check permissions.");
+        }
         scannerRunningRef.current = false;
       } finally {
         if (!isUnmountedRef.current) setIsStarting(false);
       }
     },
-    [computeQrbox, onScanSuccess, onScanFailure, stopScanner]
+    [computeQrbox, onScanSuccess, onScanFailure, stopScanner, contrastEnabled]
   );
 
   useEffect(() => {
-    let cancelled = false;
     (async () => {
       try {
-        await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+        await navigator.mediaDevices.getUserMedia({ video: true });
         const devices = await Html5Qrcode.getCameras();
-        if (cancelled) return;
         if (!devices.length) throw new Error("No cameras found.");
         setCameraDevices(devices);
-        let preferred = devices.find((d) => /back|rear|environment/i.test(d.label));
+
+        let preferred = devices.find((d) =>
+          /back|rear|environment/i.test(d.label)
+        );
         if (!preferred && devices.length) preferred = devices[0];
-        setActiveCameraId(preferred ? preferred.id : null);
+
+        if (preferred) {
+          setActiveCameraId(preferred.id);
+          await startScanner(preferred.id);
+        }
       } catch (err) {
         console.error("Camera enumeration failed:", err);
-        setError("❌ Cannot access camera.");
+        setError("❌ Cannot access camera. Check permissions.");
         setActiveCameraId(null);
       }
     })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  useEffect(() => {
-    if (activeCameraId !== null) startScanner(activeCameraId);
-  }, [activeCameraId, startScanner]);
+  }, [startScanner]);
 
   useEffect(() => {
     return () => {
       isUnmountedRef.current = true;
-      stopScanner();
-    };
-  }, [stopScanner]);
-
-  useEffect(() => {
-    const handleBeforeUnload = () => {
-      stopScanner();
-    };
-    window.addEventListener("beforeunload", handleBeforeUnload);
-    return () => {
-      window.removeEventListener("beforeunload", handleBeforeUnload);
-    };
-  }, [stopScanner]);
-
-  useEffect(() => {
-    return () => {
       stopScanner();
     };
   }, [location.pathname, stopScanner]);
@@ -258,12 +314,42 @@ export default function ScanQR() {
     const idx = cameraDevices.findIndex((d) => d.id === activeCameraId);
     const nextIdx = idx === -1 ? 0 : (idx + 1) % cameraDevices.length;
     setActiveCameraId(cameraDevices[nextIdx].id);
+    startScanner(cameraDevices[nextIdx].id);
+  };
+
+  const handleTorchToggle = async () => {
+    if (!videoTrackRef.current) return;
+    try {
+      await videoTrackRef.current.applyConstraints({
+        advanced: [{ torch: !torchEnabled }],
+      });
+      setTorchEnabled((prev) => !prev);
+    } catch (err) {
+      console.warn("Torch not supported on this device:", err);
+      toast.error("Torch not supported on this device");
+    }
+  };
+
+  const handleContrastToggle = () => {
+    const container = document.getElementById("qr-root");
+    if (container) {
+      const video = container.querySelector("video");
+      if (video) {
+        if (!contrastEnabled) {
+          video.style.filter = "contrast(1.5) brightness(1.2)";
+        } else {
+          video.style.filter = "";
+        }
+      }
+    }
+    setContrastEnabled((prev) => !prev);
   };
 
   return (
-    <div className="max-w-xl mx-auto mt-10 p-6 bg-white shadow rounded">
-      <div className="flex justify-between items-center mb-4">
-        <h2 className="text-xl font-bold text-blue-600">Scan Items</h2>
+    <div className="w-full min-h-screen bg-white flex flex-col p-4 sm:p-6">
+      {/* Header */}
+      <div className="flex justify-between items-center mb-3 sm:mb-4">
+        <h2 className="text-lg sm:text-xl font-bold text-blue-600">Scan Items</h2>
         <button
           onClick={() => {
             stopScanner();
@@ -276,19 +362,42 @@ export default function ScanQR() {
         </button>
       </div>
 
+      {/* Scanner */}
       {isStarting && (
         <div className="text-center text-gray-500 mb-4">Starting camera…</div>
       )}
-
       <div
         id="qr-root"
-        className="mx-auto w-full aspect-video max-h-[60vh] bg-black/5 rounded overflow-hidden"
+        className="w-full flex-1 max-h-[70vh] bg-black/5 rounded overflow-hidden"
       ></div>
 
+      {/* Controls */}
+      <div className="flex gap-2 mt-3 justify-center">
+        <button
+          onClick={handleTorchToggle}
+          className={`px-3 py-1 text-sm rounded ${
+            torchEnabled ? "bg-yellow-500 text-white" : "bg-gray-600 text-white"
+          }`}
+          type="button"
+        >
+          {torchEnabled ? "Torch On" : "Torch Off"}
+        </button>
+        <button
+          onClick={handleContrastToggle}
+          className={`px-3 py-1 text-sm rounded ${
+            contrastEnabled ? "bg-green-600 text-white" : "bg-gray-600 text-white"
+          }`}
+          type="button"
+        >
+          {contrastEnabled ? "High Contrast" : "Normal"}
+        </button>
+      </div>
+
+      {/* Error */}
       {error && (
-        <div className="mt-4 p-4 bg-red-100 text-red-700 rounded space-y-2">
+        <div className="mt-3 p-3 bg-red-100 text-red-700 rounded text-sm sm:text-base">
           <div>{error}</div>
-          <div className="flex gap-2 justify-center">
+          <div className="flex gap-2 justify-center mt-2">
             <button
               onClick={handleRetry}
               className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
@@ -309,14 +418,25 @@ export default function ScanQR() {
         </div>
       )}
 
+      {/* Last scanned */}
       {lastScannedItem && (
-        <div className="mt-4 p-4 bg-green-100 rounded">
+        <div className="mt-4 p-3 sm:p-4 bg-green-100 rounded text-sm sm:text-base">
           <h3 className="font-bold text-green-700">Last Scanned:</h3>
-          <p><strong>Type:</strong> {lastScannedItem.type}</p>
-          <p><strong>Name:</strong> {lastScannedItem.name}</p>
-          <p><strong>Category:</strong> {lastScannedItem.category}</p>
-          <p><strong>Size:</strong> {lastScannedItem.size}</p>
-          <p><strong>Status:</strong> {lastScannedItem.status}</p>
+          <p>
+            <strong>Type:</strong> {lastScannedItem.type}
+          </p>
+          <p>
+            <strong>Name:</strong> {lastScannedItem.name}
+          </p>
+          <p>
+            <strong>Category:</strong> {lastScannedItem.category}
+          </p>
+          <p>
+            <strong>Size:</strong> {lastScannedItem.size}
+          </p>
+          <p>
+            <strong>Status:</strong> {lastScannedItem.status}
+          </p>
         </div>
       )}
     </div>

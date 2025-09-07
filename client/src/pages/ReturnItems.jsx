@@ -1,16 +1,15 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useContext } from "react";
 import axios from "axios";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 import timezone from "dayjs/plugin/timezone";
+import { BorrowingContext } from "../../context/borrowingContext";
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
 
 function statusColor(status) {
   switch (status) {
-    case "approved":
-      return "text-blue-600";
     case "pending_return":
       return "text-orange-600";
     case "returned":
@@ -24,6 +23,8 @@ function statusColor(status) {
 }
 
 export default function ReturnItems() {
+  const { refreshAfterReturn } = useContext(BorrowingContext);
+
   const [requests, setRequests] = useState([]);
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [returnQuantities, setReturnQuantities] = useState({});
@@ -34,10 +35,32 @@ export default function ReturnItems() {
   const fetchRequests = async () => {
     try {
       const res = await axios.get("/api/borrow/requests");
-      const active = res.data.filter(
-        (r) => r.status === "approved" || r.status === "pending_return"
-      );
+      const active = res.data
+        .map((r) => {
+          // Compute status dynamically
+          const allReturned = r.items.every((it) => {
+            const borrowed = it.borrowed_quantity || it.unit_ids?.length || 0;
+            const returned = it.unit_ids
+              ? it.unit_ids.filter((u) => u.unit_status === "available").length
+              : it.returned_quantity || 0;
+            return borrowed - returned <= 0;
+          });
+          return {
+            ...r,
+            status: allReturned
+              ? "returned"
+              : r.status === "approved"
+              ? "pending_return"
+              : r.status,
+          };
+        })
+        .filter((r) => r.status === "pending_return" || r.status === "returned");
       setRequests(active);
+      // Update selectedRequest if currently viewing
+      if (selectedRequest) {
+        const updated = active.find((r) => r.id === selectedRequest.id) || null;
+        setSelectedRequest(updated);
+      }
     } catch (err) {
       console.error("Failed to fetch borrow requests:", err.message);
       setRequests([]);
@@ -47,6 +70,13 @@ export default function ReturnItems() {
   useEffect(() => {
     fetchRequests();
   }, []);
+
+  const formatDateTime = (dateString) => {
+    const date = dayjs(dateString).tz("Asia/Manila");
+    return date.isValid()
+      ? `${date.format("MMMM D, YYYY")} (${date.format("h:mm A")})`
+      : "—";
+  };
 
   const formatDate = (dateString) => {
     const date = dayjs(dateString).tz("Asia/Manila");
@@ -63,7 +93,6 @@ export default function ReturnItems() {
     setMessage("");
   };
 
-  // Change quantity with validation
   const setQuantity = (itemId, newQty, maxRemain) => {
     const safe = Math.max(0, Math.min(newQty, maxRemain));
     setReturnQuantities((prev) => ({
@@ -83,17 +112,24 @@ export default function ReturnItems() {
   const handleReturn = async () => {
     if (!selectedRequest) return;
 
-    const itemsToReturn = selectedRequest.items
-      .map((it) => {
-        const remain = it.quantity - (it.returned_quantity || 0);
-        const qty = Number(returnQuantities[it.item_id] || 0);
-        return qty > 0 && qty <= remain
-          ? { item_id: it.item_id, quantity: qty }
-          : null;
-      })
-      .filter(Boolean);
+    const unit_ids = [];
+    const quantity_items = [];
 
-    if (itemsToReturn.length === 0) {
+    selectedRequest.items.forEach((it) => {
+      const qty = Number(returnQuantities[it.item_id] || 0);
+      if (qty <= 0) return;
+
+      if (it.unit_ids && it.unit_ids.length > 0) {
+        // Borrowed items tracked by units
+        const notReturned = it.unit_ids.filter((u) => u.unit_status === "borrowed");
+        unit_ids.push(...notReturned.slice(0, qty).map((u) => u.unit_id));
+      } else if (it.borrowed_quantity) {
+        // Borrowed items tracked by quantity (instruments/accessories)
+        quantity_items.push({ item_id: it.item_id, quantity: qty });
+      }
+    });
+
+    if (unit_ids.length === 0 && quantity_items.length === 0) {
       setMessage("Please specify at least one valid return quantity.");
       return;
     }
@@ -102,15 +138,23 @@ export default function ReturnItems() {
     try {
       await axios.post("/api/borrow/return", {
         request_id: selectedRequest.id,
-        items: itemsToReturn,
+        unit_ids,
+        quantity_items,
       });
+
       setMessage("✅ Items successfully returned.");
+
+      // Refresh stock and requests immediately
+      if (refreshAfterReturn) await refreshAfterReturn();
       await fetchRequests();
-      setSelectedRequest(null);
+
+      // Reset return quantities
       setReturnQuantities({});
     } catch (err) {
       console.error("Return error:", err?.response?.data || err.message);
-      setMessage("❌ Failed to return items.");
+      setMessage(
+        `❌ Failed to return items: ${err?.response?.data?.error || err.message}`
+      );
     } finally {
       setLoading(false);
     }
@@ -153,6 +197,11 @@ export default function ReturnItems() {
                   </p>
                   <p>Requested: {formatDate(req.request_date)}</p>
                   {req.due_date && <p>Due: {formatDate(req.due_date)}</p>}
+                  {req.status === "returned" && req.returned_at && (
+                    <p className="text-green-700">
+                      Returned: {formatDateTime(req.returned_at)}
+                    </p>
+                  )}
                 </li>
               ))}
             </ul>
@@ -174,10 +223,13 @@ export default function ReturnItems() {
 
           <ul className="space-y-3">
             {selectedRequest.items.map((it) => {
-              const borrowed = it.quantity;
-              const returned = it.returned_quantity || 0;
+              const borrowed = it.borrowed_quantity || it.unit_ids?.length || 0;
+              const returned = it.unit_ids
+                ? it.unit_ids.filter((u) => u.unit_status === "available").length
+                : it.returned_quantity || 0;
               const remain = borrowed - returned;
               const isDone = remain <= 0;
+
               return (
                 <li
                   key={it.item_id}
@@ -190,6 +242,7 @@ export default function ReturnItems() {
                     Borrowed: {borrowed} • Returned: {returned} • Remaining:{" "}
                     {remain}
                   </p>
+
                   {!isDone && (
                     <div className="flex items-center gap-2 mt-2">
                       <button
@@ -213,7 +266,9 @@ export default function ReturnItems() {
                   )}
                   {isDone && (
                     <p className="text-green-700 text-sm mt-1">
-                      Fully returned.
+                      Fully returned{" "}
+                      {selectedRequest.returned_at &&
+                        `(on ${formatDateTime(selectedRequest.returned_at)})`}
                     </p>
                   )}
                 </li>
@@ -232,14 +287,6 @@ export default function ReturnItems() {
           >
             {loading ? "Processing..." : "Return Selected Items"}
           </button>
-
-          <div className="mt-8 p-4 border rounded bg-white">
-            <h4 className="text-md font-semibold mb-2">QR Scan (Optional)</h4>
-            <p className="text-gray-600">
-              Integrate QR code scanning here to auto‑populate quantities or
-              auto‑mark items as returned.
-            </p>
-          </div>
         </>
       )}
     </div>

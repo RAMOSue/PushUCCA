@@ -20,7 +20,7 @@ import AdminReports from "./pages/AdminReports";
 import ReturnItems from "./pages/ReturnItems"; // ✅ NEW RETURN ITEMS PAGE
 
 import { UserContextProvider } from "../context/userContext";
-import { BorrowingProvider } from "../context/BorrowingContext";
+import BorrowingProvider from "../context/borrowingContext"; // ✅ use default export
 import { UserContext } from "../context/userContext";
 import "./index.css";
 
