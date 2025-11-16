@@ -1,8 +1,6 @@
-node_modules/
-.env
-*.env
-server/.env
-server/passport.js
-dist/
-build/
-coverage/
+node_modules/ 
+dist/ 
+build/ 
+.env 
+.DS_Store 
+npm-debug.log 
