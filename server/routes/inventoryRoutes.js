@@ -12,9 +12,10 @@ const {
   getItemByQRCode,       // Legacy image-based QR scan
   scanQRCode,            // Flexible scan (text or URL)
   scanByQrCode,          // Exact text-based QR scan
+  scanImageFallback,     // ✅ NEW: AI fallback scan
   addToBorrowCart,
   reserveInventoryUnit,  // ✅ Reserve unit before adding to cart
-  releaseInventoryUnit,  // ✅ NEW: Release unit/item back to inventory
+  releaseInventoryUnit,  // ✅ Release unit/item back to inventory
   updateBorrowQuantity,  // ✅ Update borrow quantity route
   updateInventoryQuantity,
   restoreInventoryQuantity,
@@ -43,6 +44,9 @@ router.get("/scan/flexible/:qr", scanQRCode);
 
 // ✅ Legacy image-based QR scan (optional / deprecated)
 router.get("/scan/:qr", getItemByQRCode);
+
+// ✅ AI fallback scan using uploaded image
+router.post("/scan/image", upload.single("image"), scanImageFallback);
 
 // ✅ Fetch all units for a specific inventory item
 router.get("/:id/units", getUnitsForItem);

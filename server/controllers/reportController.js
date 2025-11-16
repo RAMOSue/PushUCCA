@@ -1,5 +1,4 @@
-//
-// Phase 5 Reporting Controller
+// reportController.js 
 // ------------------------------------------------------------
 // Endpoints implemented in reportRoutes.js:
 //   GET  /api/reports/borrower/:borrowerId           -> borrower history + totals (GROUPED by request)
@@ -11,7 +10,7 @@
 // - month is 1-12; year 4-digit.
 // - We aggregate using request_date (when borrowing_request created).
 // - overdue_count = requests approved where due_date < today AND (returned_date IS NULL OR returned_date > due_date).
-// - total_borrowed_items = SUM of borrowing_items.quantity for all requests in range (any status except declined).
+// - total_borrowed_items = COUNT of borrowing_items rows (each unit).
 // - inventory_changes: JSON of { item_id, name, qty_borrowed_in_month }.
 // - Requires npm libs: pdfkit (for PDF). Install: `npm i pdfkit`
 //
@@ -19,7 +18,7 @@
 //
 const pool = require("../db");
 
-// Load pdfkit only if installed (prevents crash when missing)
+// Load pdfkit only if installed
 let PDFDocument;
 try {
   PDFDocument = require("pdfkit");
@@ -33,34 +32,24 @@ try {
 /* ---------------------------------------------------------- *
  * Helpers
  * ---------------------------------------------------------- */
-
-/** Validate and normalize month/year from query params. */
 function parseMonthYear(rawMonth, rawYear) {
   const m = Number(rawMonth);
   const y = Number(rawYear);
-  if (!Number.isInteger(m) || m < 1 || m > 12) {
-    throw new Error("Invalid month (1-12 required).");
-  }
-  if (!Number.isInteger(y) || y < 1970 || y > 3000) {
-    throw new Error("Invalid year.");
-  }
+  if (!Number.isInteger(m) || m < 1 || m > 12) throw new Error("Invalid month (1-12 required).");
+  if (!Number.isInteger(y) || y < 1970 || y > 3000) throw new Error("Invalid year.");
   return { month: m, year: y };
 }
 
-/** Get start/end timestamps for a given month/year (Postgres friendly). */
 function monthDateRange(month, year) {
-  // JS months are 0-based
   const start = new Date(Date.UTC(year, month - 1, 1, 0, 0, 0));
-  const end = new Date(Date.UTC(year, month, 1, 0, 0, 0)); // first day NEXT month
+  const end = new Date(Date.UTC(year, month, 1, 0, 0, 0));
   return { start, end };
 }
 
-/** Format YYYY-MM for storage in monthly_reports.month column. */
 function monthKey(month, year) {
   return `${year}-${String(month).padStart(2, "0")}`;
 }
 
-/** Convert rows (inventory changes) into compact JSON for DB. */
 function rowsToInventoryChanges(rows) {
   return rows.map((r) => ({
     item_id: r.item_id,
@@ -70,35 +59,12 @@ function rowsToInventoryChanges(rows) {
 }
 
 /* ---------------------------------------------------------- *
- * Borrower Report  (GROUPED)
+ * Borrower Report
  * ---------------------------------------------------------- */
-
-/**
- * getBorrowerReport
- * Detailed transaction history for a borrower + summary totals.
- * Response shape:
- * {
- *   borrower_id: 123,
- *   summary: {...},
- *   requests: [
- *     {
- *       request_id,
- *       status,
- *       request_date,
- *       due_date,
- *       returned_date,
- *       total_items,        // sum of quantities in this request
- *       items: [ {item_id, item_name, quantity_borrowed}, ... ]
- *     },
- *     ...
- *   ]
- * }
- */
 async function getBorrowerReport(req, res) {
   const { borrowerId } = req.params;
-
   try {
-    // Detail rows (one row per item in request)
+    // Detail rows per borrowed unit
     const detailSql = `
       SELECT 
         br.id AS request_id,
@@ -106,18 +72,17 @@ async function getBorrowerReport(req, res) {
         br.request_date,
         br.due_date,
         br.returned_date,
-        ii.id AS item_id,
-        ii.name AS item_name,
-        bi.quantity AS quantity_borrowed
+        ii.uuid AS item_id,
+        ii.name AS item_name
       FROM borrowing_requests br
       JOIN borrowing_items bi ON bi.borrowing_id = br.id
-      JOIN inventory_items ii ON ii.id = bi.inventory_item_id
+      JOIN inventory_units iu ON iu.id = bi.inventory_unit_id
+      JOIN inventory_items ii ON ii.uuid = iu.inventory_item_id
       WHERE br.borrower_id = $1
       ORDER BY br.request_date DESC, br.id DESC, ii.name ASC
     `;
     const detailRes = await pool.query(detailSql, [borrowerId]);
 
-    // GROUP detail rows by request_id
     const groupedMap = new Map();
     for (const row of detailRes.rows) {
       const rid = row.request_id;
@@ -137,28 +102,27 @@ async function getBorrowerReport(req, res) {
       grp.items.push({
         item_id: row.item_id,
         item_name: row.item_name,
-        quantity_borrowed: Number(row.quantity_borrowed) || 0,
+        quantity_borrowed: 1,
       });
-      grp.total_items += Number(row.quantity_borrowed) || 0;
+      grp.total_items += 1;
     }
     const groupedRequests = Array.from(groupedMap.values());
 
     // Summary totals
     const summarySql = `
       SELECT
-        COUNT(*)                            AS total_requests,
-        COUNT(*) FILTER (WHERE status = 'pending')  AS pending_count,
-        COUNT(*) FILTER (WHERE status = 'approved') AS approved_count,
-        COUNT(*) FILTER (WHERE status = 'declined') AS declined_count,
-        COUNT(*) FILTER (WHERE status = 'returned') AS returned_count,
-        SUM(bi.quantity) AS total_items_borrowed
+        COUNT(DISTINCT br.id) AS total_requests,
+        COUNT(DISTINCT br.id) FILTER (WHERE status = 'pending')  AS pending_count,
+        COUNT(DISTINCT br.id) FILTER (WHERE status = 'approved') AS approved_count,
+        COUNT(DISTINCT br.id) FILTER (WHERE status = 'declined') AS declined_count,
+        COUNT(DISTINCT br.id) FILTER (WHERE status = 'returned') AS returned_count,
+        COUNT(bi.id) AS total_items_borrowed
       FROM borrowing_requests br
       JOIN borrowing_items bi ON bi.borrowing_id = br.id
       WHERE br.borrower_id = $1
     `;
     const summaryRes = await pool.query(summarySql, [borrowerId]);
 
-    // Overdue count
     const overdueSql = `
       SELECT COUNT(*) AS overdue_count
       FROM borrowing_requests
@@ -175,11 +139,7 @@ async function getBorrowerReport(req, res) {
       overdue_count: Number(overdueRes.rows[0].overdue_count) || 0,
     };
 
-    res.json({
-      borrower_id: Number(borrowerId),
-      summary,
-      requests: groupedRequests,
-    });
+    res.json({ borrower_id: Number(borrowerId), summary, requests: groupedRequests });
   } catch (err) {
     console.error("❌ getBorrowerReport error:", err.message);
     res.status(500).json({ error: "Failed to fetch borrower report." });
@@ -187,26 +147,20 @@ async function getBorrowerReport(req, res) {
 }
 
 /* ---------------------------------------------------------- *
- * Monthly Report (aggregate)
+ * Monthly Report
  * ---------------------------------------------------------- */
-
-/**
- * buildMonthlySummary
- * Returns { summary, inventoryChanges, rawRequests }
- * Does NOT write to DB.
- */
 async function buildMonthlySummary(month, year) {
   const { start, end } = monthDateRange(month, year);
 
-  // 1) Aggregate totals by status & item counts
+  // 1️⃣ Totals
   const totalsSql = `
     SELECT
-      COUNT(*) AS total_requests,
-      COUNT(*) FILTER (WHERE status = 'pending')  AS pending_count,
-      COUNT(*) FILTER (WHERE status = 'approved') AS approved_count,
-      COUNT(*) FILTER (WHERE status = 'declined') AS declined_count,
-      COUNT(*) FILTER (WHERE status = 'returned') AS returned_count,
-      COALESCE(SUM(bi.quantity),0) AS total_borrowed_items
+      COUNT(DISTINCT br.id) AS total_requests,
+      COUNT(DISTINCT br.id) FILTER (WHERE status = 'pending')  AS pending_count,
+      COUNT(DISTINCT br.id) FILTER (WHERE status = 'approved') AS approved_count,
+      COUNT(DISTINCT br.id) FILTER (WHERE status = 'declined') AS declined_count,
+      COUNT(DISTINCT br.id) FILTER (WHERE status = 'returned') AS returned_count,
+      COUNT(bi.id) AS total_borrowed_items
     FROM borrowing_requests br
     JOIN borrowing_items bi ON bi.borrowing_id = br.id
     WHERE br.request_date >= $1
@@ -215,7 +169,7 @@ async function buildMonthlySummary(month, year) {
   const totalsRes = await pool.query(totalsSql, [start, end]);
   const totals = totalsRes.rows[0];
 
-  // 2) Overdue count within month (requests CREATED in month that later became overdue)
+  // 2️⃣ Overdue count
   const overdueSql = `
     SELECT COUNT(*) AS overdue_count
     FROM borrowing_requests br
@@ -229,24 +183,25 @@ async function buildMonthlySummary(month, year) {
   const overdueRes = await pool.query(overdueSql, [start, end]);
   const overdue_count = Number(overdueRes.rows[0].overdue_count) || 0;
 
-  // 3) Inventory usage by item
+  // 3️⃣ Inventory usage (FIXED UUID issue)
   const invSql = `
     SELECT 
-      ii.id AS item_id,
+      ii.uuid AS item_id,
       ii.name AS item_name,
-      SUM(bi.quantity) AS total_quantity
+      COUNT(bi.id) AS total_quantity
     FROM borrowing_requests br
     JOIN borrowing_items bi ON bi.borrowing_id = br.id
-    JOIN inventory_items ii ON ii.id = bi.inventory_item_id
+    JOIN inventory_units iu ON iu.id = bi.inventory_unit_id
+    JOIN inventory_items ii ON ii.uuid = iu.inventory_item_id
     WHERE br.request_date >= $1
       AND br.request_date < $2
       AND br.status <> 'declined'
-    GROUP BY ii.id, ii.name
+    GROUP BY ii.uuid, ii.name
     ORDER BY total_quantity DESC, ii.name ASC
   `;
   const invRes = await pool.query(invSql, [start, end]);
 
-  // 4) Raw request list (basic)
+  // 4️⃣ Raw request list
   const reqSql = `
     SELECT 
       br.id,
@@ -279,10 +234,9 @@ async function buildMonthlySummary(month, year) {
   return { summary, inventoryChanges, rawRequests };
 }
 
-/**
- * getMonthlyReport (GET /api/reports/monthly)
- * Builds and returns summary; optional ?persist=1 writes to monthly_reports if not already stored.
- */
+/* ---------------------------------------------------------- *
+ * Handlers
+ * ---------------------------------------------------------- */
 async function getMonthlyReport(req, res) {
   const { month: m, year: y, persist } = req.query;
   let month, year;
@@ -293,10 +247,7 @@ async function getMonthlyReport(req, res) {
   }
 
   try {
-    const { summary, inventoryChanges, rawRequests } =
-      await buildMonthlySummary(month, year);
-
-    // persist?
+    const { summary, inventoryChanges, rawRequests } = await buildMonthlySummary(month, year);
     if (persist === "1") {
       const key = monthKey(month, year);
       await pool.query(
@@ -320,22 +271,13 @@ async function getMonthlyReport(req, res) {
       );
     }
 
-    res.json({
-      summary,
-      inventory_changes: inventoryChanges,
-      requests: rawRequests,
-    });
+    res.json({ summary, inventory_changes: inventoryChanges, requests: rawRequests });
   } catch (err) {
     console.error("❌ getMonthlyReport error:", err.message);
     res.status(500).json({ error: "Failed to build monthly report." });
   }
 }
 
-/**
- * generateMonthlyReport (POST /api/reports/monthly/generate)
- * Forces regeneration & persistence (admin/staff action).
- * Body: { month, year }
- */
 async function generateMonthlyReport(req, res) {
   const { month: m, year: y } = req.body;
   let month, year;
@@ -346,11 +288,7 @@ async function generateMonthlyReport(req, res) {
   }
 
   try {
-    const { summary, inventoryChanges } = await buildMonthlySummary(
-      month,
-      year
-    );
-
+    const { summary, inventoryChanges } = await buildMonthlySummary(month, year);
     const key = monthKey(month, year);
     const result = await pool.query(
       `
@@ -388,10 +326,6 @@ async function generateMonthlyReport(req, res) {
 /* ---------------------------------------------------------- *
  * Export: PDF / CSV
  * ---------------------------------------------------------- */
-
-/**
- * exportMonthlyReport (GET /api/reports/monthly/export?month=..&year=..&format=pdf|csv)
- */
 async function exportMonthlyReport(req, res) {
   const { month: m, year: y, format } = req.query;
   let month, year;
@@ -401,7 +335,6 @@ async function exportMonthlyReport(req, res) {
     return res.status(400).json({ error: err.message });
   }
 
-  // Build summary fresh (so export always up-to-date)
   let data;
   try {
     data = await buildMonthlySummary(month, year);
@@ -413,7 +346,7 @@ async function exportMonthlyReport(req, res) {
   const { summary, inventoryChanges, rawRequests } = data;
   const fileBase = `monthly-report-${summary.year}-${String(summary.month).padStart(2, "0")}`;
 
-  // CSV
+  // CSV export
   if (format === "csv") {
     const rows = [];
     rows.push(["Metric", "Value"]);
@@ -425,12 +358,9 @@ async function exportMonthlyReport(req, res) {
     rows.push(["Total Items Borrowed", summary.total_borrowed_items]);
     rows.push(["Overdue Count", summary.overdue_count]);
     rows.push([]);
-    rows.push(["Item ID", "Item Name", "Qty Borrowed"]);
-    inventoryChanges.forEach((i) => {
-      rows.push([i.item_id, i.name, i.quantity]);
-    });
+    rows.push(["Item UUID", "Item Name", "Qty Borrowed"]);
+    inventoryChanges.forEach((i) => rows.push([i.item_id, i.name, i.quantity]));
 
-    // simple CSV serialization
     const csv = rows
       .map((r) =>
         r
@@ -444,34 +374,24 @@ async function exportMonthlyReport(req, res) {
       .join("\n");
 
     res.setHeader("Content-Type", "text/csv");
-    res.setHeader(
-      "Content-Disposition",
-      `attachment; filename="${fileBase}.csv"`
-    );
+    res.setHeader("Content-Disposition", `attachment; filename="${fileBase}.csv"`);
     return res.send(csv);
   }
 
-  // PDF (default)
+  // PDF export
   if (!PDFDocument) {
-    return res
-      .status(500)
-      .json({ error: "PDF export requested but pdfkit is not installed." });
+    return res.status(500).json({ error: "PDF export requested but pdfkit is not installed." });
   }
 
   res.setHeader("Content-Type", "application/pdf");
-  res.setHeader(
-    "Content-Disposition",
-    `attachment; filename="${fileBase}.pdf"`
-  );
+  res.setHeader("Content-Disposition", `attachment; filename="${fileBase}.pdf"`);
 
   const doc = new PDFDocument({ margin: 40 });
   doc.pipe(res);
 
   doc.fontSize(18).text("Monthly Borrowing Report", { align: "center" });
   doc.moveDown(0.5);
-  doc
-    .fontSize(12)
-    .text(`Month: ${summary.year}-${String(summary.month).padStart(2, "0")}`);
+  doc.fontSize(12).text(`Month: ${summary.year}-${String(summary.month).padStart(2, "0")}`);
   doc.moveDown();
 
   doc.fontSize(14).text("Summary Metrics");
@@ -485,16 +405,14 @@ async function exportMonthlyReport(req, res) {
     ["Total Items Borrowed", summary.total_borrowed_items],
     ["Overdue Count", summary.overdue_count],
   ];
-  metrics.forEach(([label, val]) => {
-    doc.fontSize(12).text(`${label}: ${val}`);
-  });
+  metrics.forEach(([label, val]) => doc.fontSize(12).text(`${label}: ${val}`));
   doc.moveDown();
 
   doc.fontSize(14).text("Inventory Usage");
   doc.moveDown(0.25);
-  inventoryChanges.forEach((i) => {
-    doc.fontSize(12).text(`• ${i.name} (ID ${i.item_id}) — ${i.quantity}`);
-  });
+  inventoryChanges.forEach((i) =>
+    doc.fontSize(12).text(`• ${i.name} (UUID ${i.item_id}) — ${i.quantity}`)
+  );
   doc.moveDown();
 
   doc.fontSize(14).text("Requests (IDs)");

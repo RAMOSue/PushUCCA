@@ -3,10 +3,12 @@ const fs = require("fs");
 const path = require("path");
 
 const ROOT_DIR = path.join(__dirname); // points to the server folder
-const allowedFolders = ["controllers", "middleware", "routes", "config", "helpers", "models", "public"];
+const allowedFolders = ["controllers", "middleware", "routes", "config", "helpers", "models", "public","utils","cron"];
 const allowedFiles = [
   "authController.js","borrowController.js","inventoryController.js", "requireRole.js", "user.js", "authRoutes.js", "borrowRoutes.js", "inventoryRoutes.js",
-  "auth.js", "index.js", "db.js", "passport.js", "server.js", "reportController.js", "reportRoutes.js", "qr_codes"
+  "auth.js", "index.js", "db.js", "passport.js", "server.js", "reportController.js", "reportRoutes.js", "qr_codes", "profileController.js", "profileRoutes.js"
+  ,"notificationController.js","notificationRoutes.js","notificationScheduler.js","imageRecognitionRoutes.js","performanceRoutes.js","performanceController.js"
+  ,"imageRecognitionController.js","notifications.js"
 ];
 
 function listFolderContents(dir, depth = 0) {

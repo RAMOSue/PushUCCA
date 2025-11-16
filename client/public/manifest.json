@@ -1,0 +1,17 @@
+{
+  "short_name": "Music Room",
+  "name": "Music Room Management System",
+  "icons": [
+    {
+      "src": "badge-96x96.png",
+      "sizes": "96x96",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": "/",
+  "display": "standalone",
+  "theme_color": "#000000",
+  "background_color": "#ffffff",
+  "gcm_sender_id": "YOUR_SENDER_ID"
+}

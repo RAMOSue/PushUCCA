@@ -1,3 +1,4 @@
+// client/src/pages/DashboardAdmin.jsx
 import { useContext } from "react";
 import { UserContext } from "../../context/userContext";
 import { Link } from "react-router-dom";
@@ -13,8 +14,9 @@ export default function DashboardAdmin() {
       </p>
 
       <div className="mt-6 space-y-4">
+        {/* Manage Borrow Requests */}
         <Link
-          to="/manage-requests"
+          to="/admin/manage-requests"
           className="block bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
         >
           📋 Manage Borrow Requests
@@ -22,26 +24,29 @@ export default function DashboardAdmin() {
 
         {/* Manage Returns */}
         <Link
-          to="/return-items"
+          to="/admin/return-items"
           className="block bg-teal-600 text-white px-4 py-2 rounded hover:bg-teal-700"
         >
           🔄 Manage Returns
         </Link>
 
+        {/* Available Items */}
         <Link
-          to="/available-items"
+          to="/admin/available-items"
           className="block bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
         >
           📦 View Available Items
         </Link>
 
+        {/* Manage Inventory */}
         <Link
-          to="/manage-inventory"
+          to="/admin/manage-inventory"
           className="block bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700"
         >
           🛠 Manage Inventory
         </Link>
 
+        {/* Reports */}
         <Link
           to="/admin/reports"
           className="block bg-yellow-500 text-white px-4 py-2 rounded hover:bg-yellow-600"

@@ -13,6 +13,7 @@ const {
   getInventoryUnitByQrText, // Scan QR for a unit
   updateBorrowCartQuantity, // per-unit quantity updates
   startBorrowingSession,    // ✅ new controller
+  getReservedRequest,       // ✅ new controller for frontend
 } = require("../controllers/borrowController");
 
 // -----------------------
@@ -23,8 +24,14 @@ router.post("/start", startBorrowingSession);
 // -----------------------
 // 🛒 Borrow Cart Routes
 // -----------------------
+// 🔹 Updated route to match frontend call
 router.post("/cart", addToCart);
+// Remove an item/unit from a reserved cart
+router.post("/cart/remove", require("../controllers/borrowController").removeFromCart);
 router.post("/update-quantity", updateBorrowCartQuantity);
+
+// 🔹 New route: fetch reserved request for user
+router.get("/reserved/:userId", getReservedRequest);
 
 // -----------------------
 // 📄 Borrow Request Routes
@@ -32,6 +39,8 @@ router.post("/update-quantity", updateBorrowCartQuantity);
 // Support both /request and /submit so frontend stays flexible
 router.post("/request", submitBorrowRequest);
 router.post("/submit", submitBorrowRequest);
+// Alias used by frontend
+router.post("/submit-cart", submitBorrowRequest);
 
 router.get("/history/:userId", getBorrowHistory);
 router.get("/requests", getAllBorrowRequests);

@@ -3,14 +3,16 @@ const fs = require("fs");
 const path = require("path");
 
 const ROOT_DIR = path.join(__dirname); // Points to client folder root
-const allowedFolders = ["context", "public", "src", "assets", "components", "pages", "services"];
+const allowedFolders = ["context", "public", "src", "assets", "components", "pages", "services","public"];
 const allowedFiles = [
   "borrowingContext.jsx", "userContext.jsx", "Layout.jsx", "Navbar.jsx",
   "AdminUserManagement.jsx", "AvailableItems.jsx", "BorrowCart.jsx",
   "Dashboard.jsx", "DashboardAdmin.jsx", "DashboardBorrower.jsx", "DashboardStaff.jsx",
   "GetStarted.jsx", "Home.jsx", "Login.jsx", "Register.jsx", "ScanQR.jsx",
   "App.jsx", "main.jsx", "AdminReports.jsx", "ManageBorrowRequests.jsx", "ManageInventory.jsx", "ReturnItems.jsx", "reportService.js",
-  "UnitModal.jsx", "inventoryService.js", "inventoryRoutes.js"
+  "UnitModal.jsx", "inventoryService.js", "inventoryRoutes.js", "Settings.jsx", "MyBorrowedItems.jsx", "Settings.jsx", "BorrowerProfile.jsx",
+  "NotificationBell.jsx", "notifications.js","NotificationSetup.jsx",
+  "service-worker.js"
 ];
 
 function listFolderContents(dir, depth = 0) {

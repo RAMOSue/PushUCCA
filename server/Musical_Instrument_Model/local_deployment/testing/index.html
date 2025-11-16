@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Musical Instrument Detection API Tester</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎵</text></svg>">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .upload-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 2px dashed #ddd;
+            border-radius: 10px;
+            text-align: center;
+        }
+        
+        .file-input {
+            margin: 10px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background: white;
+        }
+        
+        .btn {
+            background-color: #007bff;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px;
+            transition: background-color 0.3s;
+        }
+        
+        .btn:hover {
+            background-color: #0056b3;
+        }
+        
+        .btn:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+        
+        .results {
+            margin-top: 30px;
+            padding: 20px;
+            border-radius: 10px;
+            background-color: #f8f9fa;
+        }
+        
+        .prediction {
+            background: white;
+            margin: 10px 0;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #007bff;
+        }
+        
+        .confidence {
+            color: #28a745;
+            font-weight: bold;
+        }
+        
+        .bbox {
+            font-family: monospace;
+            background: #e9ecef;
+            padding: 5px;
+            border-radius: 3px;
+            margin-top: 5px;
+        }
+        
+        .error {
+            color: #dc3545;
+            background-color: #f8d7da;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        
+        .success {
+            color: #155724;
+            background-color: #d4edda;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 20px;
+        }
+        
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #007bff;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .image-preview {
+            max-width: 200px;
+            max-height: 200px;
+            margin: 10px;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+        
+        .tabs {
+            display: flex;
+            margin-bottom: 20px;
+        }
+        
+        .tab {
+            padding: 10px 20px;
+            background: #e9ecef;
+            border: none;
+            cursor: pointer;
+            border-radius: 5px 5px 0 0;
+            margin-right: 5px;
+        }
+        
+        .tab.active {
+            background: #007bff;
+            color: white;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎵 Musical Instrument Detection API Tester</h1>
+        
+        <div class="tabs">
+            <button class="tab active" onclick="switchTab(event, 'single')">Single Image</button>
+            <button class="tab" onclick="switchTab(event, 'batch')">Batch Upload</button>
+        </div>
+        
+        <!-- Single Image Tab -->
+        <div id="single" class="tab-content active">
+            <div class="upload-section">
+                <h3>Upload Single Image</h3>
+                <input type="file" id="imageFile" class="file-input" accept="image/*" onchange="previewImage(this)">
+                <div id="imagePreview"></div>
+                <button class="btn" onclick="uploadSingle()">Detect Instruments</button>
+            </div>
+        </div>
+        
+        <!-- Batch Upload Tab -->
+        <div id="batch" class="tab-content">
+            <div class="upload-section">
+                <h3>Upload Multiple Images</h3>
+                <input type="file" id="batchFiles" class="file-input" accept="image/*" multiple onchange="previewBatch(this)">
+                <div id="batchPreview"></div>
+                <button class="btn" onclick="uploadBatch()">Detect Instruments (Batch)</button>
+            </div>
+        </div>
+        
+        <!-- Results Section -->
+        <div id="results" class="results" style="display: none;">
+            <h3>Detection Results</h3>
+            <div id="resultsContent"></div>
+        </div>
+        
+        <!-- Health Check -->
+        <div style="text-align: center; margin-top: 30px;">
+            <button class="btn" onclick="checkHealth()">Check API Health</button>
+            <br>
+            <a href="troubleshoot.html" style="margin-top: 10px; display: inline-block; color: #007bff;">
+                🔧 Connection Troubleshooter
+            </a>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = "http://127.0.0.1:8000";
+        
+        function switchTab(evt, tabName) {
+            var i, tabcontent, tabs;
+            tabcontent = document.getElementsByClassName("tab-content");
+            for (i = 0; i < tabcontent.length; i++) {
+                tabcontent[i].classList.remove("active");
+            }
+            tabs = document.getElementsByClassName("tab");
+            for (i = 0; i < tabs.length; i++) {
+                tabs[i].classList.remove("active");
+            }
+            document.getElementById(tabName).classList.add("active");
+            evt.currentTarget.classList.add("active");
+        }
+        
+        function previewImage(input) {
+            const preview = document.getElementById('imagePreview');
+            preview.innerHTML = '';
+            
+            if (input.files && input.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const img = document.createElement('img');
+                    img.src = e.target.result;
+                    img.className = 'image-preview';
+                    preview.appendChild(img);
+                };
+                reader.readAsDataURL(input.files[0]);
+            }
+        }
+        
+        function previewBatch(input) {
+            const preview = document.getElementById('batchPreview');
+            preview.innerHTML = '';
+            
+            if (input.files) {
+                Array.from(input.files).forEach(file => {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        const img = document.createElement('img');
+                        img.src = e.target.result;
+                        img.className = 'image-preview';
+                        preview.appendChild(img);
+                    };
+                    reader.readAsDataURL(file);
+                });
+            }
+        }
+        
+        function showLoading() {
+            document.getElementById('results').style.display = 'block';
+            document.getElementById('resultsContent').innerHTML = '<div class="loading"><div class="spinner"></div><p>Processing images...</p></div>';
+        }
+        
+        function showError(message) {
+            document.getElementById('results').style.display = 'block';
+            document.getElementById('resultsContent').innerHTML = `<div class="error">${message}</div>`;
+        }
+        
+        function showSuccess(content) {
+            document.getElementById('results').style.display = 'block';
+            document.getElementById('resultsContent').innerHTML = content;
+        }
+        
+        async function uploadSingle() {
+            const fileInput = document.getElementById('imageFile');
+            if (!fileInput.files[0]) {
+                showError('Please select an image file');
+                return;
+            }
+            
+            showLoading();
+            
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+            
+            try {
+                console.log(`Uploading single image to: ${API_BASE}/predict`);
+                const response = await fetch(`${API_BASE}/predict`, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`HTTP ${response.status}: ${errorText}`);
+                }
+                
+                const data = await response.json();
+                displaySingleResult(data);
+            } catch (error) {
+                console.error('Upload error:', error);
+                showError(`Error uploading image: ${error.message}<br><br>
+                    <strong>Make sure:</strong><br>
+                    1. FastAPI server is running on port 8000<br>
+                    2. The model file is loaded correctly<br>
+                    3. The image file is a valid format (JPEG, PNG)`);
+            }
+        }
+        
+        async function uploadBatch() {
+            const fileInput = document.getElementById('batchFiles');
+            if (!fileInput.files.length) {
+                showError('Please select image files');
+                return;
+            }
+            
+            showLoading();
+            
+            const formData = new FormData();
+            for (let file of fileInput.files) {
+                formData.append('files', file);
+            }
+            
+            try {
+                console.log(`Uploading batch images to: ${API_BASE}/predict_batch`);
+                const response = await fetch(`${API_BASE}/predict_batch`, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`HTTP ${response.status}: ${errorText}`);
+                }
+                
+                const data = await response.json();
+                displayBatchResults(data);
+            } catch (error) {
+                console.error('Batch upload error:', error);
+                showError(`Error uploading images: ${error.message}<br><br>
+                    <strong>Make sure:</strong><br>
+                    1. FastAPI server is running on port 8000<br>
+                    2. The model file is loaded correctly<br>
+                    3. All image files are valid formats (JPEG, PNG)`);
+            }
+        }
+        
+        function displaySingleResult(data) {
+            let html = `<div class="success">File: ${data.filename}</div>`;
+            html += `<p><strong>Instruments found: ${data.count}</strong></p>`;
+            
+            if (data.predictions.length === 0) {
+                html += '<p>No musical instruments detected in this image.</p>';
+            } else {
+                data.predictions.forEach((pred, index) => {
+                    html += `
+                        <div class="prediction">
+                            <h4>Detection ${index + 1}</h4>
+                            <p><strong>Instrument:</strong> ${pred.class_name}</p>
+                            <p><strong>Confidence:</strong> <span class="confidence">${(pred.confidence * 100).toFixed(1)}%</span></p>
+                            <p><strong>Bounding Box:</strong></p>
+                            <div class="bbox">
+                                x1: ${pred.bbox.x1}, y1: ${pred.bbox.y1}<br>
+                                x2: ${pred.bbox.x2}, y2: ${pred.bbox.y2}
+                            </div>
+                        </div>
+                    `;
+                });
+            }
+            
+            showSuccess(html);
+        }
+        
+        function displayBatchResults(data) {
+            let html = `<div class="success">Processed ${data.total_files} files</div>`;
+            
+            data.results.forEach((result, index) => {
+                html += `<div class="prediction">`;
+                html += `<h4>File ${index + 1}: ${result.filename}</h4>`;
+                
+                if (result.error) {
+                    html += `<div class="error">${result.error}</div>`;
+                } else {
+                    html += `<p><strong>Instruments found: ${result.count}</strong></p>`;
+                    
+                    if (result.predictions.length === 0) {
+                        html += '<p>No musical instruments detected.</p>';
+                    } else {
+                        result.predictions.forEach((pred, predIndex) => {
+                            html += `
+                                <div style="margin-left: 20px; padding: 10px; border-left: 2px solid #007bff;">
+                                    <p><strong>${pred.class_name}</strong> - 
+                                    <span class="confidence">${(pred.confidence * 100).toFixed(1)}%</span></p>
+                                    <div class="bbox">
+                                        Box: (${pred.bbox.x1}, ${pred.bbox.y1}) to (${pred.bbox.x2}, ${pred.bbox.y2})
+                                    </div>
+                                </div>
+                            `;
+                        });
+                    }
+                }
+                html += `</div>`;
+            });
+            
+            showSuccess(html);
+        }
+        
+        async function checkHealth() {
+            try {
+                console.log(`Checking health at: ${API_BASE}/health`);
+                const response = await fetch(`${API_BASE}/health`);
+                const data = await response.json();
+                
+                let message = `<strong>API Status:</strong> ${data.status}<br><strong>Model Loaded:</strong> ${data.model_loaded}`;
+                
+                if (data.model_loaded) {
+                    if (data.num_classes) {
+                        message += `<br><strong>Number of Classes:</strong> ${data.num_classes}`;
+                    }
+                    if (data.model_classes && data.model_classes.length > 0) {
+                        message += `<br><strong>Detectable Instruments:</strong><br>`;
+                        message += `<div style="margin-top: 10px; padding: 10px; background: #fff; border-radius: 5px;">`;
+                        data.model_classes.forEach((cls, idx) => {
+                            message += `<span style="display: inline-block; margin: 3px; padding: 5px 10px; background: #007bff; color: white; border-radius: 3px; font-size: 12px;">${cls}</span>`;
+                        });
+                        message += `</div>`;
+                    }
+                    showSuccess(message);
+                } else {
+                    message += `<br><br><strong>⚠️ Model Not Loaded</strong>`;
+                    if (data.error) {
+                        message += `<br>${data.error}`;
+                    }
+                    message += `<br><br><strong>Please:</strong><br>
+                        1. Stop the server (Ctrl+C)<br>
+                        2. Restart with: <code>python main.py</code><br>
+                        3. Check the terminal for model loading messages<br>
+                        4. Ensure yolo11n.pt or yolov8s.pt exists in the parent folder`;
+                    showError(message);
+                }
+            } catch (error) {
+                console.error('Health check error:', error);
+                showError(`Health check failed: ${error.message}<br><br>
+                    <strong>Troubleshooting:</strong><br>
+                    1. Make sure the FastAPI server is running on port 8000<br>
+                    2. Run the server with: <code>python main.py</code><br>
+                    3. Check if you can access: <a href="${API_BASE}/health" target="_blank">${API_BASE}/health</a>`);
+            }
+        }
+        
+        // Check health on page load
+        window.onload = function() {
+            console.log(`API Base URL: ${API_BASE}`);
+            checkHealth();
+        };
+    </script>
+</body>
+</html>

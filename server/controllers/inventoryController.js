@@ -588,73 +588,48 @@ const deleteInventoryItem = async (req, res) => {
 // ✅ Updated addToBorrowCart (UUID + per-unit tracking)
 // ✅ Submit a borrow cart request
 const addToBorrowCart = async (req, res) => {
-  const { borrower_id, items } = req.body;
-  if (!borrower_id || !Array.isArray(items) || items.length === 0) {
-    return res.status(400).json({ error: "Invalid request payload" });
+  const { borrower_id } = req.body;
+
+  if (!borrower_id) {
+    return res.status(400).json({ error: "Missing borrower_id." });
   }
 
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
 
-    // 1️⃣ Create borrowing request
-    const requestResult = await client.query(
-      `INSERT INTO borrowing_requests (borrower_id, status, request_date, created_at)
-       VALUES ($1, 'pending', NOW(), NOW())
-       RETURNING id`,
+    // 🔍 Find an existing reserved request for this borrower
+    const reservedResult = await client.query(
+      `SELECT id FROM borrowing_requests WHERE borrower_id = $1 AND status = 'reserved' LIMIT 1`,
       [borrower_id]
     );
-    const requestId = requestResult.rows[0].id;
 
-    // 2️⃣ Process each item/unit in the cart
-    for (const item of items) {
-      const { itemId, unitId } = item;
-
-      if (!itemId || !unitId) {
-        await client.query("ROLLBACK");
-        return res.status(400).json({ error: "Each cart item must include itemId and unitId" });
-      }
-
-      // Check that the unit belongs to the item and is available
-      const unitCheck = await client.query(
-        `SELECT id FROM inventory_units
-         WHERE id = $1 AND inventory_item_id = $2 AND status = 'available'`,
-        [unitId, itemId]
-      );
-
-      if (unitCheck.rowCount === 0) {
-        await client.query("ROLLBACK");
-        return res.status(400).json({
-          error: `Unit ${unitId} is not available for item ${itemId}`,
-        });
-      }
-
-      // Reserve the unit
-      await client.query(
-        `UPDATE inventory_units
-         SET status = 'reserved'
-         WHERE id = $1`,
-        [unitId]
-      );
-
-      // Record in borrowing_items (always per-unit now)
-      await client.query(
-        `INSERT INTO borrowing_items (borrowing_id, inventory_item_id, inventory_unit_id, quantity, returned_quantity)
-         VALUES ($1, $2, $3, 1, 0)`,
-        [requestId, itemId, unitId]
-      );
+    if (reservedResult.rowCount === 0) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ error: "No reserved cart found for this borrower." });
     }
 
+    const requestId = reservedResult.rows[0].id;
+
+    // 🟢 Update request to pending
+    await client.query(
+      `UPDATE borrowing_requests
+       SET status = 'pending', due_date = NOW() + INTERVAL '3 days'
+       WHERE id = $1`,
+      [requestId]
+    );
+
     await client.query("COMMIT");
-    res.json({ success: true, request_id: requestId });
+    return res.json({ success: true, message: "Borrow request submitted successfully.", request_id: requestId });
   } catch (err) {
     await client.query("ROLLBACK");
-    console.error("❌ Error submitting borrow cart:", err.message);
-    res.status(500).json({ error: "Failed to process borrow request" });
+    console.error("❌ Error submitting borrow request:", err.message);
+    return res.status(500).json({ error: "Failed to submit borrow request." });
   } finally {
     client.release();
   }
 };
+
 
 
 // ✅ Check item availability (real-time)
@@ -1440,6 +1415,103 @@ const updateBorrowQuantity = async (req, res) => {
   }
 };
 
+// 🧠 Internal helper to reuse QR scan logic programmatically
+async function scanByQrCodeInternal(qrText) {
+  try {
+    const result = await pool.query(
+      `
+      SELECT 
+        iu.id AS unit_id,
+        ii.name,
+        ii.category,
+        ii.garment_type,
+        iu.size,
+        iu.status
+      FROM inventory_units iu
+      JOIN inventory_items ii ON iu.item_id = ii.id
+      WHERE iu.qr_code = $1
+      `,
+      [qrText]
+    );
+
+    if (result.rows.length === 0) {
+      return { type: "error", message: "Item not found for scanned QR." };
+    }
+
+    const item = result.rows[0];
+    return {
+      type: "inventory_unit",
+      data: {
+        id: item.unit_id,
+        name: item.name,
+        category: item.category,
+        garment_type: item.garment_type,
+        size: item.size,
+        status: item.status,
+      },
+    };
+  } catch (err) {
+    console.error("❌ scanByQrCodeInternal error:", err);
+    return { type: "error", message: "Internal database error." };
+  }
+}
+
+// ======================================================
+// 🧩 NEW FUNCTION: AI Fallback Scan using Image
+// ======================================================
+const scanImageFallback = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: "No image uploaded" });
+    }
+
+    const imagePath = path.resolve(req.file.path);
+
+    // ✅ Call Python script for inference
+    const pythonProcess = spawn("python", [
+      path.join(__dirname, "../ml/infer_qr.py"),
+      imagePath,
+    ]);
+
+    let outputData = "";
+    pythonProcess.stdout.on("data", (data) => {
+      outputData += data.toString();
+    });
+
+    let errorData = "";
+    pythonProcess.stderr.on("data", (data) => {
+      errorData += data.toString();
+    });
+
+    pythonProcess.on("close", async (code) => {
+      if (code !== 0 || !outputData.trim()) {
+        console.error("❌ Python error:", errorData);
+        fs.unlinkSync(imagePath); // cleanup uploaded image
+        return res
+          .status(500)
+          .json({ error: "AI scan failed to recognize QR code." });
+      }
+
+      const qrText = outputData.trim();
+      console.log("✅ Predicted QR text:", qrText);
+
+      // ✅ Use internal QR handler to fetch item details
+      const scanResult = await scanByQrCodeInternal(qrText);
+
+      fs.unlinkSync(imagePath); // cleanup temp image
+
+      if (scanResult.type === "error") {
+        return res.status(404).json({ error: scanResult.message });
+      }
+
+      res.json(scanResult);
+    });
+  } catch (err) {
+    console.error("❌ scanImageFallback error:", err);
+    res.status(500).json({ error: "Internal server error." });
+  }
+};
+
 module.exports = {
   getAllInventory,
   getAvailableInventory,
@@ -1462,4 +1534,6 @@ module.exports = {
   reserveInventoryUnit,
   releaseInventoryUnit,
   updateBorrowQuantity,
+  scanImageFallback,
+  scanByQrCodeInternal,
 };

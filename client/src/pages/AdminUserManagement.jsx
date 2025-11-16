@@ -40,7 +40,7 @@ export default function AdminUserManagement() {
     try {
       const res = await axios.put(`/api/auth/admin/users/${id}/role`, { role: newRole });
       toast.success("Role updated");
-      // Update UI
+      // Update UI instantly
       setUsers((prev) =>
         prev.map((u) => (u.id === id ? { ...u, role: newRole } : u))
       );
@@ -50,10 +50,26 @@ export default function AdminUserManagement() {
     }
   };
 
+  // 🗑️ Handle delete user
+  const deleteUser = async (id) => {
+    const confirmDelete = window.confirm("Are you sure you want to delete this user?");
+    if (!confirmDelete) return;
+
+    try {
+      await axios.delete(`/api/auth/admin/users/${id}`);
+      toast.success("User deleted successfully.");
+      // Update UI instantly
+      setUsers((prev) => prev.filter((u) => u.id !== id));
+    } catch (error) {
+      console.error("Error deleting user:", error.message);
+      toast.error("Failed to delete user.");
+    }
+  };
+
   if (loading) return <div className="text-center mt-10">Loading...</div>;
 
   return (
-    <div className="max-w-4xl mx-auto mt-10 p-6 bg-white shadow-lg rounded-lg">
+    <div className="max-w-5xl mx-auto mt-10 p-6 bg-white shadow-lg rounded-lg">
       <h2 className="text-2xl font-bold mb-4 text-blue-600">User Role Management</h2>
       <table className="w-full border-collapse border">
         <thead>
@@ -63,16 +79,17 @@ export default function AdminUserManagement() {
             <th className="border px-4 py-2">Email</th>
             <th className="border px-4 py-2">Current Role</th>
             <th className="border px-4 py-2">Change Role</th>
+            <th className="border px-4 py-2">Action</th>
           </tr>
         </thead>
         <tbody>
           {users.map((u) => (
             <tr key={u.id}>
-              <td className="border px-4 py-2">{u.id}</td>
+              <td className="border px-4 py-2 text-center">{u.id}</td>
               <td className="border px-4 py-2">{u.name}</td>
               <td className="border px-4 py-2">{u.email}</td>
-              <td className="border px-4 py-2 capitalize">{u.role}</td>
-              <td className="border px-4 py-2">
+              <td className="border px-4 py-2 capitalize text-center">{u.role}</td>
+              <td className="border px-4 py-2 text-center">
                 <select
                   value={u.role}
                   onChange={(e) => updateRole(u.id, e.target.value)}
@@ -82,6 +99,14 @@ export default function AdminUserManagement() {
                   <option value="staff">Staff</option>
                   <option value="admin">Admin</option>
                 </select>
+              </td>
+              <td className="border px-4 py-2 text-center">
+                <button
+                  onClick={() => deleteUser(u.id)}
+                  className="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 transition"
+                >
+                  Delete
+                </button>
               </td>
             </tr>
           ))}

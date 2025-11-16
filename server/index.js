@@ -1,67 +1,159 @@
-const express = require('express'); 
-const dotenv = require('dotenv').config();
-const cors = require('cors');
-const passport = require('passport');
-require('./passport'); // Import passport config
-const session = require('express-session');
-const cookieParser = require('cookie-parser');
-const path = require('path');
-const app = express();
-const pool = require('./db');
+// server/index.js
+const express = require("express");
+require("dotenv").config();
+const cors = require("cors");
+const cookieParser = require("cookie-parser");
+const session = require("express-session");
+const passport = require("passport");
+const path = require("path");
+const fs = require("fs");
+const pool = require("./db");
+const startNotificationScheduler = require("./cron/notificationScheduler");
 
-// ✅ Connect to PostgreSQL
-pool.connect()
-  .then(client => {
-    console.log('✅ Database connected successfully');
+// Import routes
+const authRoutes = require("./routes/authRoutes");
+const inventoryRoutes = require("./routes/inventoryRoutes");
+const borrowRoutes = require("./routes/borrowRoutes");
+const reportRoutes = require("./routes/reportRoutes");
+const profileRoutes = require("./routes/profileRoutes");
+const imageRecognitionRoutes = require("./routes/imageRecognitionRoutes");
+const performanceRoutes = require("./routes/performanceRoutes");
+const notificationRoutes = require("./routes/notificationRoutes");
+
+// ✅ Initialize Express
+const app = express();
+
+/* -------------------- Database connectivity check -------------------- */
+pool
+  .connect()
+  .then((client) => {
+    console.log("✅ Database connected successfully");
     client.release();
   })
-  .catch(err => {
-    console.error('❌ Failed to connect to the database:', err.message);
+  .catch((err) => {
+    console.error("❌ Failed to connect to the database:", err.message);
   });
 
-// ✅ CORS Configuration
-app.use(cors({
-  origin: ['http://localhost:5173', 'http://localhost:5174'], // ✅ allow both
-  credentials: true,
-}));
+/* -------------------- CORS CONFIG -------------------- */
+const allowedOrigins = [
+  process.env.CLIENT_URL || "http://localhost:5173",
+  "http://localhost:5174",
+];
 
-// ✅ Middleware
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (allowedOrigins.includes(origin)) {
+    res.header("Access-Control-Allow-Origin", origin);
+  }
+  res.header("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
+  res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  res.header("Access-Control-Allow-Credentials", "true");
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(200);
+  }
+  next();
+});
+
+/* -------------------- Middleware -------------------- */
 app.use(express.json());
-app.use(cookieParser());
 app.use(express.urlencoded({ extended: false }));
+app.use(cookieParser());
 
-// ✅ Serve static uploads (for images)
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+/* -------------------- Sessions -------------------- */
+app.use(
+  session({
+    secret: process.env.SESSION_SECRET || "supersecretkey",
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      secure: false, // ❗ Set to true if using HTTPS
+      httpOnly: true,
+      maxAge: 1000 * 60 * 60 * 24, // 1 day
+    },
+  })
+);
 
-// ✅ Serve QR codes publicly
-app.use('/qr_codes', express.static(path.join(__dirname, 'public', 'qr_codes')));
-
-// ✅ Session + Passport
-app.use(session({
-  secret: 'keyboard cat',
-  resave: false,
-  saveUninitialized: false,
-  cookie: { secure: false } // secure: true only if you're using https
-}));
+/* -------------------- Passport Setup -------------------- */
+require("./passport");
 app.use(passport.initialize());
 app.use(passport.session());
 
-// ✅ Routes
-const authRoutes = require('./routes/authRoutes');
-const inventoryRoutes = require('./routes/inventoryRoutes');
-const borrowRoutes = require('./routes/borrowRoutes');
-const reportRoutes = require('./routes/reportRoutes');
+/* -------------------- Ensure public directories exist -------------------- */
+const ensureDir = (dirPath) => {
+  if (!fs.existsSync(dirPath)) {
+    fs.mkdirSync(dirPath, { recursive: true });
+    console.log(`📁 Created directory: ${dirPath}`);
+  }
+};
 
-app.use('/api/auth', authRoutes);
-app.use('/api/inventory', inventoryRoutes);
-app.use('/api/borrow', borrowRoutes);
-app.use('/api/reports', reportRoutes);
+const uploadsDir = path.join(__dirname, "public", "uploads");
+const legacyUploadsDir = path.join(__dirname, "uploads"); // ✅ Also support existing uploads folder
+const qrCodesDir = path.join(__dirname, "public", "qr_codes");
 
-// ✅ Test endpoint
-app.get('/api', (req, res) => {
-  res.json({ message: 'API is working' });
+ensureDir(uploadsDir);
+ensureDir(qrCodesDir);
+
+/* -------------------- Static file serving -------------------- */
+// ✅ Serve static folders with proper absolute paths
+app.use("/uploads", express.static(uploadsDir));
+
+// ✅ Also serve old /uploads folder if files were stored there
+app.use("/uploads", express.static(legacyUploadsDir));
+
+app.use("/qr_codes", express.static(qrCodesDir));
+
+/* -------------------- File download endpoint -------------------- */
+app.get("/api/files/download", (req, res) => {
+  try {
+    const filePath = req.query.path;
+    if (!filePath) return res.status(400).json({ error: "Missing file path" });
+
+    const sanitizedPath = filePath.replace(/^\/+/, "");
+    const fullPath = path.join(__dirname, "public", sanitizedPath);
+
+    if (!fs.existsSync(fullPath)) {
+      return res.status(404).json({ error: "File not found" });
+    }
+
+    res.download(fullPath, (err) => {
+      if (err) {
+        console.error("File download error:", err);
+        res.status(500).json({ error: "Failed to download file" });
+      }
+    });
+  } catch (err) {
+    console.error("Download endpoint error:", err);
+    res.status(500).json({ error: "Server error during file download" });
+  }
 });
 
-// ✅ Start server
+/* -------------------- Routes -------------------- */
+app.use("/api/auth", authRoutes);
+app.use("/api/inventory", inventoryRoutes);
+app.use("/api/borrow", borrowRoutes);
+app.use("/api/reports", reportRoutes);
+app.use("/api/profiles", profileRoutes);
+app.use("/api/image-recognition", imageRecognitionRoutes);
+app.use("/api/performances", performanceRoutes);
+app.use("/api/notifications", notificationRoutes);
+
+/* -------------------- Health Check -------------------- */
+app.get("/api", (req, res) => {
+  res.json({ message: "API is working" });
+});
+
+/* -------------------- 404 + Error handlers -------------------- */
+app.use((req, res) => res.status(404).json({ error: "Not found" }));
+
+app.use((err, req, res, next) => {
+  console.error("Unhandled error:", err);
+  res.status(err.status || 500).json({
+    error: err.message || "Internal Server Error",
+  });
+});
+
+/* -------------------- Start Server -------------------- */
 const port = process.env.PORT || 8000;
-app.listen(port, () => console.log(`🚀 Server is running on port ${port}`));
+app.listen(port, () =>
+  console.log(`🚀 Server running at http://localhost:${port}`)
+);

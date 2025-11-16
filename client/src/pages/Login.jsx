@@ -37,9 +37,9 @@ export default function Login() {
         // ✅ Redirect based on user role
         const role = loggedInUser.role;
         if (role === "admin") {
-          navigate("/dashboard");
+          navigate("/admin/dashboard"); // ✅ corrected path
         } else if (role === "staff") {
-          navigate("/staff/dashboard");
+          navigate("/staff"); // ✅ fixed from /staff/dashboard
         } else {
           navigate("/dashboard"); // borrower default
         }
@@ -52,7 +52,10 @@ export default function Login() {
 
   return (
     <div className="min-h-screen flex justify-center items-center bg-gray-100">
-      <form onSubmit={loginUser} className="bg-white shadow-md p-6 rounded w-80">
+      <form
+        onSubmit={loginUser}
+        className="bg-white shadow-md p-6 rounded w-80"
+      >
         <h2 className="text-2xl font-bold mb-4 text-center">Login</h2>
 
         <label className="block mb-1">Email</label>

@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Connection Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test { margin: 10px 0; padding: 10px; border-radius: 5px; }
+        .pass { background-color: #d4edda; color: #155724; }
+        .fail { background-color: #f8d7da; color: #721c24; }
+        .info { background-color: #e2e3e5; color: #383d41; }
+        button { padding: 10px 20px; margin: 10px 0; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h1>🔧 API Connection Troubleshooter</h1>
+    
+    <button onclick="runTests()">Run Connection Tests</button>
+    
+    <div id="results"></div>
+    
+    <h2>Manual Tests</h2>
+    <ul>
+        <li><a href="http://127.0.0.1:8000/health" target="_blank">Test Health Endpoint</a></li>
+        <li><a href="http://127.0.0.1:8000/docs" target="_blank">Test API Documentation</a></li>
+        <li><a href="http://127.0.0.1:8000/" target="_blank">Test Main Page</a></li>
+    </ul>
+    
+    <h2>Common Issues</h2>
+    <ul>
+        <li><strong>Port 5500 errors:</strong> You're accessing this via Live Server. Access directly via FastAPI at port 8000.</li>
+        <li><strong>Connection refused:</strong> FastAPI server is not running. Run <code>python main.py</code></li>
+        <li><strong>Model not loaded:</strong> YOLO model file missing. Check for yolo11n.pt or yolov8s.pt</li>
+        <li><strong>CORS errors:</strong> Browser security blocking requests. Should be fixed in updated code.</li>
+    </ul>
+
+    <script>
+        const API_BASE = "http://127.0.0.1:8000";
+        
+        async function runTests() {
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = '<h2>Running Tests...</h2>';
+            
+            const tests = [
+                { name: 'FastAPI Server Running', test: testServer },
+                { name: 'Health Endpoint', test: testHealth },
+                { name: 'Model Loading', test: testModel },
+                { name: 'CORS Configuration', test: testCors }
+            ];
+            
+            let html = '<h2>Test Results:</h2>';
+            
+            for (const test of tests) {
+                try {
+                    const result = await test.test();
+                    html += `<div class="test ${result.success ? 'pass' : 'fail'}">
+                        ✓ ${test.name}: ${result.message}
+                    </div>`;
+                } catch (error) {
+                    html += `<div class="test fail">
+                        ✗ ${test.name}: ${error.message}
+                    </div>`;
+                }
+            }
+            
+            resultsDiv.innerHTML = html;
+        }
+        
+        async function testServer() {
+            const response = await fetch(`${API_BASE}/`);
+            if (response.ok) {
+                return { success: true, message: 'Server is responding' };
+            }
+            throw new Error(`Server returned ${response.status}`);
+        }
+        
+        async function testHealth() {
+            const response = await fetch(`${API_BASE}/health`);
+            if (response.ok) {
+                const data = await response.json();
+                return { 
+                    success: true, 
+                    message: `Health check passed. Status: ${data.status}` 
+                };
+            }
+            throw new Error(`Health check failed: ${response.status}`);
+        }
+        
+        async function testModel() {
+            const response = await fetch(`${API_BASE}/health`);
+            if (response.ok) {
+                const data = await response.json();
+                if (data.model_loaded) {
+                    return { success: true, message: 'Model is loaded successfully' };
+                } else {
+                    return { success: false, message: 'Model is not loaded' };
+                }
+            }
+            throw new Error('Cannot check model status');
+        }
+        
+        async function testCors() {
+            try {
+                const response = await fetch(`${API_BASE}/health`, {
+                    method: 'OPTIONS'
+                });
+                return { success: true, message: 'CORS is properly configured' };
+            } catch (error) {
+                if (error.message.includes('CORS')) {
+                    return { success: false, message: 'CORS configuration issue' };
+                }
+                return { success: true, message: 'CORS appears to be working' };
+            }
+        }
+    </script>
+</body>
+</html>

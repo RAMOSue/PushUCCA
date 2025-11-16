@@ -2,13 +2,13 @@ import { createContext, useState, useContext, useEffect } from "react";
 import axios from "axios";
 import { toast } from "react-hot-toast";
 import { UserContext } from "./userContext";
+import { useNavigate } from "react-router-dom";
 
-// Create the context
-const BorrowingContext = createContext(null);
+export const BorrowingContext = createContext({});
 
-// Provider component
-const BorrowingProvider = ({ children }) => {
+export function BorrowingProvider({ children }) {
   const { user } = useContext(UserContext);
+  const navigate = useNavigate();
 
   const [cart, setCart] = useState(() => {
     try {
@@ -19,6 +19,7 @@ const BorrowingProvider = ({ children }) => {
     }
   });
 
+  const [requestId, setRequestId] = useState(null); // Track reserved request
   const [availableItems, setAvailableItems] = useState(() => {
     try {
       const saved = localStorage.getItem("available_items");
@@ -29,8 +30,8 @@ const BorrowingProvider = ({ children }) => {
   });
 
   const [refreshAvailableItems, setRefreshAvailableItems] = useState(false);
-  const [currentBorrowingId, setCurrentBorrowingId] = useState(null);
 
+  // Persist cart & available items
   useEffect(() => {
     localStorage.setItem("borrow_cart", JSON.stringify(cart));
   }, [cart]);
@@ -38,7 +39,8 @@ const BorrowingProvider = ({ children }) => {
   useEffect(() => {
     localStorage.setItem("available_items", JSON.stringify(availableItems));
   }, [availableItems]);
-  
+
+  // 🔹 Refresh available items from backend
   const refreshAvailableItemsFromServer = async () => {
     try {
       const { data } = await axios.get("/api/inventory/available");
@@ -57,191 +59,200 @@ const BorrowingProvider = ({ children }) => {
     setRefreshAvailableItems((prev) => !prev);
   };
 
-  // 🆕 Start borrowing session
-  const startBorrowingSession = async () => {
-    if (!user?.id) {
-      toast.error("You must be logged in to start a borrowing session.");
-      return null;
-    }
-    try {
-      const res = await axios.post("/api/borrow/start", {
-        borrower_id: user.id,
-      });
+  // 🔹 Load existing reserved request on user login
+  useEffect(() => {
+    if (!user?.id) return;
 
-      // ✅ Handle both possible backend response shapes
-      const borrowingId =
-        res.data?.borrowingId ||
-        res.data?.borrowRequest?.id ||
-        res.data?.id;
-
-      if (borrowingId) {
-        setCurrentBorrowingId(borrowingId);
-        toast.success("Borrowing session started!");
-        return borrowingId;
+    const fetchReservedRequest = async () => {
+      try {
+        const res = await axios.get(`/api/borrow/reserved/${user.id}`);
+        if (res.status === 200 && res.data.success && res.data.items?.length) {
+          setCart(
+            res.data.items.map((item) => ({
+              unitId: item.unit_id,
+              itemId: item.item_id,
+              name: item.name,
+              size: item.size || "nosize", // size comes from inventory_units
+              image_url: item.image_url,
+              category: item.garment_type || item.category || "costume",
+              quantity: 1,
+              status: "reserved",
+            }))
+          );
+          setRequestId(res.data.request_id);
+        } else {
+          // 404 or empty reserved request — ensure cart is empty
+          setCart([]);
+          setRequestId(null);
+        }
+      } catch (err) {
+        if (err.response?.status === 404) {
+          // No reserved request found — safe fallback
+          setCart([]);
+          setRequestId(null);
+        } else {
+          console.error(
+            "❌ Failed to fetch reserved request:",
+            err.response?.data || err.message
+          );
+          setCart([]);
+          setRequestId(null);
+        }
       }
+    };
 
-      throw new Error("Invalid response from server (no borrowingId)");
-    } catch (err) {
-      console.error(
-        "❌ Failed to start borrowing session:",
-        err.response?.data || err.message
-      );
-      toast.error("Failed to start borrowing session.");
-      return null;
-    }
-  };
+    fetchReservedRequest();
+  }, [user]);
 
-  const reserveUnit = async (unitId, borrowingId) => {
-    try {
-      if (!borrowingId) {
-        throw new Error("❌ borrowingId is required to reserve a unit.");
-      }
-
-      const res = await axios.post("/api/inventory/borrow/reserve-unit", {
-        unitId,
-        borrowing_id: borrowingId,
-      });
-
-      return res.data;
-    } catch (err) {
-      console.error(
-        `❌ Failed to reserve unit ${unitId}:`,
-        err.response?.data || err.message
-      );
-      throw err;
-    }
-  };
-
-  const releaseUnit = async (unitId) => {
-    try {
-      await axios.post("/api/inventory/borrow/release-unit", { unitId });
-    } catch (err) {
-      console.error(
-        `❌ Failed to release unit ${unitId}:`,
-        err.response?.data || err.message
-      );
-      throw err;
-    }
-  };
-
-  // -----------------------
-  // Add item/unit to cart
-  // -----------------------
+  // ✅ Add to Cart — calls backend to reserve item in borrowing_requests
   const addToCart = async (itemData) => {
-    if (!user || !itemData) return;
+    if (!user || !itemData) {
+      toast.error("You must be logged in to add items to the cart.");
+      return;
+    }
 
     const itemId = itemData.itemId || itemData.id;
     const unitId = itemData.unitId || itemData.unit_id;
-    const { name, size, image_url, garment_type, category, total_available } =
-      itemData;
+    const { name, size, image_url, garment_type, category, status } = itemData;
 
-    if (!itemId) {
-      console.error("❌ Missing itemId in addToCart payload", itemData);
-      toast.error("Unable to add item. Missing item identifier.");
+    if (!itemId || !unitId) {
+      toast.error("Invalid item or unit selection.");
       return;
     }
-
-    if (!unitId) {
-      console.error("❌ Missing unitId in addToCart payload", itemData);
-      toast.error("Please select a specific unit before adding to cart.");
-      return;
-    }
-
-    // ⚡ Ensure borrowing session exists
-    let borrowingId = currentBorrowingId;
-    if (!borrowingId) {
-      console.warn("⚠️ No borrowing session found. Starting a new one...");
-      borrowingId = await startBorrowingSession();
-      if (!borrowingId) {
-        toast.error("Cannot add item: borrowing session not initialized.");
-        return;
-      }
-      // update context with new ID
-      setCurrentBorrowingId(borrowingId);
-    }
-
-    // ✅ Avoid duplicate items
-    const exists = cart.find((c) => c.unitId === unitId);
-    if (exists) {
-      toast.error("This item is already in your cart.");
+    if (status && status.toLowerCase() !== "available") {
+      toast.error("This item is already reserved or unavailable.");
       return;
     }
 
     try {
-      // reserve unit in backend
-      await reserveUnit(unitId, borrowingId);
-
-      const normalizedCategory = (garment_type || category || "costume").toLowerCase();
-
-      const cartItem = {
-        unitId,
-        itemId,
-        name,
-        size: size || "nosize",
-        image_url,
-        category: normalizedCategory,
-        quantity: 1,
-      };
-
-      setCart((prev) => [...prev, cartItem]);
-
-      setAvailableItems((prev) => {
-        const currentQty = prev[itemId] ?? total_available ?? 0;
-        return { ...prev, [itemId]: Math.max(currentQty - 1, 0) };
+      const res = await axios.post("/api/borrow/cart", {
+        borrower_id: String(user.id),
+        request_id: requestId, // pass current reserved request if exists
+        items: [{ unit_id: unitId, item_id: itemId, quantity: 1 }],
       });
 
-      toast.success("Item added to cart!");
-    } catch (err) {
-      console.error("❌ Failed to add to cart:", err.message, err);
-      toast.error("Failed to reserve this item.");
-    }
-  };
+      if (res.data.success) {
+        // Update request id
+        setRequestId(res.data.request_id);
 
-  const removeFromCart = async (unitIdOrItemId) => {
-    let item = cart.find((u) => u.unitId === unitIdOrItemId);
-    if (!item) item = cart.find((u) => u.itemId === unitIdOrItemId);
-    if (!item) return;
-
-    setCart((prev) =>
-      prev.filter((u) => u.unitId !== item.unitId && u.itemId !== item.itemId)
-    );
-    setAvailableItems((prev) => ({
-      ...prev,
-      [item.itemId]: (prev[item.itemId] ?? 0) + 1,
-    }));
-
-    try {
-      if (item.unitId) await releaseUnit(item.unitId);
-    } catch {
-      toast.error("Failed to release unit on server.");
-    }
-  };
-
-  const clearCart = async () => {
-    const snapshot = [...cart];
-    setCart([]);
-    setAvailableItems((prev) => {
-      const updated = { ...prev };
-      for (const item of snapshot) {
-        updated[item.itemId] = (updated[item.itemId] ?? 0) + 1;
+        // If the server returned the canonical list of items for this reserved request,
+        // use it to update local cart state (prevents race conditions when adding multiple units).
+        if (Array.isArray(res.data.items)) {
+          const mapped = res.data.items.map((item) => ({
+            unitId: item.unit_id,
+            itemId: item.item_id,
+            name: item.name,
+            size: item.size || "nosize",
+            image_url: item.image_url,
+            category: item.garment_type || item.category || "costume",
+            quantity: 1,
+            status: item.status || "reserved",
+          }));
+          // Append any new units from server to local cart (avoid duplicates)
+          setCart((prev) => {
+            const existingUnitIds = new Set(prev.map((p) => p.unitId));
+            const toAdd = mapped.filter((m) => !existingUnitIds.has(m.unitId));
+            return [...prev, ...toAdd];
+          });
+          toast.success(`${name} reserved and added to cart!`);
+        } else {
+          const alreadyExists = cart.some((c) => c.unitId === unitId);
+          if (!alreadyExists) {
+            const newCartItem = {
+              unitId,
+              itemId,
+              name,
+              size: size || "nosize",
+              image_url,
+              category: garment_type || category || "costume",
+              quantity: 1,
+              status: "reserved",
+            };
+            setCart((prev) => [...prev, newCartItem]);
+            toast.success(`${name} reserved and added to cart!`);
+          } else {
+            toast.error("This item is already in your cart.");
+          }
+        }
+      } else {
+        toast.error(res.data.error || "Failed to reserve item.");
       }
-      return updated;
-    });
-
-    try {
-      await Promise.all(snapshot.map((item) => item.unitId && releaseUnit(item.unitId)));
     } catch (err) {
-      console.error("❌ Failed to release some units during clearCart:", err);
+      console.error("❌ Add to cart error:", err.response?.data || err.message);
+      toast.error(err.response?.data?.error || "Failed to add item to cart.");
     }
   };
 
-  const updateQuantity = () => {
-    console.warn("⚠️ updateQuantity ignored: unit-based items always have quantity = 1");
+  // 🔹 Remove item from local cart
+  const removeFromCart = async (unitIdOrItemId) => {
+    try {
+      // Try unit path first
+      const payload = { borrower_id: String(user?.id) };
+      if (unitIdOrItemId && unitIdOrItemId.length === 36) {
+        payload.unit_id = unitIdOrItemId;
+      } else {
+        payload.item_id = unitIdOrItemId;
+      }
+
+      const res = await axios.post("/api/borrow/cart/remove", payload);
+      if (res.data && res.data.success) {
+        // Remove from local cart state
+        setCart((prev) => prev.filter((u) => u.unitId !== unitIdOrItemId && u.itemId !== unitIdOrItemId));
+        toast.success("Item removed from cart.");
+      } else {
+        toast.error(res.data?.error || "Failed to remove item from cart.");
+      }
+    } catch (err) {
+      console.error("❌ removeFromCart error:", err.response?.data || err.message);
+      toast.error("Failed to remove item from cart.");
+    }
   };
 
-  // -----------------------
-  // Add via QR Scanner
-  // -----------------------
+  // 🔹 Clear Cart (local only)
+  const clearCart = () => {
+    setCart([]);
+    setRequestId(null);
+    toast.success("Cart cleared.");
+  };
+
+  // ✅ Submit Borrow Request — change status from reserved → pending
+  const submitBorrowRequest = async () => {
+    if (!user?.id) {
+      toast.error("You must be logged in to submit a borrow request.");
+      return;
+    }
+
+    if (cart.length === 0) {
+      toast.error("Your borrow cart is empty.");
+      return;
+    }
+
+    try {
+      const res = await axios.post("/api/borrow/submit-cart", {
+        borrower_id: String(user.id),
+        request_id: requestId, // submit the existing reserved request
+      });
+
+      if (res.data.success) {
+        toast.success("Borrow request submitted successfully!");
+        setCart([]);
+        setRequestId(null);
+        setRefreshAvailableItems((prev) => !prev);
+        navigate("/manage-borrow-requests");
+        return res.data;
+      } else {
+        toast.error(res.data.error || "Failed to submit borrow request.");
+      }
+    } catch (err) {
+      console.error("❌ Submit borrow request error:", err.response?.data || err.message);
+      toast.error(
+        err.response?.data?.error ||
+          "Failed to submit borrow request. Please try again."
+      );
+    }
+  };
+
+  // ✅ Add to cart from QR code scan
   const addFromScanner = async (qrCodeText) => {
     if (!qrCodeText) return;
     try {
@@ -264,92 +275,25 @@ const BorrowingProvider = ({ children }) => {
     }
   };
 
-  const decrementAvailable = (itemId, qty = 1) =>
-    setAvailableItems((prev) => ({ ...prev, [itemId]: (prev[itemId] ?? 0) - qty }));
-
-  const incrementAvailable = (itemId, qty = 1) =>
-    setAvailableItems((prev) => ({ ...prev, [itemId]: (prev[itemId] ?? 0) + qty }));
-
-  const submitBorrowRequest = async () => {
-    if (!user?.id) {
-      toast.error("You must be logged in to submit a borrow request.");
-      return;
-    }
-
-    if (cart.length === 0) {
-      toast.error("Your borrow cart is empty.");
-      return;
-    }
-
-    try {
-      const items = cart
-        .map(({ unitId, itemId, size, quantity }) => {
-          if (unitId) return { unitId: String(unitId) };
-          if (size)
-            return {
-              itemId: String(itemId),
-              size,
-              quantity: parseInt(quantity, 10) || 1,
-            };
-          return { itemId: String(itemId), quantity: parseInt(quantity, 10) || 1 };
-        })
-        .filter(Boolean);
-
-      const res = await axios.post("/api/borrow/submit", {
-        borrower_id: String(user.id),
-        items,
-      });
-
-      if (res.data.success) {
-        toast.success(res.data.message);
-
-        cart.forEach(({ itemId }) => {
-          decrementAvailable(itemId, 1);
-        });
-
-        setCart([]);
-        setRefreshAvailableItems((prev) => !prev);
-
-        return res.data;
-      } else {
-        toast.error(res.data.error || "Failed to submit borrow request.");
-      }
-    } catch (err) {
-      console.error("❌ Submit borrow request error:", err.response?.data || err.message);
-      toast.error(
-        err.response?.data?.error ||
-          "Failed to submit borrow request. Please try again."
-      );
-    }
-  };
-
-return (
+  return (
     <BorrowingContext.Provider
       value={{
         cart,
         addToCart,
         removeFromCart,
         clearCart,
-        updateQuantity,
+        submitBorrowRequest,
         addFromScanner,
         availableItems,
-        decrementAvailable,
-        incrementAvailable,
-        submitBorrowRequest,
         refreshAvailableItems,
         setRefreshAvailableItems,
         refreshAvailableItemsFromServer,
         refreshAfterReturn,
-        currentBorrowingId,
-        startBorrowingSession,
-        setCurrentBorrowingId,
+        requestId,
+        setRequestId,
       }}
     >
       {children}
     </BorrowingContext.Provider>
   );
-};
-
-// ✅ Export consistently
-export { BorrowingContext };
-export default BorrowingProvider;
+}

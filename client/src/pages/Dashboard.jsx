@@ -19,14 +19,14 @@ export default function Dashboard() {
   if (loading) return <div className="text-center mt-10">Loading...</div>;
   if (!user) return null;
 
+  // ✅ Show borrower dashboard only, without extra spacing or greeting
+  if (user.role === "borrower") {
+    return <DashboardBorrower />;
+  }
+
+  // ✅ Staff and Admin dashboards retain container styling
   return (
     <div className="max-w-4xl mx-auto mt-10 p-6 bg-white shadow-lg rounded-lg">
-      <h1 className="text-3xl font-bold text-blue-600 mb-4">
-        Hi, {user.name}!
-      </h1>
-
-      {/* Render dashboard content based on role */}
-      {user.role === "borrower" && <DashboardBorrower />}
       {user.role === "staff" && <DashboardStaff />}
       {user.role === "admin" && <DashboardAdmin />}
     </div>

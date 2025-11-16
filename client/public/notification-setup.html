@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Push Notification Setup - UCCA</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        .container {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            max-width: 800px;
+            width: 100%;
+            padding: 40px;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+        .subtitle {
+            color: #666;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+        .section {
+            margin-bottom: 30px;
+        }
+        .section-title {
+            color: #667eea;
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+        }
+        .section-title::before {
+            content: '';
+            width: 4px;
+            height: 20px;
+            background: #667eea;
+            margin-right: 10px;
+            border-radius: 2px;
+        }
+        .button-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        .button-group.single {
+            grid-template-columns: 1fr;
+        }
+        button {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 5px;
+            font-size: 14px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+        button.primary {
+            background: #667eea;
+            color: white;
+        }
+        button.primary:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        button.secondary {
+            background: #f0f0f0;
+            color: #333;
+            border: 2px solid #e0e0e0;
+        }
+        button.secondary:hover {
+            background: #e8e8e8;
+        }
+        button.success {
+            background: #48bb78;
+            color: white;
+        }
+        button.success:hover {
+            background: #38a169;
+        }
+        button.warning {
+            background: #f6ad55;
+            color: white;
+        }
+        button.warning:hover {
+            background: #ed8936;
+        }
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .status-box {
+            background: #f7fafc;
+            border-left: 4px solid #667eea;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 15px;
+        }
+        .status-box.success {
+            border-left-color: #48bb78;
+            background: #f0fff4;
+        }
+        .status-box.error {
+            border-left-color: #f56565;
+            background: #fff5f5;
+        }
+        .status-box.warning {
+            border-left-color: #f6ad55;
+            background: #fffaf0;
+        }
+        .status-text {
+            font-size: 14px;
+            margin: 5px 0;
+        }
+        .status-text.success { color: #22543d; }
+        .status-text.error { color: #742a2a; }
+        .status-text.warning { color: #7c2d12; }
+        .info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-top: 15px;
+        }
+        .info-card {
+            background: #f7fafc;
+            padding: 15px;
+            border-radius: 5px;
+            border-left: 4px solid #cbd5e0;
+        }
+        .info-card h4 {
+            color: #2d3748;
+            font-size: 14px;
+            margin-bottom: 5px;
+        }
+        .info-card p {
+            color: #4a5568;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+        .code {
+            background: #2d3748;
+            color: #68d391;
+            padding: 10px;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            margin-top: 10px;
+            overflow-x: auto;
+        }
+        .steps {
+            list-style: none;
+            counter-reset: step;
+        }
+        .steps li {
+            counter-increment: step;
+            margin-bottom: 15px;
+            padding-left: 30px;
+            position: relative;
+            color: #4a5568;
+            line-height: 1.6;
+        }
+        .steps li::before {
+            content: counter(step);
+            position: absolute;
+            left: 0;
+            top: 0;
+            background: #667eea;
+            color: white;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 12px;
+        }
+        .result {
+            background: white;
+            border: 1px solid #e2e8f0;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 15px;
+            max-height: 200px;
+            overflow-y: auto;
+            font-size: 12px;
+            font-family: 'Courier New', monospace;
+        }
+        .loading {
+            display: inline-block;
+            width: 4px;
+            height: 4px;
+            background: #667eea;
+            border-radius: 50%;
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔔 Push Notification Setup</h1>
+        <p class="subtitle">UCCA Borrowing System - Notification Testing & Configuration</p>
+
+        <!-- Status Check -->
+        <div class="section">
+            <div class="section-title">Status Check</div>
+            <div class="info-grid">
+                <div class="info-card">
+                    <h4>📱 Service Worker</h4>
+                    <p id="sw-status">Checking...</p>
+                </div>
+                <div class="info-card">
+                    <h4>🔔 Permission</h4>
+                    <p id="perm-status">Checking...</p>
+                </div>
+                <div class="info-card">
+                    <h4>👤 Current User</h4>
+                    <p id="user-status">Not logged in</p>
+                </div>
+                <div class="info-card">
+                    <h4>📊 Subscriptions</h4>
+                    <p id="sub-status">Loading...</p>
+                </div>
+            </div>
+            <button class="secondary" onclick="checkStatus()" style="width: 100%; margin-top: 15px;">
+                🔄 Refresh Status
+            </button>
+        </div>
+
+        <!-- Quick Setup -->
+        <div class="section">
+            <div class="section-title">Quick Setup</div>
+            <ol class="steps">
+                <li><strong>Step 1:</strong> Make sure you're logged in</li>
+                <li><strong>Step 2:</strong> Grant notification permission when prompted</li>
+                <li><strong>Step 3:</strong> Click "Test Subscription" to verify</li>
+                <li><strong>Step 4:</strong> (Admin) Use "Bulk Demo Subscribe" to create mock subscriptions for all users</li>
+            </ol>
+            <div class="button-group">
+                <button class="primary" onclick="testSubscription()">✅ Test Subscription</button>
+                <button class="secondary" onclick="requestPermission()">🔔 Request Permission</button>
+            </div>
+            <div class="button-group single">
+                <button class="warning" onclick="bulkSubscribe()">📌 Bulk Demo Subscribe (Admin)</button>
+            </div>
+        </div>
+
+        <!-- Check Subscriptions -->
+        <div class="section">
+            <div class="section-title">Subscription Checks</div>
+            <p style="color: #666; font-size: 14px; margin-bottom: 15px;">
+                View current and all user subscriptions
+            </p>
+            <div class="button-group">
+                <button class="secondary" onclick="checkMySubscription()">👤 My Subscription</button>
+                <button class="secondary" onclick="checkAllSubscriptions()">👥 All Subscriptions (Admin)</button>
+            </div>
+        </div>
+
+        <!-- Test Notifications -->
+        <div class="section">
+            <div class="section-title">Send Test Notifications</div>
+            <p style="color: #666; font-size: 14px; margin-bottom: 15px;">
+                Send notifications to other users (must be logged in)
+            </p>
+            <div class="button-group">
+                <button class="success" onclick="sendTestNotification()">🧪 Send Test Notification</button>
+                <button class="success" onclick="sendDueSoon()">⚠️ Send Due Soon</button>
+            </div>
+        </div>
+
+        <!-- Results -->
+        <div class="section">
+            <div class="section-title">Results</div>
+            <div id="result" class="result">
+                Ready. Click any button to start testing...
+            </div>
+        </div>
+
+        <!-- Troubleshooting -->
+        <div class="section">
+            <div class="section-title">Troubleshooting</div>
+            <div class="info-grid">
+                <div class="info-card">
+                    <h4>❌ No Subscription?</h4>
+                    <p>1. Check permission: <strong>Notification.permission</strong><br>2. Click "Request Permission"<br>3. Click "Bulk Demo Subscribe"</p>
+                </div>
+                <div class="info-card">
+                    <h4>🔒 Permission Denied?</h4>
+                    <p>Browser blocked it. Go to browser settings → Notifications → Allow localhost</p>
+                </div>
+                <div class="info-card">
+                    <h4>📱 No Service Worker?</h4>
+                    <p>DevTools → Application → Service Workers. Should show "active and running"</p>
+                </div>
+                <div class="info-card">
+                    <h4>📊 Check Server Logs</h4>
+                    <p>Watch server console for "⚠️ No push subscription found" errors</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8000/api';
+
+        function log(message, type = 'info') {
+            const result = document.getElementById('result');
+            const timestamp = new Date().toLocaleTimeString();
+            const typeEmoji = { info: 'ℹ️', success: '✅', error: '❌', warning: '⚠️' }[type] || 'ℹ️';
+            result.innerHTML += `\n${timestamp} ${typeEmoji} ${message}`;
+            result.scrollTop = result.scrollHeight;
+        }
+
+        async function checkStatus() {
+            log('Checking status...', 'info');
+            
+            // Check Service Worker
+            if ('serviceWorker' in navigator) {
+                const reg = await navigator.serviceWorker.getRegistration();
+                document.getElementById('sw-status').textContent = reg ? '✅ Active' : '❌ Not registered';
+            } else {
+                document.getElementById('sw-status').textContent = '❌ Not supported';
+            }
+
+            // Check Permission
+            const perm = Notification.permission;
+            document.getElementById('perm-status').textContent = perm === 'granted' ? '✅ Granted' : perm === 'denied' ? '❌ Denied' : '⏳ Default';
+
+            // Check User (from localStorage or API)
+            const user = JSON.parse(localStorage.getItem('user') || '{}');
+            document.getElementById('user-status').textContent = user.name ? `✅ ${user.name} (${user.role})` : '❌ Not logged in';
+
+            // Check Subscriptions
+            try {
+                const response = await fetch(`${API_BASE}/test-notifications/debug/subscriptions`, {
+                    credentials: 'include'
+                });
+                const data = await response.json();
+                document.getElementById('sub-status').textContent = data.count > 0 ? `✅ ${data.count} subscription(s)` : '❌ None found';
+            } catch (e) {
+                document.getElementById('sub-status').textContent = '⚠️ Error checking';
+            }
+
+            log('Status updated', 'success');
+        }
+
+        async function requestPermission() {
+            log('Requesting notification permission...', 'info');
+            const perm = await Notification.requestPermission();
+            log(`Permission: ${perm}`, perm === 'granted' ? 'success' : 'error');
+        }
+
+        async function testSubscription() {
+            log('Testing subscription...', 'info');
+            try {
+                const response = await fetch(`${API_BASE}/test-notifications/debug/subscriptions`, {
+                    credentials: 'include'
+                });
+                const data = await response.json();
+                if (data.count > 0) {
+                    log(`✅ Subscription found for ${data.user.name}`, 'success');
+                    log(`Endpoint: ${data.subscriptions[0].endpoint.substring(0, 50)}...`, 'info');
+                } else {
+                    log(`❌ No subscription for ${data.user.name}. Request permission and try bulk subscribe.`, 'error');
+                }
+            } catch (e) {
+                log(`Error: ${e.message}`, 'error');
+            }
+        }
+
+        async function checkMySubscription() {
+            log('Fetching your subscription...', 'info');
+            try {
+                const response = await fetch(`${API_BASE}/test-notifications/debug/subscriptions`, {
+                    credentials: 'include'
+                });
+                const data = await response.json();
+                log(`User: ${data.user.name} (${data.user.role})`, 'info');
+                log(`Subscriptions: ${data.count}`, 'info');
+                if (data.subscriptions.length > 0) {
+                    log(JSON.stringify(data.subscriptions, null, 2), 'success');
+                }
+            } catch (e) {
+                log(`Error: ${e.message}`, 'error');
+            }
+        }
+
+        async function checkAllSubscriptions() {
+            log('Fetching all subscriptions (Admin)...', 'info');
+            try {
+                const response = await fetch(`${API_BASE}/test-notifications/debug/all-subscriptions`, {
+                    credentials: 'include'
+                });
+                if (response.status === 403) {
+                    log('❌ Admin only!', 'error');
+                    return;
+                }
+                const data = await response.json();
+                log(JSON.stringify(data, null, 2), 'success');
+            } catch (e) {
+                log(`Error: ${e.message}`, 'error');
+            }
+        }
+
+        async function bulkSubscribe() {
+            log('🔔 Starting bulk demo subscription...', 'warning');
+            try {
+                const response = await fetch(`${API_BASE}/test-notifications/bulk-subscribe-demo`, {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                const data = await response.json();
+                if (response.ok) {
+                    log(`✅ ${data.count}/${data.total} users subscribed`, 'success');
+                    log(JSON.stringify(data, null, 2), 'info');
+                } else {
+                    log(`❌ ${data.error}`, 'error');
+                }
+            } catch (e) {
+                log(`Error: ${e.message}`, 'error');
+            }
+        }
+
+        async function sendTestNotification() {
+            log('Sending test notification...', 'info');
+            try {
+                const response = await fetch(`${API_BASE}/test-notifications/test-notification`, {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                const data = await response.json();
+                if (response.ok) {
+                    log(`✅ ${data.message}`, 'success');
+                } else {
+                    log(`❌ ${data.error}`, 'error');
+                }
+            } catch (e) {
+                log(`Error: ${e.message}`, 'error');
+            }
+        }
+
+        async function sendDueSoon() {
+            log('Sending due soon notification...', 'info');
+            try {
+                const response = await fetch(`${API_BASE}/test-notifications/test-due-soon`, {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                const data = await response.json();
+                if (response.ok) {
+                    log(`✅ ${data.message}`, 'success');
+                } else {
+                    log(`❌ ${data.error}`, 'error');
+                }
+            } catch (e) {
+                log(`Error: ${e.message}`, 'error');
+            }
+        }
+
+        // Check status on load
+        window.addEventListener('load', checkStatus);
+    </script>
+</body>
+</html>
