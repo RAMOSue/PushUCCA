@@ -28,6 +28,7 @@ const {
   upload,
   generateUnitsForItem,
   getUnitsForItem,       // Fetch units for an inventory item
+  getAvailableUnits,     // ✅ NEW: Get available units for item
 } = inventoryController;
 
 // -----------------------
@@ -50,6 +51,9 @@ router.post("/scan/image", upload.single("image"), scanImageFallback);
 
 // ✅ Fetch all units for a specific inventory item
 router.get("/:id/units", getUnitsForItem);
+
+// ✅ NEW: Get available units for borrowing
+router.get("/inventory-units/available/:itemId", getAvailableUnits);
 
 // -----------------------
 // 🛒 Borrowing Cart & Quantity Sync Routes

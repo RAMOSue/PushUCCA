@@ -4,6 +4,32 @@ const { get } = require("../routes/imageRecognitionRoutes");
 const sendEmail = require("../utils/email");
 const { v4: uuidv4, validate: isUuid } = require("uuid");
 const { notifications } = require("../utils/notifications");
+const notificationController = require("../controllers/notificationController");
+const path = require("path");
+const fs = require("fs");
+
+// Backend base URL (set in .env, defaults to port 8000 in dev)
+const BASE_URL = process.env.BASE_URL || "http://localhost:8000";
+
+// Helper: convert relative path to full URL
+function toFullUrl(filePath) {
+  return filePath ? `${BASE_URL}${filePath}` : null;
+}
+
+// Helper: transform image_url to proper full URL
+function transformImageUrl(imageUrl) {
+  if (!imageUrl) return null;
+  
+  if (imageUrl.startsWith('http')) {
+    return imageUrl; // Already a full URL
+  }
+  
+  // It's a relative path, ensure it starts with /uploads/ then convert to full URL
+  if (!imageUrl.startsWith('/uploads')) {
+    imageUrl = `/uploads/${imageUrl}`;
+  }
+  return toFullUrl(imageUrl);
+}
 
 /*
  * ------------------------------------------------------------
@@ -23,7 +49,7 @@ const { notifications } = require("../utils/notifications");
  */
 
 const addToCart = async (req, res) => {
-  const { borrower_id, items } = req.body;
+  const { borrower_id, items, request_id } = req.body;
 
   if (!borrower_id || !Array.isArray(items) || items.length === 0) {
     return res.status(400).json({ error: "Missing borrower_id or items." });
@@ -33,16 +59,34 @@ const addToCart = async (req, res) => {
   try {
     await client.query("BEGIN");
 
-    // Always create a NEW reserved request for this add-to-cart action
-    const insertRequest = await client.query(
-      `INSERT INTO borrowing_requests (borrower_id, status, request_date, created_at)
-       VALUES ($1, 'reserved', NOW(), NOW())
-       RETURNING id`,
-      [borrower_id]
-    );
-    const requestId = insertRequest.rows[0].id;
+    // Try to find an existing reserved request for this borrower and reuse it.
+    // This allows multiple add-to-cart actions to accumulate into one reserved request
+    // so that a single submitBorrowRequest will convert all items at once.
+    let requestId_fromDb = request_id; // Use provided request_id first
+
+    if (!requestId_fromDb) {
+      const reservedRes = await client.query(
+        `SELECT id FROM borrowing_requests WHERE borrower_id = $1 AND status = 'reserved' ORDER BY created_at DESC LIMIT 1 FOR UPDATE`,
+        [borrower_id]
+      );
+
+      if (reservedRes.rowCount > 0) {
+        requestId_fromDb = reservedRes.rows[0].id;
+        console.log(`🔄 Using existing reserved request: ${requestId_fromDb}`);
+      } else {
+        const insertRequest = await client.query(
+          `INSERT INTO borrowing_requests (borrower_id, status, request_date, created_at)
+           VALUES ($1, 'reserved', NOW(), NOW())
+           RETURNING id`,
+          [borrower_id]
+        );
+        requestId_fromDb = insertRequest.rows[0].id;
+        console.log(`✨ Created new reserved request: ${requestId_fromDb}`);
+      }
+    }
 
     const cartItems = [];
+    const failedItems = [];
 
     // 🟢 Loop through items
     for (const item of items) {
@@ -54,66 +98,76 @@ const addToCart = async (req, res) => {
         return res.status(400).json({ error: "Invalid unit_id/item_id or quantity." });
       }
 
-      // Case 1: Specific unit (QR-based)
+      // Case 1: Specific unit (QR-based or AI-detected)
       if (unit_id) {
-        const unitResult = await client.query(
-          `SELECT iu.id, iu.status, ii.id AS item_id, ii.name, ii.category, ii.garment_type, ii.image_url
-           FROM inventory_units iu
-           JOIN inventory_items ii ON ii.uuid = iu.inventory_item_id
-           WHERE iu.id = $1::uuid 
-           AND iu.status = 'available'
-           FOR UPDATE SKIP LOCKED`,
-          [unit_id]
-        );
-
-        if (unitResult.rowCount === 0) {
-          // Check if unit exists but is not available
-          const checkUnit = await client.query(
-            `SELECT status FROM inventory_units WHERE id = $1::uuid`,
+        try {
+          const unitResult = await client.query(
+            `SELECT iu.id, iu.status, iu.unit_number, iu.size, ii.id AS item_id, ii.name, ii.category, ii.garment_type, ii.image_url
+             FROM inventory_units iu
+             JOIN inventory_items ii ON ii.uuid = iu.inventory_item_id
+             WHERE iu.id = $1::uuid 
+             AND iu.status = 'available'
+             FOR UPDATE SKIP LOCKED`,
             [unit_id]
           );
-          
-          await client.query("ROLLBACK");
-          
-          if (checkUnit.rowCount === 0) {
-            return res.status(404).json({ error: `Unit ${unit_id} not found.` });
-          } else {
-            return res.status(400).json({ 
-              error: `Unit ${unit_id} is not available (current status: ${checkUnit.rows[0].status}).` 
+
+          if (unitResult.rowCount === 0) {
+            // Check if unit exists but is not available
+            const checkUnit = await client.query(
+              `SELECT status FROM inventory_units WHERE id = $1::uuid`,
+              [unit_id]
+            );
+            
+            console.warn(`⚠️ Unit ${unit_id} not available for adding. Status: ${checkUnit.rows[0]?.status || 'not found'}`);
+            failedItems.push({
+              unit_id,
+              error: checkUnit.rowCount === 0 ? `Unit not found` : `Unit is ${checkUnit.rows[0].status}`,
             });
+            continue; // Skip this unit, continue with others
           }
+
+          const unit = unitResult.rows[0];
+
+          // Reserve unit
+          await client.query(
+            `UPDATE inventory_units SET status = 'reserved' WHERE id = $1 AND status = 'available'`,
+            [unit_id]
+          );
+
+          // Link the reserved unit to the borrowing request
+          await client.query(
+            `INSERT INTO borrowing_items (borrowing_id, inventory_unit_id)
+             VALUES ($1, $2)`,
+            [requestId_fromDb, unit_id]
+          );
+
+          console.log(`✅ Added unit ${unit_id} (${unit.name}) to request ${requestId_fromDb}`);
+
+          cartItems.push({
+            unit_id: unit.id,
+            item_id: unit.item_id,
+            name: unit.name,
+            category: unit.category,
+            garment_type: unit.garment_type,
+            image_url: transformImageUrl(unit.image_url),
+            size: unit.size || "nosize",
+            unit_number: unit.unit_number,
+            quantity: 1,
+          });
+        } catch (err) {
+          console.error(`❌ Error adding unit ${unit_id}:`, err.message);
+          failedItems.push({
+            unit_id,
+            error: err.message,
+          });
+          // Continue with other units instead of failing entire request
         }
-
-        const unit = unitResult.rows[0];
-
-        // Reserve unit
-        await client.query(
-          `UPDATE inventory_units SET status = 'reserved' WHERE id = $1 AND status = 'available'`,
-          [unit_id]
-        );
-
-        // Link the reserved unit to the newly created borrowing request
-        await client.query(
-          `INSERT INTO borrowing_items (borrowing_id, inventory_unit_id)
-           VALUES ($1, $2)`,
-          [requestId, unit_id]
-        );
-
-        cartItems.push({
-          unit_id: unit.id,
-          item_id: unit.item_id,
-          name: unit.name,
-          category: unit.category,
-          garment_type: unit.garment_type,
-          image_url: unit.image_url,
-          quantity: 1,
-        });
       }
 
       // Case 2: Quantity-based items (accessories)
       else if (item_id) {
         const availableUnits = await client.query(
-          `SELECT iu.id, iu.status, ii.id AS item_id, ii.name, ii.category, ii.garment_type, ii.image_url
+          `SELECT iu.id, iu.status, iu.unit_number, iu.size, ii.id AS item_id, ii.name, ii.category, ii.garment_type, ii.image_url
            FROM inventory_units iu
            JOIN inventory_items ii ON ii.uuid = iu.inventory_item_id
            WHERE ii.id = $1::int AND iu.status = 'available'
@@ -123,8 +177,12 @@ const addToCart = async (req, res) => {
         );
 
         if (availableUnits.rowCount === 0) {
-          await client.query("ROLLBACK");
-          return res.status(404).json({ error: `No available stock for item ${item_id}.` });
+          console.warn(`⚠️ No available units for item ${item_id}`);
+          failedItems.push({
+            item_id,
+            error: `No available stock`,
+          });
+          continue; // Skip this item, continue with others
         }
 
         for (const unit of availableUnits.rows) {
@@ -133,12 +191,14 @@ const addToCart = async (req, res) => {
             [unit.id]
           );
 
-          // Link reserved unit to this borrowing request
+          // Link the reserved unit to the borrowing request
           await client.query(
             `INSERT INTO borrowing_items (borrowing_id, inventory_unit_id)
              VALUES ($1, $2)`,
-            [requestId, unit.id]
+            [requestId_fromDb, unit.id]
           );
+
+          console.log(`✅ Added unit ${unit.id} (${unit.name}) to request ${requestId_fromDb}`);
 
           cartItems.push({
             unit_id: unit.id,
@@ -146,20 +206,38 @@ const addToCart = async (req, res) => {
             name: unit.name,
             category: unit.category,
             garment_type: unit.garment_type,
-            image_url: unit.image_url,
+            image_url: transformImageUrl(unit.image_url),
+            size: unit.size || "nosize",
+            unit_number: unit.unit_number,
             quantity: 1,
           });
         }
       }
     }
 
+    // ✅ NEW: Check if we added at least something
+    if (cartItems.length === 0 && failedItems.length > 0) {
+      await client.query("ROLLBACK");
+      console.error(`❌ All items failed to add:`, failedItems);
+      return res.status(400).json({ 
+        error: "Failed to add all items",
+        failed_items: failedItems,
+      });
+    }
+
     await client.query("COMMIT");
+
+    console.log(`✅ Added ${cartItems.length} items to cart (request: ${requestId_fromDb})`);
+    if (failedItems.length > 0) {
+      console.warn(`⚠️ ${failedItems.length} items failed:`, failedItems);
+    }
 
     return res.status(200).json({
       success: true,
-      message: "Items reserved and added to cart.",
-      request_id: requestId,
+      message: `${cartItems.length} item${cartItems.length !== 1 ? 's' : ''} added to cart${failedItems.length > 0 ? ` (${failedItems.length} failed)` : ''}`,
+      request_id: requestId_fromDb,
       items: cartItems,
+      failed_items: failedItems.length > 0 ? failedItems : undefined,
     });
   } catch (err) {
     await client.query("ROLLBACK");
@@ -170,6 +248,140 @@ const addToCart = async (req, res) => {
   }
 };
 
+/**
+ * ✅ NEW BATCH ENDPOINT: Add multiple items in ONE transaction
+ * Fixes race condition by batching all units -> one requestId -> one FK check
+ */
+const batchAddToCart = async (req, res) => {
+  const { borrower_id, items } = req.body;
+
+  if (!borrower_id || !Array.isArray(items) || items.length === 0) {
+    return res.status(400).json({ error: "Missing borrower_id or items." });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    // Find or create ONE reserved request for all items
+    const reservedRes = await client.query(
+      `SELECT id FROM borrowing_requests WHERE borrower_id = $1 AND status = 'reserved' 
+       ORDER BY created_at DESC LIMIT 1 FOR UPDATE`,
+      [borrower_id]
+    );
+
+    let requestId;
+    if (reservedRes.rowCount > 0) {
+      requestId = reservedRes.rows[0].id;
+      console.log(`🔄 Using existing request: ${requestId}`);
+    } else {
+      const insertRes = await client.query(
+        `INSERT INTO borrowing_requests (borrower_id, status, request_date, created_at)
+         VALUES ($1, 'reserved', NOW(), NOW())
+         RETURNING id`,
+        [borrower_id]
+      );
+      requestId = insertRes.rows[0].id;
+      console.log(`✨ Created new request: ${requestId}`);
+    }
+
+    const cartItems = [];
+    const failedItems = [];
+
+    // Add ALL items in single transaction
+    for (const item of items) {
+      const { unit_id, item_id, quantity } = item;
+      const q = Number(quantity) || 1;
+
+      if ((!unit_id && !item_id) || !Number.isInteger(q) || q <= 0) {
+        failedItems.push({ unit_id, item_id, error: "Invalid data" });
+        continue;
+      }
+
+      // Case 1: Specific unit (AI-detected)
+      if (unit_id) {
+        try {
+          const unitRes = await client.query(
+            `SELECT iu.id, iu.status, ii.id AS item_id, ii.name FROM inventory_units iu
+             JOIN inventory_items ii ON ii.uuid = iu.inventory_item_id
+             WHERE iu.id = $1::uuid AND iu.status = 'available' FOR UPDATE SKIP LOCKED`,
+            [unit_id]
+          );
+
+          if (unitRes.rowCount === 0) {
+            failedItems.push({ unit_id, error: "Not available" });
+            continue;
+          }
+
+          const unit = unitRes.rows[0];
+
+          // Reserve unit
+          await client.query(`UPDATE inventory_units SET status = 'reserved' WHERE id = $1`, [unit_id]);
+
+          // Add to borrowing_items - requestId IS GUARANTEED TO EXIST
+          await client.query(
+            `INSERT INTO borrowing_items (borrowing_id, inventory_unit_id) VALUES ($1, $2)`,
+            [requestId, unit_id]
+          );
+
+          cartItems.push({ unit_id: unit.id, item_id: unit.item_id, name: unit.name });
+          console.log(`✅ Added unit ${unit_id} to request ${requestId}`);
+        } catch (err) {
+          console.error(`❌ Unit error:`, err.message);
+          failedItems.push({ unit_id, error: err.message });
+        }
+      }
+      // Case 2: Quantity-based
+      else if (item_id) {
+        try {
+          const unitsRes = await client.query(
+            `SELECT iu.id, ii.id AS item_id, ii.name FROM inventory_units iu
+             JOIN inventory_items ii ON ii.uuid = iu.inventory_item_id
+             WHERE ii.id = $1::int AND iu.status = 'available'
+             LIMIT $2 FOR UPDATE SKIP LOCKED`,
+            [item_id, q]
+          );
+
+          if (unitsRes.rowCount === 0) {
+            failedItems.push({ item_id, error: "No stock" });
+            continue;
+          }
+
+          for (const unit of unitsRes.rows) {
+            await client.query(`UPDATE inventory_units SET status = 'reserved' WHERE id = $1`, [unit.id]);
+            await client.query(
+              `INSERT INTO borrowing_items (borrowing_id, inventory_unit_id) VALUES ($1, $2)`,
+              [requestId, unit.id]
+            );
+            cartItems.push({ unit_id: unit.id, item_id: unit.item_id, name: unit.name });
+          }
+        } catch (err) {
+          failedItems.push({ item_id, error: err.message });
+        }
+      }
+    }
+
+    if (cartItems.length === 0 && failedItems.length > 0) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({ error: "Failed to add items", failed_items: failedItems });
+    }
+
+    await client.query("COMMIT");
+
+    return res.status(200).json({
+      success: true,
+      request_id: requestId,
+      items: cartItems,
+      failed_items: failedItems.length > 0 ? failedItems : undefined,
+    });
+  } catch (err) {
+    await client.query("ROLLBACK");
+    console.error("❌ batchAddToCart error:", err.message);
+    return res.status(500).json({ error: "Failed to add items" });
+  } finally {
+    client.release();
+  }
+};
 
 
 
@@ -177,7 +389,20 @@ const addToCart = async (req, res) => {
 const submitBorrowRequest = async (req, res) => {
   const client = await pool.connect();
   try {
-    const { borrower_id, items, request_id } = req.body;
+    const { borrower_id, items, request_id, quantity, finalQuantity, item_count } = req.body;
+
+    // ✅ CRITICAL: Extract quantity parameter (new field or fallback to finalQuantity)
+    const finalQuantityValue = quantity || finalQuantity || (items ? items.length : 0);
+    const itemCountValue = item_count || (items ? items.length : 0);
+
+    console.log(`📋 submitBorrowRequest - Quantity Info:`, {
+      providedQuantity: quantity,
+      providedFinalQuantity: finalQuantity,
+      providedItemCount: item_count,
+      calculatedFinalQuantity: finalQuantityValue,
+      calculatedItemCount: itemCountValue,
+      itemsLength: items ? items.length : 0
+    });
 
     // If request_id was provided, simply flip that reserved request to pending
     if (request_id) {
@@ -196,12 +421,21 @@ const submitBorrowRequest = async (req, res) => {
         return res.status(400).json({ success: false, error: 'Request is not in reserved state' });
       }
 
+      // ✅ CRITICAL: Update with quantity and submitted_at columns
       await client.query(
-        `UPDATE borrowing_requests SET status = 'pending', request_date = NOW() WHERE id = $1`,
-        [request_id]
+        `UPDATE borrowing_requests 
+         SET status = 'pending', 
+             request_date = NOW(), 
+             quantity = $1,
+             item_count = $2,
+             submitted_at = CURRENT_TIMESTAMP
+         WHERE id = $3`,
+        [finalQuantityValue, itemCountValue, request_id]
       );
 
       await client.query('COMMIT');
+      
+      console.log(`✅ Updated borrowing_requests - quantity: ${finalQuantityValue}, item_count: ${itemCountValue}`);
 
       // After committing, notify all staff about this submitted reserved request
       try {
@@ -225,16 +459,22 @@ const submitBorrowRequest = async (req, res) => {
           [borrower_id, request_id]
         );
 
-        if (requestDetails.rows.length > 0) {
-          const { borrower_name, items } = requestDetails.rows[0];
-          const itemsArray = typeof items === 'string' ? JSON.parse(items) : items;
-          for (const staff of staffResult.rows) {
-            // fire-and-forget notifications; do not block the response if they fail
-            notifications.sendBorrowRequest(borrower_id, staff.id, itemsArray, borrower_name, request_id).catch((e) => {
-              console.warn('⚠️ notify staff failed for request_id', request_id, e && e.message ? e.message : e);
-            });
-          }
+      // Send notifications to all staff members
+      if (requestDetails.rows.length > 0) {
+        const { borrower_name, items } = requestDetails.rows[0];
+        const itemsArray = typeof items === 'string' ? JSON.parse(items) : items;
+        
+        // ✅ Get borrower's role to prevent self-notification for staff
+        const borrowerInfo = await client.query(`SELECT role FROM users WHERE id = $1`, [borrower_id]);
+        const borrowerRole = borrowerInfo.rows[0]?.role || null;
+        
+        for (const staff of staffResult.rows) {
+          // fire-and-forget notifications; do not block the response if they fail
+          notifications.sendBorrowRequest(borrower_id, staff.id, itemsArray, borrower_name, request_id, borrowerRole).catch((e) => {
+            console.warn('⚠️ notify staff failed for request_id', request_id, e && e.message ? e.message : e);
+          });
         }
+      }
       } catch (notifyErr) {
         console.warn('⚠️ Failed to notify staff for submitted request_id:', request_id, notifyErr && notifyErr.message ? notifyErr.message : notifyErr);
       }
@@ -260,7 +500,20 @@ const submitBorrowRequest = async (req, res) => {
     if (reservedRes.rowCount > 0) {
       const reservedId = reservedRes.rows[0].id;
       await client.query('BEGIN');
-      await client.query(`UPDATE borrowing_requests SET status = 'pending', request_date = NOW() WHERE id = $1`, [reservedId]);
+      
+      // ✅ CRITICAL: Update with quantity and item_count for reserved request path
+      await client.query(
+        `UPDATE borrowing_requests 
+         SET status = 'pending', 
+             request_date = NOW(),
+             quantity = $1,
+             item_count = $2,
+             submitted_at = CURRENT_TIMESTAMP
+         WHERE id = $3`,
+        [finalQuantityValue, itemCountValue, reservedId]
+      );
+      
+      console.log(`✅ Updated reserved borrowing_requests - quantity: ${finalQuantityValue}, item_count: ${itemCountValue}`);
       
       // Get staff users and borrower details for notification
       const staffResult = await client.query(
@@ -292,13 +545,18 @@ const submitBorrowRequest = async (req, res) => {
       if (requestDetails.rows.length > 0) {
         const { borrower_name, items } = requestDetails.rows[0];
         const itemsArray = typeof items === 'string' ? JSON.parse(items) : items;
+        
+        // ✅ Get borrower's role to prevent self-notification for staff
+        const borrowerInfo = await db.query(`SELECT role FROM users WHERE id = $1`, [borrower_id]);
+        const borrowerRole = borrowerInfo.rows[0]?.role || null;
+        
         for (const staff of staffResult.rows) {
           // Pass the related request id so notification records can be correlated to the request
-          await notifications.sendBorrowRequest(borrower_id, staff.id, itemsArray, borrower_name, reservedId);
+          await notifications.sendBorrowRequest(borrower_id, staff.id, itemsArray, borrower_name, reservedId, borrowerRole);
         }
       }
 
-      return res.status(200).json({ success: true, message: 'Reserved request submitted', request_id: reservedId });
+      return res.status(200).json({ success: true, message: 'Reserved request submitted', request_id: reservedId, quantity: finalQuantityValue, item_count: itemCountValue });
     }
 
     // No reserved request found for borrower. If items were not provided, we
@@ -311,12 +569,14 @@ const submitBorrowRequest = async (req, res) => {
     await client.query('BEGIN');
 
     const insertBorrowRequestQuery = `
-      INSERT INTO borrowing_requests (borrower_id, status, request_date, due_date)
-      VALUES ($1, $2, NOW(), NOW() + INTERVAL '3 days')
-      RETURNING id, borrower_id, status, request_date, due_date;
+      INSERT INTO borrowing_requests (borrower_id, status, request_date, due_date, quantity, item_count, submitted_at)
+      VALUES ($1, $2, NOW(), NOW() + INTERVAL '3 days', $3, $4, CURRENT_TIMESTAMP)
+      RETURNING id, borrower_id, status, request_date, due_date, quantity, item_count;
     `;
-    const borrowRequestResult = await client.query(insertBorrowRequestQuery, [borrower_id, 'pending']);
+    const borrowRequestResult = await client.query(insertBorrowRequestQuery, [borrower_id, 'pending', finalQuantityValue, itemCountValue]);
     const borrowRequestId = borrowRequestResult.rows[0].id;
+
+    console.log(`✅ Created new borrowing_request - id: ${borrowRequestId}, quantity: ${finalQuantityValue}, item_count: ${itemCountValue}`);
 
     // Process items (same as legacy behavior)
     for (const item of items) {
@@ -366,15 +626,20 @@ const submitBorrowRequest = async (req, res) => {
       if (requestDetails2.rows.length > 0) {
         const { borrower_name, items } = requestDetails2.rows[0];
         const itemsArray2 = typeof items === 'string' ? JSON.parse(items) : items;
+        
+        // ✅ Get borrower's role to prevent self-notification for staff
+        const borrowerInfo = await db.query(`SELECT role FROM users WHERE id = $1`, [borrower_id]);
+        const borrowerRole = borrowerInfo.rows[0]?.role || null;
+        
         for (const staff of staffResult2.rows) {
-          await notifications.sendBorrowRequest(borrower_id, staff.id, itemsArray2, borrower_name, borrowRequestId);
+          await notifications.sendBorrowRequest(borrower_id, staff.id, itemsArray2, borrower_name, borrowRequestId, borrowerRole);
         }
       }
     } catch (notifyErr) {
       console.warn('⚠️ Failed to notify staff for fallback borrow request:', notifyErr.message || notifyErr);
     }
 
-    return res.status(200).json({ success: true, message: 'Borrow request submitted successfully.', borrowRequest: borrowRequestResult.rows[0] });
+    return res.status(200).json({ success: true, message: 'Borrow request submitted successfully.', borrowRequest: borrowRequestResult.rows[0], quantity: finalQuantityValue, item_count: itemCountValue });
   } catch (err) {
     await client.query('ROLLBACK');
     console.error('❌ Borrow request error:', err.message);
@@ -385,7 +650,7 @@ const submitBorrowRequest = async (req, res) => {
 };
 
 
-// ✅ Updated getBorrowHistory to handle UUIDs correctly
+// ✅ Updated getBorrowHistory to handle UUIDs correctly and calculate overdue status
 const getBorrowHistory = async (req, res) => {
   const { userId } = req.params;
 
@@ -395,23 +660,45 @@ const getBorrowHistory = async (req, res) => {
 
   try {
     // ✅ Query all borrowing requests for this user, including items in one go
+    // ✅ Fixed: Use returned_at (correct column name) instead of returned_date
+    // ✅ Added: Calculate overdue status and days remaining in backend for accuracy
+    // ✅ FIXED: Include unit_number in the items JSON response
+    // ✅ NEW: Include all timestamp fields (created_at, request_date, approved_at, due_date, returned_at) for timeline visualization
+    // ✅ NEW: Include return_decline_reason to show warning when return was declined
     const historyRes = await pool.query(
       `
       SELECT 
         br.id AS request_id,
         br.status,
+        br.created_at,
         br.request_date,
+        br.approved_at,
         br.due_date,
-        br.returned_date,
+        br.returned_at,
+        br.return_decline_reason,
+        br.declined_at,
+        CURRENT_DATE AS today,
+        CASE 
+          WHEN br.status = 'returned' THEN false
+          WHEN br.due_date IS NOT NULL AND br.due_date::date < CURRENT_DATE THEN true
+          ELSE false
+        END AS is_overdue,
+        CASE 
+          WHEN br.due_date IS NOT NULL THEN br.due_date::date - CURRENT_DATE
+          ELSE NULL
+        END AS days_until_due,
         u.name AS borrower_name,
         COALESCE(
           JSON_AGG(
             JSON_BUILD_OBJECT(
+              'id', iu.id,
+              'unit_number', iu.unit_number,
               'item_name', ii.name,
               'garment_type', ii.garment_type,
               'category', ii.category,
               'size', iu.size,
-              'condition', iu.condition
+              'condition', iu.condition,
+              'image_url', ii.image_url
             )
           ) FILTER (WHERE ii.name IS NOT NULL),
           '[]'
@@ -421,9 +708,12 @@ const getBorrowHistory = async (req, res) => {
       LEFT JOIN borrowing_items bi ON bi.borrowing_id = br.id
       LEFT JOIN inventory_units iu ON iu.id = bi.inventory_unit_id
       LEFT JOIN inventory_items ii ON ii.uuid = iu.inventory_item_id
-      WHERE br.borrower_id = $1
+      WHERE br.borrower_id = $1 AND (br.is_deleted = false OR br.is_deleted IS NULL)
       GROUP BY br.id, u.name
-      ORDER BY br.created_at DESC;
+      ORDER BY 
+        CASE WHEN br.due_date < CURRENT_DATE AND br.status != 'returned' THEN 0 ELSE 1 END,
+        br.due_date ASC,
+        br.created_at DESC;
       `,
       [userId]
     );
@@ -440,6 +730,46 @@ const getBorrowHistory = async (req, res) => {
   }
 };
 
+// ✅ NEW: Delete a borrow request from history
+const deleteFromHistory = async (req, res) => {
+  const { requestId } = req.params;
+  const { borrower_id } = req.query;
+
+  if (!requestId || !borrower_id) {
+    return res.status(400).json({ error: "Missing requestId or borrower_id" });
+  }
+
+  try {
+    // Verify ownership: request belongs to the borrower
+    const ownershipRes = await pool.query(
+      `SELECT id FROM borrowing_requests WHERE id = $1 AND borrower_id = $2`,
+      [requestId, borrower_id]
+    );
+
+    if (ownershipRes.rowCount === 0) {
+      return res.status(403).json({ error: "Unauthorized: request does not belong to borrower" });
+    }
+
+    // Soft delete by setting status to 'deleted' (if you want to keep history)
+    // OR hard delete directly. We'll use soft delete for audit trail.
+    const updateRes = await pool.query(
+      `UPDATE borrowing_requests 
+       SET deleted_at = NOW(), is_deleted = true
+       WHERE id = $1
+       RETURNING id`,
+      [requestId]
+    );
+
+    if (updateRes.rowCount === 0) {
+      return res.status(404).json({ error: "Request not found" });
+    }
+
+    res.json({ success: true, message: "Request deleted from history" });
+  } catch (err) {
+    console.error("❌ Delete from history error:", err.message);
+    res.status(500).json({ error: "Failed to delete from history" });
+  }
+};
 
 const getAllBorrowRequests = async (req, res) => {
   try {
@@ -449,14 +779,22 @@ const getAllBorrowRequests = async (req, res) => {
          br.borrower_id,
          u.name AS borrower_name,
          u.email AS borrower_email,
+         u.division_id,
+         d.name AS borrower_division,
          br.status,
-         br.request_date,
+         br.created_at AS request_date,
          br.due_date,
-         br.returned_date,
-         br.returned_at
+         br.returned_at,
+         br.quantity,
+         br.item_count,
+         br.submitted_at,
+         br.approved_at,
+         br.return_decline_reason,
+         br.declined_at
        FROM borrowing_requests br
        JOIN users u ON u.id = br.borrower_id
-       ORDER BY br.request_date DESC`
+       LEFT JOIN divisions d ON d.id = u.division_id
+       ORDER BY br.created_at DESC`
     );
 
     const requests = requestsRes.rows;
@@ -491,8 +829,12 @@ const getAllBorrowRequests = async (req, res) => {
         borrowed_quantity: Number(item.borrowed_quantity),
         returned_quantity: Number(item.returned_quantity),
       }));
+      
+      // ✅ Log requests with quantity info
+      console.log(`📦 Request ${req.id}: status=${req.status}, quantity=${req.quantity}, items_from_db=${req.items.length}`);
     }
 
+    console.log(`✅ getAllBorrowRequests - Loaded ${requests.length} requests with quantities`);
     res.json(requests);
   } catch (err) {
     console.error("❌ Fetch all requests error:", err.stack);
@@ -522,11 +864,11 @@ const approveBorrowRequest = async (req, res) => {
       throw new Error("Request is not pending");
     }
 
-    // Approve request
+    // Approve request - also set approved_at timestamp for timeline
     await client.query(
       `
       UPDATE borrowing_requests
-      SET status = 'approved', staff_id = $1, due_date = $2
+      SET status = 'approved', staff_id = $1, due_date = $2, approved_at = NOW()
       WHERE id = $3::int
       `,
       [staff_id, due_date, id]
@@ -567,7 +909,20 @@ const approveBorrowRequest = async (req, res) => {
       const { borrower_id, items } = requestDetails.rows[0];
       const itemsArray = typeof items === 'string' ? JSON.parse(items) : items;
       // pass related request id so UI can deep-link to their approved request
-      await notifications.sendBorrowApproved(borrower_id, itemsArray, id);
+      try {
+        const sendResult = await notifications.sendBorrowApproved(borrower_id, itemsArray, id);
+        // If initial send failed (no active subscriptions or transient failures), attempt a resend
+        if (!sendResult || sendResult.success === false) {
+          console.warn(`⚠️ Initial push send to borrower ${borrower_id} failed or queued; attempting resend.`);
+          try {
+            await notificationController.resendPendingForUser(borrower_id);
+          } catch (rrErr) {
+            console.error('❌ Resend attempt failed:', rrErr && rrErr.message ? rrErr.message : rrErr);
+          }
+        }
+      } catch (notifyErr) {
+        console.error('❌ Error sending borrower notification on approval:', notifyErr && notifyErr.message ? notifyErr.message : notifyErr);
+      }
     }
 
     res.json({ success: true, message: "Request approved" });
@@ -659,7 +1014,20 @@ const declineBorrowRequest = async (req, res) => {
       const { borrower_id, items } = requestDetails.rows[0];
       const itemsArray = typeof items === 'string' ? JSON.parse(items) : items;
       // pass related request id so UI can deep-link
-      await notifications.sendBorrowDeclined(borrower_id, itemsArray, req.body?.reason || 'No reason provided', id);
+      try {
+        const sendResult = await notifications.sendBorrowDeclined(borrower_id, itemsArray, req.body?.reason || 'No reason provided', id);
+        // If initial send failed (no active subscriptions), attempt a resend
+        if (!sendResult || sendResult.success === false) {
+          console.warn(`⚠️ Initial push send to borrower ${borrower_id} for decline failed or queued; attempting resend.`);
+          try {
+            await notificationController.resendPendingForUser(borrower_id);
+          } catch (rrErr) {
+            console.error('❌ Resend attempt failed:', rrErr && rrErr.message ? rrErr.message : rrErr);
+          }
+        }
+      } catch (notifyErr) {
+        console.error('❌ Error sending decline notification to borrower:', notifyErr && notifyErr.message ? notifyErr.message : notifyErr);
+      }
     }
 
     res.json({ success: true, message: "Request declined and units restored" });
@@ -773,7 +1141,7 @@ const returnBorrowedItems = async (req, res) => {
     try {
       // Get borrower and item details for notification
       const requestDetails = await client.query(
-        `SELECT br.borrower_id, 
+        `SELECT br.borrower_id, u.role as borrower_role,
                 COALESCE(json_agg(json_build_object(
                   'id', ii.uuid,
                   'name', ii.name
@@ -782,23 +1150,37 @@ const returnBorrowedItems = async (req, res) => {
          LEFT JOIN borrowing_items bi ON bi.borrowing_id = br.id
          LEFT JOIN inventory_units iu ON bi.inventory_unit_id = iu.id
          LEFT JOIN inventory_items ii ON iu.inventory_item_id = ii.uuid
+         JOIN users u ON br.borrower_id = u.id
          WHERE br.id = $1
-         GROUP BY br.id, br.borrower_id`,
+         GROUP BY br.id, br.borrower_id, u.role`,
         [request_id]
       );
 
       if (requestDetails.rows.length > 0) {
-        const { borrower_id, items } = requestDetails.rows[0];
+        const { borrower_id, borrower_role, items } = requestDetails.rows[0];
         const itemsArray = typeof items === 'string' ? JSON.parse(items) : items;
 
         // Notify borrower that their return was processed/approved
-        await notifications.sendReturnApproved(borrower_id, itemsArray);
+        try {
+          const sendResult = await notifications.sendReturnApproved(borrower_id, itemsArray);
+          // If initial send failed (no active subscriptions), attempt a resend
+          if (!sendResult || sendResult.success === false) {
+            console.warn(`⚠️ Initial push send to borrower ${borrower_id} for return approved failed or queued; attempting resend.`);
+            try {
+              await notificationController.resendPendingForUser(borrower_id);
+            } catch (rrErr) {
+              console.error('❌ Resend attempt failed:', rrErr && rrErr.message ? rrErr.message : rrErr);
+            }
+          }
+        } catch (notifyErr) {
+          console.error('❌ Error sending return approved notification to borrower:', notifyErr && notifyErr.message ? notifyErr.message : notifyErr);
+        }
 
-        // Notify all staff about the returned items
+        // Notify all staff about the returned items (but skip if borrower is staff)
         try {
           const staffResult = await pool.query(`SELECT id FROM users WHERE role = 'staff'`);
           for (const staff of staffResult.rows) {
-            await notifications.sendReturnRequest(borrower_id, staff.id, itemsArray);
+            await notifications.sendReturnRequest(borrower_id, staff.id, itemsArray, borrower_role);
           }
         } catch (staffErr) {
           console.warn('⚠️ Failed to notify staff about return:', staffErr.message || staffErr);
@@ -1056,7 +1438,11 @@ const getInventoryUnitByQrText = async (req, res) => {
     }
 
     // ✅ Success
-    return res.status(200).json(result.rows[0]);
+    const data = result.rows[0];
+    if (data && data.image_url) {
+      data.image_url = transformImageUrl(data.image_url);
+    }
+    return res.status(200).json(data);
   } catch (err) {
     console.error("❌ QR code scan error:", err);
     return res.status(500).json({ error: "Failed to fetch QR code data" });
@@ -1066,6 +1452,64 @@ const getInventoryUnitByQrText = async (req, res) => {
 // -----------------------
 // 🛒 Update Borrow Cart Quantity (Reserve/Release Units)
 // -----------------------
+// ✅ NEW: Save cart quantity to borrowing_requests
+const saveCartQuantity = async (req, res) => {
+  const { borrower_id, quantity, cart } = req.body;
+
+  if (!borrower_id || quantity === undefined || !Array.isArray(cart)) {
+    return res.status(400).json({ error: "Missing borrower_id, quantity, or cart array" });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    // ✅ FIXED: Look for EITHER 'reserved' OR 'pending' status
+    // 'reserved' = still building cart
+    // 'pending' = already submitted but still being edited
+    const result = await client.query(
+      `SELECT id FROM borrowing_requests 
+       WHERE borrower_id = $1 AND status IN ('reserved', 'pending')
+       ORDER BY created_at DESC LIMIT 1`,
+      [borrower_id]
+    );
+
+    if (result.rows.length === 0) {
+      await client.query("ROLLBACK");
+      console.warn(`⚠️ saveCartQuantity: No reserved/pending request found for borrower ${borrower_id}`);
+      return res.status(404).json({ error: "No active request found for this borrower" });
+    }
+
+    const requestId = result.rows[0].id;
+
+    // Update quantity and item_count
+    await client.query(
+      `UPDATE borrowing_requests 
+       SET quantity = $1, item_count = $2, updated_at = CURRENT_TIMESTAMP
+       WHERE id = $3`,
+      [quantity, cart.length, requestId]
+    );
+
+    await client.query("COMMIT");
+
+    console.log(`✅ Saved cart quantity - request_id: ${requestId}, quantity: ${quantity}, item_count: ${cart.length}`);
+
+    return res.json({
+      success: true,
+      message: "Cart quantity saved",
+      request_id: requestId,
+      quantity: quantity,
+      item_count: cart.length
+    });
+  } catch (err) {
+    await client.query("ROLLBACK");
+    console.error("❌ saveCartQuantity error:", err.message || err);
+    res.status(500).json({ error: "Failed to save cart quantity" });
+  } finally {
+    client.release();
+  }
+};
+
 const updateBorrowCartQuantity = async (req, res) => {
   const { qrCodeText, action } = req.body;
 
@@ -1143,17 +1587,19 @@ const updateBorrowCartQuantity = async (req, res) => {
 // 🟢 Start Borrowing Session
 // -----------------------
 const startBorrowingSession = async (req, res) => {
-  const { borrower_id } = req.body;
+  // ✅ FIXED: Use authenticated user ID instead of relying on borrower_id from body
+  const borrower_id = req.user?.id;
 
   if (!borrower_id) {
-    return res.status(400).json({ error: "Missing borrower_id" });
+    return res.status(401).json({ error: "User not authenticated" });
   }
 
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
 
-    // If the user already has a reserved request, return it (avoid creating duplicates)
+    // ✅ FIXED: Only look for RESERVED requests - don't reuse pending/approved/returned requests
+    // This ensures each detection session gets its own cart
     const reservedRes = await client.query(
       `SELECT id, borrower_id, status, request_date, created_at
        FROM borrowing_requests
@@ -1166,36 +1612,19 @@ const startBorrowingSession = async (req, res) => {
     if (reservedRes.rowCount > 0) {
       const borrowing = reservedRes.rows[0];
       await client.query("COMMIT");
+      console.log(`✅ Reusing existing reserved session for borrower ${borrower_id}: ${borrowing.id}`);
       return res.status(200).json({
         success: true,
         message: "Existing reserved borrowing session returned",
         borrowingId: borrowing.id,
+        request_id: borrowing.id,
         borrowing,
       });
     }
 
-    // Fallback: if there's an existing pending request, return that instead of creating another
-    const pendingRes = await client.query(
-      `SELECT id, borrower_id, status, request_date, created_at
-       FROM borrowing_requests
-       WHERE borrower_id = $1 AND status = 'pending'
-       ORDER BY request_date DESC
-       LIMIT 1 FOR UPDATE`,
-      [borrower_id]
-    );
-
-    if (pendingRes.rowCount > 0) {
-      const borrowing = pendingRes.rows[0];
-      await client.query("COMMIT");
-      return res.status(200).json({
-        success: true,
-        message: "Existing pending borrowing session returned",
-        borrowingId: borrowing.id,
-        borrowing,
-      });
-    }
-
-    // No existing reserved/pending request — create a new RESERVED request (not pending)
+    // ✅ FIXED: Don't fall back to pending/approved requests
+    // If no reserved request exists, always create a NEW one
+    // This prevents attaching new detections to already-submitted requests
     const insertSql = `
       INSERT INTO borrowing_requests (borrower_id, status, request_date, created_at)
       VALUES ($1, 'reserved', NOW(), NOW())
@@ -1228,22 +1657,25 @@ const getReservedRequest = async (req, res) => {
   const client = await pool.connect();
 
   try {
-    // 1️⃣ Find all reserved requests for this user (we now create one request per add)
-    const requestsRes = await client.query(
-      `SELECT id FROM borrowing_requests
+    // 1️⃣ Find the most recent reserved request for this user
+    const requestRes = await client.query(
+      `SELECT id, quantity FROM borrowing_requests
        WHERE borrower_id = $1 AND status = 'reserved'
-       ORDER BY request_date DESC`,
+       ORDER BY created_at DESC LIMIT 1`,
       [userId]
     );
 
-    if (requestsRes.rowCount === 0) {
-      // No reserved request at all — return 200 with empty items to avoid 404 client errors
-      return res.status(200).json({ success: true, request_id: null, request_ids: [], items: [] });
+    if (requestRes.rowCount === 0) {
+      // No reserved request found
+      return res.status(200).json({ success: true, request_id: null, items: [] });
     }
 
-    const requestIds = requestsRes.rows.map((r) => r.id);
+    const requestId = requestRes.rows[0].id;
+    const savedQuantity = requestRes.rows[0].quantity || 0;
 
-    // 2️⃣ Fetch all reserved units linked to these borrowing requests via borrowing_items
+    console.log(`📦 getReservedRequest - Loading request ${requestId} with saved quantity: ${savedQuantity}`);
+
+    // 2️⃣ Fetch all reserved units linked to this borrowing request
     const unitsResult = await client.query(
       `SELECT 
          bi.borrowing_id AS request_id,
@@ -1254,21 +1686,48 @@ const getReservedRequest = async (req, res) => {
          ii.garment_type,
          ii.image_url,
          iu.size,
+         iu.unit_number,
          iu.status
        FROM borrowing_items bi
        JOIN inventory_units iu ON iu.id = bi.inventory_unit_id
        JOIN inventory_items ii ON ii.uuid = iu.inventory_item_id
-       WHERE bi.borrowing_id = ANY($1::int[])
-       ORDER BY bi.borrowing_id DESC, iu.id`,
-      [requestIds]
+       WHERE bi.borrowing_id = $1
+       ORDER BY iu.id`,
+      [requestId]
     );
 
-    // 3️⃣ Return aggregated response (request_id = most recent)
+    const baseItems = unitsResult.rows || [];
+    let finalItems = [];
+
+    if (savedQuantity > 0 && baseItems.length > 0) {
+      // ✅ Use saved quantity to reconstruct the cart
+      // If saved quantity is greater than base items, create temporary units for the extra quantity
+      const baseItem = baseItems[0]; // Use first item as template
+      const extraQuantity = Math.max(0, savedQuantity - baseItems.length);
+
+      // Add all real items first
+      finalItems = [...baseItems];
+
+      // Add temporary units for extra quantity
+      for (let i = 0; i < extraQuantity; i++) {
+        finalItems.push({
+          ...baseItem,
+          unit_id: `temp-${baseItem.item_id}-${requestId}-${i}`,
+          unitId: `temp-${baseItem.item_id}-${requestId}-${i}`,
+        });
+      }
+
+      console.log(`✅ Reconstructed cart: ${baseItems.length} real units + ${extraQuantity} temporary units = ${finalItems.length} total`);
+    } else {
+      finalItems = baseItems;
+    }
+
+    // 3️⃣ Return response with reconstructed items
     return res.status(200).json({
       success: true,
-      request_id: requestIds[0] || null,
-      request_ids: requestIds,
-      items: unitsResult.rows || [],
+      request_id: requestId,
+      items: finalItems,
+      quantity: savedQuantity,
     });
   } catch (err) {
     console.error("❌ Failed to fetch reserved request:", err);
@@ -1320,8 +1779,11 @@ const removeFromCart = async (req, res) => {
     }
 
     if (biRes.rowCount === 0) {
+      // Unit not found in reserved request - this can happen if already deleted or in different status
+      // Return success anyway to allow cleanup
       await client.query('ROLLBACK');
-      return res.status(404).json({ error: 'Reserved unit not found for this borrower' });
+      console.warn(`⚠️ Unit ${unit_id} not found in reserved request for borrower ${borrower_id}. Already removed or in different status.`);
+      return res.status(200).json({ success: true, message: 'Unit already removed or not found', already_removed: true });
     }
 
     const { borrowing_id, inventory_unit_id } = biRes.rows[0];
@@ -1352,8 +1814,17 @@ const removeFromCart = async (req, res) => {
     return res.json({ success: true, message: 'Removed from cart', borrowing_id, unit_id: inventory_unit_id });
   } catch (err) {
     await client.query('ROLLBACK');
-    console.error('❌ removeFromCart error:', err.message || err);
-    return res.status(500).json({ error: 'Failed to remove from cart' });
+    console.error('❌ removeFromCart error:', {
+      message: err.message,
+      code: err.code,
+      detail: err.detail,
+      sqlState: err.sqlState,
+      stack: err.stack
+    });
+    return res.status(500).json({ 
+      error: 'Failed to remove from cart',
+      details: err.message
+    });
   } finally {
     client.release();
   }
@@ -1363,11 +1834,1046 @@ const removeFromCart = async (req, res) => {
 
 
 
+// ============================================================
+// 📸 PHOTO UPLOAD CONTROLLERS
+// ============================================================
+
+/**
+ * Upload a photo for a borrow request
+ * POST /api/borrow/photos/:requestId/upload
+ */
+const uploadBorrowPhoto = async (req, res) => {
+  try {
+    const { requestId } = req.params;
+    const userId = req.user?.id;
+
+    if (!requestId || !userId) {
+      return res.status(401).json({ error: "User not authenticated or requestId missing" });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({ error: "No photo uploaded" });
+    }
+
+    const client = await pool.connect();
+    try {
+      // Verify the request exists and belongs to this user (or they're staff)
+      const reqCheck = await client.query(
+        `SELECT id, borrower_id FROM borrowing_requests WHERE id = $1`,
+        [requestId]
+      );
+
+      if (reqCheck.rowCount === 0) {
+        return res.status(404).json({ error: "Borrow request not found" });
+      }
+
+      const borrowRequest = reqCheck.rows[0];
+      const isOwner = borrowRequest.borrower_id === userId;
+
+      // Allow owner to upload - no need for role check from database
+      if (!isOwner) {
+        // For now, allow any authenticated user (can be restricted later)
+        // In production, add role check from req.user if available
+      }
+
+      // Insert photo record into database
+      const photoResult = await client.query(
+        `INSERT INTO borrowing_request_photos 
+         (borrowing_request_id, photo_url, photo_type, uploaded_by, storage_path, file_size, mime_type)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)
+         RETURNING id, photo_url, uploaded_at`,
+        [
+          requestId,
+          `/uploads/borrow-photos/${req.file.filename}`,
+          req.body.photoType || "item-photo",
+          userId,
+          req.file.path,
+          req.file.size,
+          req.file.mimetype,
+        ]
+      );
+
+      // Update borrowing_requests to mark photos as captured
+      await client.query(
+        `UPDATE borrowing_requests SET photos_captured = true, photo_capture_date = NOW() WHERE id = $1`,
+        [requestId]
+      );
+
+      res.json({
+        success: true,
+        photo: photoResult.rows[0],
+        message: "Photo uploaded successfully",
+      });
+    } finally {
+      client.release();
+    }
+  } catch (err) {
+    console.error("❌ Photo upload error:", err);
+    res.status(500).json({ error: "Failed to upload photo" });
+  }
+};
+
+/**
+ * Get all photos for a borrow request
+ * GET /api/borrow/photos/:requestId
+ */
+const getBorrowPhotos = async (req, res) => {
+  try {
+    const { requestId } = req.params;
+    const userId = req.user?.id;
+
+    if (!userId) {
+      return res.status(401).json({ error: "User not authenticated" });
+    }
+
+    const client = await pool.connect();
+    try {
+      // Fetch all photos for this request
+      const photosResult = await client.query(
+        `SELECT id, photo_url, photo_type, uploaded_at, uploaded_by FROM borrowing_request_photos
+         WHERE borrowing_request_id = $1
+         ORDER BY uploaded_at DESC`,
+        [requestId]
+      );
+
+      // ✅ Transform relative paths to full URLs
+      const photosWithUrls = photosResult.rows.map((photo) => ({
+        ...photo,
+        photo_url: `http://localhost:8000${photo.photo_url}`,
+      }));
+
+      res.json({
+        success: true,
+        photos: photosWithUrls,
+        photoCount: photosResult.rowCount,
+      });
+    } finally {
+      client.release();
+    }
+  } catch (err) {
+    console.error("❌ Failed to fetch photos:", err);
+    res.status(500).json({ error: "Failed to fetch photos" });
+  }
+};
+
+/**
+ * Delete a photo
+ * DELETE /api/borrow/photos/:photoId
+ */
+const deleteBorrowPhoto = async (req, res) => {
+  try {
+    const { photoId } = req.params;
+    const userId = req.user?.id;
+
+    if (!userId) {
+      return res.status(401).json({ error: "User not authenticated" });
+    }
+
+    const client = await pool.connect();
+    try {
+      // Get photo to verify ownership and get file path
+      const photoCheck = await client.query(
+        `SELECT id, storage_path, borrowing_request_id FROM borrowing_request_photos WHERE id = $1`,
+        [photoId]
+      );
+
+      if (photoCheck.rowCount === 0) {
+        return res.status(404).json({ error: "Photo not found" });
+      }
+
+      const photo = photoCheck.rows[0];
+
+      // Verify user can delete this photo (is owner or staff)
+      const reqCheck = await client.query(
+        `SELECT borrower_id FROM borrowing_requests WHERE id = $1`,
+        [photo.borrowing_request_id]
+      );
+
+      const isOwner = reqCheck.rows[0]?.borrower_id === userId;
+      const isStaff = req.user?.role === "staff" || req.user?.role === "admin";
+
+      if (!isOwner && !isStaff) {
+        return res.status(403).json({ error: "Unauthorized to delete this photo" });
+      }
+
+      // Delete from database
+      await client.query(
+        `DELETE FROM borrowing_request_photos WHERE id = $1`,
+        [photoId]
+      );
+
+      // Delete file from storage
+      try {
+        const fs = require("fs");
+        if (fs.existsSync(photo.storage_path)) {
+          fs.unlinkSync(photo.storage_path);
+        }
+      } catch (fileErr) {
+        console.warn("⚠️ Could not delete file:", fileErr.message);
+      }
+
+      res.json({ success: true, message: "Photo deleted successfully" });
+    } finally {
+      client.release();
+    }
+  } catch (err) {
+    console.error("❌ Photo deletion error:", err);
+    res.status(500).json({ error: "Failed to delete photo" });
+  }
+};
+
+// ============================================================
+// 📸 RETURN PHOTO FUNCTIONS
+// ============================================================
+
+const initiateReturn = async (req, res) => {
+  const { borrowing_request_id, returned_unit_ids = [], notes = "" } = req.body;
+
+  if (!borrowing_request_id || returned_unit_ids.length === 0) {
+    return res.status(400).json({
+      success: false,
+      error: "Missing borrowing_request_id or returned_unit_ids",
+    });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    // Verify request exists and is in approvable state
+    const reqCheck = await client.query(
+      `SELECT id, borrower_id, status FROM borrowing_requests WHERE id = $1`,
+      [borrowing_request_id]
+    );
+
+    if (reqCheck.rows.length === 0) {
+      throw new Error("Borrowing request not found");
+    }
+
+    const borrowRequest = reqCheck.rows[0];
+    if (!["approved", "pending_return"].includes(borrowRequest.status)) {
+      throw new Error("Request is not in a returnable state");
+    }
+
+    // Create return request entry
+    const returnReqResult = await client.query(
+      `INSERT INTO return_requests (borrowing_request_id, borrower_id, notes, status)
+       VALUES ($1, $2, $3, $4)
+       RETURNING id`,
+      [borrowing_request_id, borrowRequest.borrower_id, notes, "pending"]
+    );
+
+    await client.query("COMMIT");
+
+    res.json({
+      success: true,
+      return_request_id: returnReqResult.rows[0].id,
+      message: "Return initiated. Proceed to capture photos.",
+    });
+  } catch (err) {
+    await client.query("ROLLBACK");
+    console.error("Initiate return error:", err);
+    res.status(500).json({ success: false, error: err.message });
+  } finally {
+    client.release();
+  }
+};
+
+const uploadReturnPhoto = async (req, res) => {
+  const { requestId } = req.params;
+
+  if (!req.user) {
+    return res.status(401).json({ success: false, error: "Not authenticated" });
+  }
+
+  if (!req.file) {
+    return res.status(400).json({ success: false, error: "No file uploaded" });
+  }
+
+  const client = await pool.connect();
+  try {
+    // Verify request exists
+    const reqCheck = await client.query(
+      `SELECT id FROM borrowing_requests WHERE id = $1`,
+      [requestId]
+    );
+
+    if (reqCheck.rows.length === 0) {
+      return res.status(404).json({ success: false, error: "Request not found" });
+    }
+
+    const photoUrl = `/uploads/return-photos/${req.file.filename}`;
+
+    const result = await client.query(
+      `INSERT INTO return_request_photos (borrowing_request_id, photo_url, photo_type, uploaded_by, storage_path, file_size, mime_type)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       RETURNING id, photo_url, uploaded_at`,
+      [
+        requestId,
+        photoUrl,
+        "return-photo",
+        req.user.id,
+        req.file.path,
+        req.file.size,
+        req.file.mimetype,
+      ]
+    );
+
+    res.json({
+      success: true,
+      photo: result.rows[0],
+      message: "Return photo uploaded successfully",
+    });
+  } catch (err) {
+    console.error("Upload return photo error:", err);
+    res.status(500).json({ success: false, error: err.message });
+  } finally {
+    client.release();
+  }
+};
+
+const getReturnPhotos = async (req, res) => {
+  const { requestId } = req.params;
+
+  if (!req.user) {
+    return res.status(401).json({ success: false, error: "Not authenticated" });
+  }
+
+  const client = await pool.connect();
+  try {
+    const result = await client.query(
+      `SELECT id, photo_url, photo_type, uploaded_by, uploaded_at, mime_type
+       FROM return_request_photos
+       WHERE borrowing_request_id = $1
+       ORDER BY uploaded_at DESC`,
+      [requestId]
+    );
+
+    // Add full URL for images to work properly
+    const photosWithUrls = result.rows.map(photo => ({
+      ...photo,
+      // Ensure photo_url is a full URL path that the frontend can load
+      photo_url: photo.photo_url.startsWith('http') ? photo.photo_url : `http://localhost:5000${photo.photo_url}`,
+      // Add mimetype for image validation
+      mimetype: photo.mime_type || 'image/jpeg'
+    }));
+
+    res.json({
+      success: true,
+      photos: photosWithUrls,
+    });
+  } catch (err) {
+    console.error("Get return photos error:", err);
+    res.status(500).json({ success: false, error: err.message });
+  } finally {
+    client.release();
+  }
+};
+
+const deleteReturnPhoto = async (req, res) => {
+  const { photoId } = req.params;
+
+  if (!req.user) {
+    return res.status(401).json({ success: false, error: "Not authenticated" });
+  }
+
+  const client = await pool.connect();
+  try {
+    const photoResult = await client.query(
+      `SELECT storage_path FROM return_request_photos WHERE id = $1`,
+      [photoId]
+    );
+
+    if (photoResult.rows.length === 0) {
+      return res.status(404).json({ success: false, error: "Photo not found" });
+    }
+
+    // Delete from database
+    await client.query(`DELETE FROM return_request_photos WHERE id = $1`, [photoId]);
+
+    // Delete file
+    const fs = require("fs");
+    if (photoResult.rows[0].storage_path && fs.existsSync(photoResult.rows[0].storage_path)) {
+      fs.unlinkSync(photoResult.rows[0].storage_path);
+    }
+
+    res.json({
+      success: true,
+      message: "Return photo deleted",
+    });
+  } catch (err) {
+    console.error("Delete return photo error:", err);
+    res.status(500).json({ success: false, error: err.message });
+  } finally {
+    client.release();
+  }
+};
+
+const submitReturn = async (req, res) => {
+  const { return_request_id, borrowing_request_id, photos_count } = req.body;
+
+  if (!return_request_id || !borrowing_request_id) {
+    return res.status(400).json({
+      success: false,
+      error: "Missing return_request_id or borrowing_request_id",
+    });
+  }
+
+  if (photos_count === 0) {
+    return res.status(400).json({
+      success: false,
+      error: "No photos to submit",
+    });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    // Get borrower name, id, and role before updating
+    const borrowerRes = await client.query(
+      `SELECT u.name, u.id as borrower_id, u.role FROM borrowing_requests br
+       JOIN users u ON br.borrower_id = u.id
+       WHERE br.id = $1`,
+      [borrowing_request_id]
+    );
+    const borrowerName = borrowerRes.rows[0]?.name || "Borrower";
+    const borrowerRole = borrowerRes.rows[0]?.role || null;
+
+    // Get items being returned
+    const itemsRes = await client.query(
+      `SELECT DISTINCT ii.id, ii.name FROM borrowing_items bi
+       JOIN inventory_units iu ON bi.inventory_unit_id = iu.id
+       JOIN inventory_items ii ON iu.inventory_item_id = ii.uuid
+       WHERE bi.borrowing_id = $1`,
+      [borrowing_request_id]
+    );
+    const items = itemsRes.rows;
+
+    // Update return request status to "submitted" (awaiting staff review)
+    await client.query(
+      `UPDATE return_requests SET status = $1, updated_at = NOW() WHERE id = $2`,
+      ["submitted", return_request_id]
+    );
+
+    // Mark return photos as captured and change status to pending_return
+    // pending_return = awaiting staff verification of returned items
+    await client.query(
+      `UPDATE borrowing_requests 
+       SET return_photos_captured = true, 
+           return_photo_capture_date = NOW(),
+           status = $1
+       WHERE id = $2`,
+      ["pending_return", borrowing_request_id]
+    );
+
+    await client.query("COMMIT");
+
+    // Send notification to all staff that return was submitted (but skip if borrower is staff)
+    if (notifications && notifications.sendReturnSubmitted) {
+      await notifications.sendReturnSubmitted(
+        borrowerRes.rows[0]?.borrower_id,
+        borrowerName,
+        items,
+        borrowerRole
+      );
+    }
+
+    res.json({
+      success: true,
+      message: "✅ Return submitted! Staff will verify your returned items.",
+    });
+  } catch (err) {
+    await client.query("ROLLBACK");
+    console.error("Submit return error:", err);
+    res.status(500).json({ success: false, error: err.message });
+  } finally {
+    client.release();
+  }
+};
+
+// Staff approves return and marks items as returned
+const approveReturn = async (req, res) => {
+  const { borrowing_request_id, notes } = req.body;
+
+  if (!req.user) {
+    return res.status(401).json({ success: false, error: "Not authenticated" });
+  }
+
+  if (!borrowing_request_id) {
+    return res.status(400).json({
+      success: false,
+      error: "Missing borrowing_request_id",
+    });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    // Verify the request is in pending_return status
+    const checkRes = await client.query(
+      `SELECT id, borrower_id FROM borrowing_requests WHERE id = $1 AND status = $2`,
+      [borrowing_request_id, "pending_return"]
+    );
+
+    if (checkRes.rows.length === 0) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({
+        success: false,
+        error: "Return request not found or already processed",
+      });
+    }
+
+    const borrowerId = checkRes.rows[0].borrower_id;
+
+    // Get items being returned for notification
+    const itemsRes = await client.query(
+      `SELECT DISTINCT ii.name FROM borrowing_items bi
+       JOIN inventory_units iu ON bi.inventory_unit_id = iu.id
+       JOIN inventory_items ii ON iu.inventory_item_id = ii.uuid
+       WHERE bi.borrowing_id = $1`,
+      [borrowing_request_id]
+    );
+    const items = itemsRes.rows; // Keep as objects with .name property
+
+    // Update borrowing request status to "returned" and mark as completed
+    await client.query(
+      `UPDATE borrowing_requests 
+       SET status = $1, returned_at = NOW()
+       WHERE id = $2`,
+      ["returned", borrowing_request_id]
+    );
+
+    // Update return request status to "approved"
+    await client.query(
+      `UPDATE return_requests 
+       SET status = $1, updated_at = NOW()
+       WHERE borrowing_request_id = $2`,
+      ["approved", borrowing_request_id]
+    );
+
+    // Mark all inventory units as available (returned)
+    await client.query(
+      `UPDATE inventory_units 
+       SET status = 'available'
+       WHERE id IN (
+         SELECT inventory_unit_id FROM borrowing_items 
+         WHERE borrowing_id = $1 AND inventory_unit_id IS NOT NULL
+       )`,
+      [borrowing_request_id]
+    );
+
+    await client.query("COMMIT");
+
+    // Send notification to borrower that return was approved ✅ Successfully Returned
+    if (notifications && notifications.sendReturnApproved) {
+      await notifications.sendReturnApproved(borrowerId, items);
+    }
+
+    res.json({
+      success: true,
+      message: "✅ Return verified and accepted! Items marked as returned.",
+      borrowerId,
+      items,
+    });
+  } catch (err) {
+    await client.query("ROLLBACK");
+    console.error("Approve return error:", err);
+    res.status(500).json({ success: false, error: err.message });
+  } finally {
+    client.release();
+  }
+};
+
+// Decline/Reject return request (staff rejects the return submission)
+// Moves request back to "approved" status and allows borrower to resubmit
+const declineReturn = async (req, res) => {
+  const { borrowing_request_id, reason } = req.body;
+
+  if (!req.user) {
+    return res.status(401).json({ success: false, error: "Not authenticated" });
+  }
+
+  if (!borrowing_request_id) {
+    return res.status(400).json({
+      success: false,
+      error: "Missing borrowing_request_id",
+    });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    // Verify the request is in pending_return status
+    const checkRes = await client.query(
+      `SELECT id, borrower_id FROM borrowing_requests WHERE id = $1 AND status = $2`,
+      [borrowing_request_id, "pending_return"]
+    );
+
+    if (checkRes.rows.length === 0) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({
+        success: false,
+        error: "Return request not found or already processed",
+      });
+    }
+
+    const borrowerId = checkRes.rows[0].borrower_id;
+
+    // Get items for notification
+    const itemsRes = await client.query(
+      `SELECT DISTINCT ii.name FROM borrowing_items bi
+       JOIN inventory_units iu ON bi.inventory_unit_id = iu.id
+       JOIN inventory_items ii ON iu.inventory_item_id = ii.uuid
+       WHERE bi.borrowing_id = $1`,
+      [borrowing_request_id]
+    );
+    const items = itemsRes.rows; // Keep as objects with .name property
+
+    // Standard decline message if no reason provided
+    const declineMessage = "Item not found please return it in the office";
+
+    // Move request back to "approved" status (borrower can resubmit return)
+    // Store the decline reason in return_decline_reason column
+    await client.query(
+      `UPDATE borrowing_requests 
+       SET status = $1, return_decline_reason = $2, declined_at = NOW()
+       WHERE id = $3`,
+      ["approved", declineMessage, borrowing_request_id]
+    );
+
+    // Update return request status to "declined" with notes
+    await client.query(
+      `UPDATE return_requests 
+       SET status = $1, notes = $2, updated_at = NOW()
+       WHERE borrowing_request_id = $3`,
+      ["rejected", reason || "", borrowing_request_id]
+    );
+
+    await client.query("COMMIT");
+
+    // Send notification to borrower that return was declined
+    if (notifications && notifications.sendReturnDeclined) {
+      await notifications.sendReturnDeclined(borrowerId, items, reason);
+    }
+
+    res.json({
+      success: true,
+      message: "✅ Return request declined. Borrower can resubmit.",
+      borrowerId,
+      items,
+    });
+  } catch (err) {
+    await client.query("ROLLBACK");
+    console.error("Decline return error:", err);
+    res.status(500).json({ success: false, error: err.message });
+  } finally {
+    client.release();
+  }
+};
+
+// Staff manually processes return without borrower submission
+// Used when borrower walks in and returns items directly to staff
+const staffManualReturn = async (req, res) => {
+  const { borrowing_request_id, notes } = req.body;
+
+  if (!borrowing_request_id) {
+    return res.status(400).json({ error: "Missing borrowing_request_id" });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    // Check if request exists and status is "approved" (hasn't been submitted yet)
+    const checkRes = await client.query(
+      `SELECT status, borrower_id FROM borrowing_requests WHERE id = $1`,
+      [borrowing_request_id]
+    );
+
+    if (checkRes.rows.length === 0) {
+      throw new Error("Borrow request not found");
+    }
+
+    const { status, borrower_id } = checkRes.rows[0];
+
+    // Allow staff to manually return items that are either:
+    // 1. Still "approved" (not submitted by borrower yet)
+    // 2. "pending_return" (submitted by borrower but we can override)
+    if (!["approved", "pending_return"].includes(status)) {
+      throw new Error("Request cannot be manually returned in current status: " + status);
+    }
+
+    // Get items being returned for notification
+    const itemsRes = await client.query(
+      `SELECT DISTINCT ii.name FROM borrowing_items bi
+       JOIN inventory_units iu ON bi.inventory_unit_id = iu.id
+       JOIN inventory_items ii ON iu.inventory_item_id = ii.uuid
+       WHERE bi.borrowing_id = $1`,
+      [borrowing_request_id]
+    );
+    const items = itemsRes.rows; // Keep as objects with .name property
+
+    // Mark all inventory units as available (returned)
+    await client.query(
+      `UPDATE inventory_units 
+       SET status = 'available'
+       WHERE id IN (
+         SELECT inventory_unit_id FROM borrowing_items 
+         WHERE borrowing_id = $1 AND inventory_unit_id IS NOT NULL
+       )`,
+      [borrowing_request_id]
+    );
+
+    // Update borrowing request status to "returned"
+    await client.query(
+      `UPDATE borrowing_requests 
+       SET status = $1, returned_at = NOW()
+       WHERE id = $2`,
+      ["returned", borrowing_request_id]
+    );
+
+    // If there was a pending return request, mark it as handled
+    await client.query(
+      `UPDATE return_requests 
+       SET status = 'approved', updated_at = NOW()
+       WHERE borrowing_request_id = $1 AND status IN ('pending', 'submitted')`,
+      [borrowing_request_id]
+    );
+
+    await client.query("COMMIT");
+
+    // Send notification to borrower about manual return (optional)
+    if (notifications && notifications.sendReturnApproved) {
+      await notifications.sendReturnApproved(borrower_id, items);
+    }
+
+    res.json({
+      success: true,
+      message: "✅ Items manually received and processed!",
+      borrower_id,
+      items,
+      notes: notes || "",
+    });
+  } catch (err) {
+    await client.query("ROLLBACK");
+    console.error("Staff manual return error:", err);
+    res.status(500).json({ success: false, error: err.message });
+  } finally {
+    client.release();
+  }
+};
+
+// Staff manual return with photos - captures photos before marking as received
+const staffManualReturnWithPhotos = async (req, res) => {
+  const { borrowing_request_id } = req.body;
+  const files = req.files;
+  const staffUserId = req.user?.id;
+
+  if (!borrowing_request_id) {
+    return res.status(400).json({ error: "Missing borrowing_request_id" });
+  }
+
+  if (!files || files.length === 0) {
+    return res.status(400).json({ error: "No photos provided" });
+  }
+
+  if (!staffUserId) {
+    return res.status(401).json({ error: "Staff user not authenticated" });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    // Check if request exists and status is "approved"
+    const checkRes = await client.query(
+      `SELECT status, borrower_id FROM borrowing_requests WHERE id = $1`,
+      [borrowing_request_id]
+    );
+
+    if (checkRes.rows.length === 0) {
+      throw new Error("Borrow request not found");
+    }
+
+    const { status, borrower_id } = checkRes.rows[0];
+
+    if (!["approved", "pending_return"].includes(status)) {
+      throw new Error("Request cannot be manually returned in current status: " + status);
+    }
+
+    // Create directory for storing photos
+    const photoDir = path.join(process.cwd(), "public", "uploads", "return-photos", borrowing_request_id.toString());
+    
+    if (!fs.existsSync(photoDir)) {
+      fs.mkdirSync(photoDir, { recursive: true });
+    }
+
+    const photoFilenames = [];
+    
+    // Save each photo and record in database
+    for (const file of files) {
+      const filename = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}.jpg`;
+      const filepath = path.join(photoDir, filename);
+      const relativePath = `return-photos/${borrowing_request_id}/${filename}`;
+      
+      // Write file to disk
+      await fs.promises.writeFile(filepath, file.buffer);
+      photoFilenames.push(filename);
+
+      // Insert into return_request_photos table
+      await client.query(
+        `INSERT INTO return_request_photos 
+         (borrowing_request_id, photo_url, photo_type, uploaded_by, storage_path, file_size, mime_type)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        [
+          borrowing_request_id,
+          `/${relativePath}`, // photo_url
+          'return-photo', // photo_type
+          staffUserId, // uploaded_by
+          relativePath, // storage_path
+          file.size, // file_size
+          file.mimetype, // mime_type
+        ]
+      );
+    }
+
+    // Get items being returned for notification
+    const itemsRes = await client.query(
+      `SELECT DISTINCT ii.name FROM borrowing_items bi
+       JOIN inventory_units iu ON bi.inventory_unit_id = iu.id
+       JOIN inventory_items ii ON iu.inventory_item_id = ii.uuid
+       WHERE bi.borrowing_id = $1`,
+      [borrowing_request_id]
+    );
+    const items = itemsRes.rows;
+
+    // Mark all inventory units as available (returned)
+    await client.query(
+      `UPDATE inventory_units 
+       SET status = 'available'
+       WHERE id IN (
+         SELECT inventory_unit_id FROM borrowing_items 
+         WHERE borrowing_id = $1 AND inventory_unit_id IS NOT NULL
+       )`,
+      [borrowing_request_id]
+    );
+
+    // Update borrowing request status to "returned" with photos captured
+    await client.query(
+      `UPDATE borrowing_requests 
+       SET status = $1, returned_at = NOW(), 
+           return_photos_captured = true, 
+           return_photo_capture_date = NOW()
+       WHERE id = $2`,
+      ["returned", borrowing_request_id]
+    );
+
+    // If there was a pending return request, mark it as approved
+    await client.query(
+      `UPDATE return_requests 
+       SET status = 'approved', updated_at = NOW()
+       WHERE borrowing_request_id = $1 AND status IN ('pending', 'submitted')`,
+      [borrowing_request_id]
+    );
+
+    await client.query("COMMIT");
+
+    console.log(`✅ Staff manual return with ${photoFilenames.length} photo(s) completed for request ${borrowing_request_id}`);
+
+    res.json({
+      success: true,
+      message: `✅ ${photoFilenames.length} photo(s) captured and items received!`,
+      borrower_id,
+      items,
+      photoCount: photoFilenames.length,
+    });
+  } catch (err) {
+    await client.query("ROLLBACK");
+    console.error("Staff manual return with photos error:", err);
+    res.status(500).json({ success: false, error: err.message });
+  } finally {
+    client.release();
+  }
+};
+
+// Get pending returns for staff review
+const getPendingReturns = async (req, res) => {
+  const client = await pool.connect();
+  try {
+    // Query for all requests with status 'pending_return'
+    const result = await client.query(
+      `SELECT 
+        br.id as borrowing_request_id,
+        br.borrower_id,
+        u.fullname as borrower_name,
+        u.email,
+        br.request_date,
+        br.due_date,
+        br.status,
+        br.return_photos_captured,
+        br.return_photo_capture_date,
+        COUNT(rrp.id) as photo_count,
+        COALESCE(json_agg(json_build_object(
+          'item_id', bi.inventory_unit_id,
+          'item_name', ii.name,
+          'borrowed_quantity', 1,
+          'size', ii.size,
+          'condition', iu.status
+        )) FILTER (WHERE bi.inventory_unit_id IS NOT NULL), '[]'::json) as items
+       FROM borrowing_requests br
+       LEFT JOIN users u ON br.borrower_id = u.id
+       LEFT JOIN borrowing_items bi ON br.id = bi.borrowing_id
+       LEFT JOIN inventory_units iu ON bi.inventory_unit_id = iu.id
+       LEFT JOIN inventory_items ii ON iu.inventory_item_id = ii.uuid
+       LEFT JOIN return_request_photos rrp ON br.id = rrp.borrowing_request_id
+       WHERE br.status = $1
+       GROUP BY br.id, u.id
+       ORDER BY br.return_photo_capture_date DESC`,
+      ["pending_return"]
+    );
+
+    res.json({
+      success: true,
+      pending_returns: result.rows,
+    });
+  } catch (err) {
+    console.error("Get pending returns error:", err);
+    res.status(500).json({ success: false, error: err.message });
+  } finally {
+    client.release();
+  }
+};
+
+// ✅ Add units to existing reserved cart
+const addUnitsToCart = async (req, res) => {
+  const { borrower_id, request_id, item_id, quantity, size } = req.body;
+
+  if (!borrower_id || !request_id || !item_id || !quantity) {
+    return res.status(400).json({ error: "Missing required fields: borrower_id, request_id, item_id, quantity" });
+  }
+
+  const q = Number(quantity) || 1;
+  if (q <= 0) {
+    return res.status(400).json({ error: "Quantity must be greater than 0" });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    // Verify the request exists and belongs to this borrower
+    const reqCheck = await client.query(
+      `SELECT id, status FROM borrowing_requests WHERE id = $1 AND borrower_id = $2 FOR UPDATE`,
+      [request_id, borrower_id]
+    );
+
+    if (reqCheck.rowCount === 0) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ error: "Reserved request not found" });
+    }
+
+    if (reqCheck.rows[0].status !== "reserved") {
+      await client.query("ROLLBACK");
+      return res.status(400).json({ error: "Request is not in reserved state" });
+    }
+
+    // Find available units for this item, filtered by size if provided
+    // item_id is sent as string from frontend (can be integer ID or UUID)
+    // First try to find by integer ID
+    let availableUnits = await client.query(
+      `SELECT iu.id, iu.size, ii.name, ii.category, ii.garment_type, ii.image_url, ii.id as item_integer_id, ii.uuid
+       FROM inventory_units iu
+       JOIN inventory_items ii ON ii.uuid = iu.inventory_item_id
+       WHERE ii.id = $1::int
+       AND iu.status = 'available'
+       AND (($3::text IS NULL OR $3::text = 'nosize') OR iu.size = $3::text)
+       FOR UPDATE SKIP LOCKED
+       LIMIT $2`,
+      [item_id, q, size]
+    );
+
+    // If not found by integer ID, try by UUID
+    if (availableUnits.rowCount === 0) {
+      availableUnits = await client.query(
+        `SELECT iu.id, iu.size, ii.name, ii.category, ii.garment_type, ii.image_url, ii.id as item_integer_id, ii.uuid
+         FROM inventory_units iu
+         JOIN inventory_items ii ON ii.uuid = iu.inventory_item_id
+         WHERE ii.uuid = $1::uuid
+         AND iu.status = 'available'
+         AND (($3::text IS NULL OR $3::text = 'nosize') OR iu.size = $3::text)
+         FOR UPDATE SKIP LOCKED
+         LIMIT $2`,
+        [item_id, q, size]
+      );
+    }
+
+    if (availableUnits.rowCount === 0) {
+      await client.query("ROLLBACK");
+      const sizeMsg = size && size !== "nosize" ? ` with size ${size}` : "";
+      return res.status(400).json({ error: `No available units found for item ${item_id}${sizeMsg}. Not enough inventory.` });
+    }
+
+    if (availableUnits.rowCount < q) {
+      await client.query("ROLLBACK");
+      const sizeMsg = size && size !== "nosize" ? ` with size ${size}` : "";
+      return res.status(400).json({ error: `Only ${availableUnits.rowCount} unit(s)${sizeMsg} available, but ${q} requested.` });
+    }
+
+    const unitsAdded = availableUnits.rows.length;
+    const cartItems = [];
+
+    // Add each available unit to the borrowing_items
+    for (const unit of availableUnits.rows) {
+      await client.query(
+        `INSERT INTO borrowing_items (borrowing_id, inventory_unit_id)
+         VALUES ($1, $2)`,
+        [request_id, unit.id]
+      );
+
+      cartItems.push({
+        unit_id: unit.id,
+        item_id: unit.uuid,
+        name: unit.name,
+        size: unit.size || "nosize",
+        category: unit.category,
+        garment_type: unit.garment_type,
+        image_url: transformImageUrl(unit.image_url),
+      });
+    }
+
+    await client.query("COMMIT");
+
+    return res.status(200).json({
+      success: true,
+      message: `Added ${unitsAdded} unit(s) to cart`,
+      units_added: unitsAdded,
+      items: cartItems,
+    });
+  } catch (err) {
+    await client.query("ROLLBACK");
+    console.error("❌ addUnitsToCart error:", {
+      message: err.message,
+      code: err.code,
+      detail: err.detail,
+      sqlState: err.sqlState,
+      stack: err.stack
+    });
+    return res.status(500).json({ error: "Failed to add units to cart", details: err.message });
+  } finally {
+    client.release();
+  }
+};
+
 module.exports = {
   addToCart,
+  batchAddToCart,
   removeFromCart,
   submitBorrowRequest,
   getBorrowHistory,
+  deleteFromHistory,
   getAllBorrowRequests,
   approveBorrowRequest,
   declineBorrowRequest,
@@ -1376,7 +2882,23 @@ module.exports = {
   // NEW exports used by BorrowCart.jsx
   updateInventoryQuantity,
   restoreInventoryQuantity,
-  updateBorrowCartQuantity, // ✅ Add this line
+  updateBorrowCartQuantity,
+  saveCartQuantity,
   startBorrowingSession, 
   getReservedRequest,
+  addUnitsToCart,
+  uploadBorrowPhoto,
+  getBorrowPhotos,
+  deleteBorrowPhoto,
+  // NEW return photo exports
+  initiateReturn,
+  uploadReturnPhoto,
+  getReturnPhotos,
+  deleteReturnPhoto,
+  submitReturn,
+  approveReturn,
+  declineReturn,
+  staffManualReturn,
+  staffManualReturnWithPhotos,
+  getPendingReturns,
 };

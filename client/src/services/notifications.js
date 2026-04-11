@@ -114,12 +114,13 @@ class NotificationService {
         this.isSubscribed = true;
         
         // Send existing subscription to server to ensure it's registered
-        // NOTE: Server uses INSERT ON CONFLICT so each device gets its own row
+        // Include userId so the server knows which user to associate this with
         const subJSON = existingSub.toJSON();
+        const payload = { ...subJSON, userId };
         try {
           const response = await axios.post(
             "/api/notifications/subscribe",
-            subJSON,
+            payload,
             { withCredentials: true }
           );
           console.log("✅ Existing subscription registered on server:", response.data);
@@ -154,11 +155,11 @@ class NotificationService {
       const subJSON = subscription.toJSON();
       console.log("✅ New subscription created:", subJSON);
 
-      // Send full subscription JSON to backend
-      // NOTE: Server will INSERT ON CONFLICT so multiple devices per user are supported
+      // Send full subscription JSON to backend with userId
+      const payload = { ...subJSON, userId };
       const response = await axios.post(
         "/api/notifications/subscribe",
-        subJSON,
+        payload,
         { withCredentials: true }
       );
 
@@ -223,18 +224,208 @@ class NotificationService {
     }
   }
 
-  // Listen for messages from the service worker
+  // Mark all notifications as read
+  async markAllAsRead() {
+    try {
+      await axios.post("/api/notifications/mark-all-read");
+      return true;
+    } catch (error) {
+      console.error("❌ Failed to mark all as read:", error);
+      return false;
+    }
+  }
+
+  // Delete a notification
+  async deleteNotification(notificationId) {
+    try {
+      await axios.post("/api/notifications/delete", { id: notificationId });
+      return true;
+    } catch (error) {
+      console.error("❌ Failed to delete notification:", error);
+      return false;
+    }
+  }
+
+  // Delete all read notifications
+  async deleteAllReadNotifications() {
+    try {
+      await axios.post("/api/notifications/delete-all-read");
+      return true;
+    } catch (error) {
+      console.error("❌ Failed to delete all read notifications:", error);
+      return false;
+    }
+  }
+
+  // 🔍 Diagnostic: Check notification system status
+  async diagnoseNotifications() {
+    const diagnostics = {
+      timestamp: new Date().toISOString(),
+      checks: {}
+    };
+
+    // Check 1: ServiceWorker API support
+    diagnostics.checks.serviceWorkerSupported = "serviceWorker" in navigator;
+
+    // Check 2: PushManager support
+    diagnostics.checks.pushManagerSupported = "PushManager" in window;
+
+    // Check 3: Notification API support
+    diagnostics.checks.notificationSupported = "Notification" in window;
+
+    // Check 4: Service worker registration
+    try {
+      const reg = await navigator.serviceWorker?.getRegistration();
+      diagnostics.checks.serviceWorkerRegistered = !!reg;
+      if (reg) {
+        diagnostics.checks.serviceWorkerScope = reg.scope;
+      }
+    } catch (e) {
+      diagnostics.checks.serviceWorkerRegistered = false;
+      diagnostics.checks.serviceWorkerError = e.message;
+    }
+
+    // Check 5: Notification permission
+    diagnostics.checks.notificationPermission = Notification?.permission || 'not available';
+
+    // Check 6: Push subscription
+    try {
+      const reg = await navigator.serviceWorker?.getRegistration();
+      const sub = await reg?.pushManager?.getSubscription?.();
+      diagnostics.checks.pushSubscriptionExists = !!sub;
+      if (sub) {
+        diagnostics.checks.subscriptionEndpoint = sub.endpoint?.substring(0, 100) + '...';
+      }
+    } catch (e) {
+      diagnostics.checks.pushSubscriptionError = e.message;
+    }
+
+    // Check 7: VAPID key
+    diagnostics.checks.vapidKeyAvailable = !!this.vapidPublicKey;
+
+    // Check 8: Verify Service Worker is ACTIVE (not just installed)
+    if (this.swRegistration) {
+      diagnostics.checks.serviceWorkerActive = !!this.swRegistration.active;
+      diagnostics.checks.serviceWorkerWaiting = !!this.swRegistration.waiting;
+      diagnostics.checks.serviceWorkerInstalling = !!this.swRegistration.installing;
+      if (this.swRegistration.active) {
+        diagnostics.checks.serviceWorkerState = 'ACTIVE';
+      } else if (this.swRegistration.waiting) {
+        diagnostics.checks.serviceWorkerState = 'WAITING (needs update)';
+      } else if (this.swRegistration.installing) {
+        diagnostics.checks.serviceWorkerState = 'INSTALLING';
+      } else {
+        diagnostics.checks.serviceWorkerState = 'UNKNOWN';
+      }
+    }
+
+    // Check 9: Try to show a test system notification (if permission granted)
+    if (Notification?.permission === 'granted') {
+      try {
+        const testNotif = new Notification('[TEST] System Notification API Works', {
+          body: 'This is a test system notification. If you see this, the Notification API is working correctly.',
+          icon: '/icon-192x192.png',
+          badge: '/badge-96x96.png',
+          tag: 'test-notification',
+          requireInteraction: false
+        });
+        diagnostics.checks.systemNotificationTest = 'success - notification shown';
+        // Close the test notification after a short delay
+        setTimeout(() => { testNotif.close(); }, 3000);
+      } catch (e) {
+        diagnostics.checks.systemNotificationTest = `failed: ${e.message}`;
+      }
+    } else {
+      diagnostics.checks.systemNotificationTest = `skipped: permission is ${Notification?.permission || 'not available'}`;
+    }
+
+    console.log("🔍 [Notifications] Diagnostic Report:", diagnostics);
+    return diagnostics;
+  }
+
   // Listen for messages from the service worker
   // callback will be called with payload for PUSH_RECEIVED
   setupMessageListener(callback) {
-    if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.addEventListener("message", (event) => {
-        if (!event.data) return;
-        const { type, payload } = event.data;
-        if (type === "PUSH_RECEIVED") {
-          callback(payload);
+    if (!("serviceWorker" in navigator)) {
+      console.warn("⚠️ [Client] serviceWorker not available in navigator");
+      return;
+    }
+
+    try {
+      // Remove old listener if exists
+      if (this._messageHandler) {
+        try {
+          navigator.serviceWorker.removeEventListener("message", this._messageHandler);
+        } catch (e) {}
+      }
+
+      // Create new message handler
+      this._messageHandler = (event) => {
+        try {
+          if (!event || !event.data) {
+            return;
+          }
+
+          const { type, payload } = event.data;
+          
+          if (type === "PUSH_RECEIVED") {
+            console.log("📨 [Client] ✅ Received PUSH_RECEIVED message from service worker:", payload);
+            
+            // If tab is focused and browser supports notification API, show desktop notification too
+            if (document.visibilityState === 'visible' && 'Notification' in window && Notification.permission === 'granted') {
+              try {
+                const title = payload?.title || 'Notification';
+                const message = payload?.message || '';
+                const notifOptions = {
+                  body: message,
+                  icon: '/icon-192x192.png',
+                  badge: '/badge-96x96.png',
+                  tag: `tab-notif-${payload?.notificationId || Date.now()}`,
+                  requireInteraction: true,
+                  vibrate: [200, 100, 200]
+                };
+                
+                const notif = new Notification(title, notifOptions);
+                console.log("🔔 [Client] ✅ Shown focused-tab notification");
+                
+                notif.onclick = () => {
+                  window.focus();
+                  notif.close();
+                };
+              } catch (err) {
+                console.error("❌ [Client] Failed to show focused-tab notification:", err);
+              }
+            } else {
+              const reasons = [];
+              if (document.visibilityState !== 'visible') reasons.push('tab not visible');
+              if (!('Notification' in window)) reasons.push('Notification API not available');
+              if (Notification.permission !== 'granted') reasons.push(`permission is ${Notification.permission}`);
+              console.log(`📨 [Client] ℹ️ Not showing focused notification (${reasons.join(', ')})`);
+            }
+            
+            // Call the callback
+            if (typeof callback === 'function') {
+              try {
+                console.log("📨 [Client] Calling callback with payload:", payload);
+                callback(payload);
+              } catch (err) {
+                console.error("❌ [Client] Error in PUSH_RECEIVED callback:", err);
+              }
+            }
+          } else if (type === "NOTIFICATION_CLICK") {
+            console.log("📨 [Client] Received NOTIFICATION_CLICK message:", payload);
+          } else {
+            console.log("📨 [Client] Received unknown message type:", type);
+          }
+        } catch (err) {
+          console.error("❌ [Client] Error processing service worker message:", err);
         }
-      });
+      };
+
+      navigator.serviceWorker.addEventListener("message", this._messageHandler);
+      console.log("✅ [Client] Message listener attached to service worker");
+    } catch (err) {
+      console.error("❌ [Client] Failed to setup message listener:", err);
     }
   }
 
@@ -248,6 +439,35 @@ class NotificationService {
           callback(payload);
         }
       });
+    }
+  }
+
+  // Remove previously attached message listener (if any)
+  removeMessageListener() {
+    try {
+      if (this._messageHandler && "serviceWorker" in navigator) {
+        navigator.serviceWorker.removeEventListener("message", this._messageHandler);
+        this._messageHandler = null;
+      }
+    } catch (e) {
+      // ignore removal errors
+    }
+  }
+
+  // Test method: Trigger a test push notification from the backend
+  async testNotification() {
+    try {
+      console.log("🧪 Requesting test notification from backend...");
+      const response = await axios.post(
+        "/api/notifications/send-test",
+        {},
+        { withCredentials: true }
+      );
+      console.log("✅ Test notification triggered:", response.data);
+      return response.data;
+    } catch (error) {
+      console.error("❌ Failed to trigger test notification:", error.response?.data || error.message);
+      return null;
     }
   }
 }

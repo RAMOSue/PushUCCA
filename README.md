@@ -1,2 +1,0 @@
-# THESIS-DEFENDED
-Final Thesis

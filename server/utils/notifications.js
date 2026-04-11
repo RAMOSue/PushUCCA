@@ -15,7 +15,14 @@ const NotificationTypes = {
 const notifications = {
     // Borrower -> Staff notifications
     // relatedRequest is optional - pass the borrowing request id so notifications can be correlated
-    sendBorrowRequest: async (borrowerId, staffId, items, borrowerName, relatedRequest = null) => {
+    sendBorrowRequest: async (borrowerId, staffId, items, borrowerName, relatedRequest = null, borrowerRole = null) => {
+        // ✅ Don't send borrow request notifications when the borrower is staff
+        // Staff borrowing is an internal operation and should not trigger notifications
+        if (borrowerRole === 'staff') {
+            console.log(`⏭️ Skipping borrow request notification - borrower is staff member`);
+            return;
+        }
+        
         const itemNames = items.map(item => item.name).join(', ');
         const origin = process.env.CLIENT_ORIGIN || 'http://localhost:5173';
         const path = `/staff/manage-requests?openRequestId=${relatedRequest || ''}`;
@@ -37,7 +44,13 @@ const notifications = {
         });
     },
 
-    sendReturnRequest: async (borrowerId, staffId, items) => {
+    sendReturnRequest: async (borrowerId, staffId, items, borrowerRole = null) => {
+        // ✅ Don't send return notifications when the borrower is staff
+        if (borrowerRole === 'staff') {
+            console.log(`⏭️ Skipping return notification - borrower is staff member`);
+            return;
+        }
+
         const itemNames = items.map(item => item.name).join(', ');
         const origin = process.env.CLIENT_ORIGIN || 'http://localhost:5173';
         const path = '/staff/return-items';
@@ -55,12 +68,53 @@ const notifications = {
         });
     },
 
+    // Send notification to all staff when borrower submits return
+    sendReturnSubmitted: async (borrowerId, borrowerName, items, borrowerRole = null) => {
+        // ✅ Don't send return submitted notifications when the borrower is staff
+        if (borrowerRole === 'staff') {
+            console.log(`⏭️ Skipping return submitted notification - borrower is staff member`);
+            return;
+        }
+
+        const itemNames = items.map(item => item.name).join(', ');
+        const origin = process.env.CLIENT_ORIGIN || 'http://localhost:5173';
+        const path = '/staff/manage-returns';
+        
+        try {
+            // Get all staff and admin users
+            const staffResult = await db.query(
+                "SELECT id FROM users WHERE role IN ('staff', 'admin')"
+            );
+            
+            // Send notification to each staff member
+            for (const staff of staffResult.rows) {
+                await notificationController.sendPushToUser({
+                    userId: staff.id,
+                    title: '📦 Return Submitted',
+                    message: `${borrowerName} wants to return: ${itemNames}`,
+                    type: NotificationTypes.RETURN_REQUEST,
+                    data: {
+                        url: `${origin}${path}`,
+                        path,
+                        borrowerId,
+                        borrowerName,
+                        items: items.map(i => i.id),
+                        itemNames
+                    }
+                });
+            }
+        } catch (err) {
+            console.error("Error sending return submitted notification:", err.message);
+        }
+    },
+
     // Staff -> Borrower notifications
     sendBorrowApproved: async (borrowerId, items, relatedRequest = null) => {
         const itemNames = items.map(item => item.name).join(', ');
         const origin = process.env.CLIENT_ORIGIN || 'http://localhost:5173';
         const path = `/my-borrowed-items?requestId=${relatedRequest || ''}`;
-        await notificationController.sendPushToUser({
+        // Return the send result so callers can inspect success/failure
+        return await notificationController.sendPushToUser({
             userId: borrowerId,
             title: 'Borrow Request Approved',
             message: `Your request to borrow ${itemNames} has been approved!`,
@@ -78,7 +132,7 @@ const notifications = {
         const itemNames = items.map(item => item.name).join(', ');
         const origin = process.env.CLIENT_ORIGIN || 'http://localhost:5173';
         const path = `/my-borrowed-items?requestId=${relatedRequest || ''}`;
-        await notificationController.sendPushToUser({
+        return await notificationController.sendPushToUser({
             userId: borrowerId,
             title: 'Borrow Request Declined',
             message: `Your request to borrow ${itemNames} was declined. Reason: ${reason}`,
@@ -97,7 +151,7 @@ const notifications = {
         const itemNames = items.map(item => item.name).join(', ');
         const origin = process.env.CLIENT_ORIGIN || 'http://localhost:5173';
         const path = '/my-borrowed-items';
-        await notificationController.sendPushToUser({
+        return await notificationController.sendPushToUser({
             userId: borrowerId,
             title: 'Items Returned',
             message: `${itemNames} ${items.length > 1 ? 'have' : 'has'} been returned. Thank you for returning ${items.length > 1 ? 'them' : 'it'} on time!`,
@@ -227,6 +281,24 @@ const notifications = {
                 }
             });
         }
+    },
+
+    // Staff manually processed return (no photos needed)
+    sendReturnManuallyProcessed: async (borrowerId, items) => {
+        const itemNames = items.map(item => item.name).join(', ');
+        const origin = process.env.CLIENT_ORIGIN || 'http://localhost:5173';
+        const path = '/my-borrowed-items';
+        return await notificationController.sendPushToUser({
+            userId: borrowerId,
+            title: 'Items Received',
+            message: `${itemNames} ${items.length > 1 ? 'have' : 'has'} been received and processed. Thank you!`,
+            type: NotificationTypes.RETURN_APPROVED,
+            data: {
+                url: `${origin}${path}`,
+                path,
+                items: items.map(i => i.id)
+            }
+        });
     }
 };
 

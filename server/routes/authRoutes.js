@@ -9,34 +9,44 @@ const {
   test,
   registerUser,
   loginUser,
+  verifyEmail,
+  resendVerificationCode,
   googleCallback,
   logoutUser,
   getAllUsers,
   updateUserRole,
+  updateUserDivision,
   deleteUser,
   getProfile,
   changePassword,
-  updateThemePreference, // ✅ added import
+  updateThemePreference,
 } = require('../controllers/authController');
 
-// -------------------- Basic Routes --------------------
+// ========== BASIC ROUTES ==========
 router.get('/', test);
+
+// ========== REGISTRATION & EMAIL VERIFICATION ==========
+// Step 1: Register user (creates account and sends verification code)
 router.post('/register', registerUser);
+
+// Step 2: Verify email with verification code
+router.post('/verify-email', verifyEmail);
+
+// Resend verification code
+router.post('/resend-verification', resendVerificationCode);
+
+// ========== LOGIN ==========
 router.post('/login', loginUser);
 
-// -------------------- Profile Route --------------------
-router.get('/profile', getProfile);
-
-// -------------------- Change Password --------------------
+// ========== PROFILE & ACCOUNT ==========
+router.get('/profile', ensureAuth, getProfile);
 router.post('/change-password', ensureAuth, changePassword);
+router.put('/theme', ensureAuth, updateThemePreference);
 
-// -------------------- Theme Preference (Dark Mode) --------------------
-router.put('/theme', ensureAuth, updateThemePreference); // ✅ new route
-
-// -------------------- Logout --------------------
+// ========== LOGOUT ==========
 router.post('/logout', logoutUser);
 
-// -------------------- Google OAuth2 Routes --------------------
+// ========== GOOGLE OAUTH2 ==========
 router.get(
   '/google',
   passport.authenticate('google', {
@@ -48,15 +58,20 @@ router.get(
 router.get(
   '/google/callback',
   passport.authenticate('google', {
-    failureRedirect: 'http://localhost:5173/login',
+    failureRedirect: `${process.env.FRONTEND_URL || "http://localhost:5173"}/login`,
     session: false,
   }),
   googleCallback
 );
 
-// -------------------- Admin-only Routes --------------------
+// ========== ADMIN ROUTES ==========
 router.get('/admin/users', ensureAuth, requireRole('admin'), getAllUsers);
 router.put('/admin/users/:id/role', ensureAuth, requireRole('admin'), updateUserRole);
+router.put('/admin/users/:id/division', ensureAuth, requireRole('admin'), updateUserDivision);
 router.delete('/admin/users/:id', ensureAuth, requireRole('admin'), deleteUser);
+
+// ========== STAFF ROUTES ==========
+// Get all borrowers/performers (for staff to select in performance scheduling)
+router.get('/borrowers', ensureAuth, getAllUsers);
 
 module.exports = router;

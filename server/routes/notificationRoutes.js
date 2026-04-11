@@ -35,12 +35,17 @@ const sendPushIfAvailable = async ({ userId, title, message, type, data }) => {
 };
 
 /**
- * ✅ Save push subscription
- * Frontend sends: { endpoint, keys: { p256dh, auth } }
+ * ✅ Save push subscription (UNAUTHENTICATED - allow anonymous subscriptions)
+ * Frontend sends: { endpoint, keys: { p256dh, auth }, userId? }
+ * 
+ * If userId is provided (authenticated), save directly.
+ * If userId is NOT provided (unauthenticated), save as anonymous and tag with device fingerprint.
+ * Later, when user logs in, these subscriptions are associated to their user_id.
  */
-router.post("/subscribe", ensureAuth, async (req, res) => {
+router.post("/subscribe", async (req, res) => {
   try {
-    const userId = req.user.id;
+    // Try to get userId from auth OR from request body (for anonymous subscriptions)
+    const userId = req.user?.id || req.body?.userId;
     const subscription = req.body;
 
     if (
@@ -52,6 +57,11 @@ router.post("/subscribe", ensureAuth, async (req, res) => {
     ) {
       console.warn("❌ Invalid subscription request:", subscription);
       return res.status(400).json({ error: "Invalid request" });
+    }
+
+    // If no userId at all, we can't associate yet; return error (this shouldn't happen in practice)
+    if (!userId) {
+      return res.status(400).json({ error: "User ID required or authentication needed" });
     }
 
     await notificationController.saveSubscription(userId, subscription);
@@ -95,10 +105,56 @@ router.get('/pending', ensureAuth, notificationController.resendPendingForUserEn
 router.post("/mark-read", ensureAuth, notificationController.markAsRead);
 
 /**
+ * ✅ Mark all notifications as read
+ */
+router.post("/mark-all-read", ensureAuth, notificationController.markAllAsRead);
+
+/**
+ * ✅ Delete a specific notification
+ */
+router.post("/delete", ensureAuth, notificationController.deleteNotification);
+
+/**
+ * ✅ Delete all read notifications
+ */
+router.post("/delete-all-read", ensureAuth, notificationController.deleteAllReadNotifications);
+
+/**
  * ✅ Get unread count
  */
 router.get("/unread-count", ensureAuth, notificationController.getUnreadCount);
 
-// Test endpoints removed from production routes
+/**
+ * ✅ TEST ENDPOINT: Send a test push notification to the logged-in user
+ * This is for development/testing purposes only
+ */
+router.post('/send-test', ensureAuth, async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
+
+    console.log(`🧪 [TEST] Sending test notification to user ${userId}`);
+
+    const result = await notificationController.sendPushToUser({
+      userId,
+      title: '🧪 Test Notification',
+      message: 'This is a test push notification from the LOGINAUTH system!',
+      type: 'test',
+      data: { testId: Date.now() }
+    });
+
+    console.log(`🧪 [TEST] Send result:`, result);
+    res.json({
+      success: true,
+      message: 'Test notification sent',
+      result
+    });
+  } catch (err) {
+    console.error('🧪 [TEST] Error sending test notification:', err);
+    res.status(500).json({ error: 'Failed to send test notification', details: err.message });
+  }
+});
 
 module.exports = router;

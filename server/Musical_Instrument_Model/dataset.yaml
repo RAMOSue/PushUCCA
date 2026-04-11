@@ -16,8 +16,8 @@ path: /content/musical_instrument_dataset_yolo
 roboflow:
   license: CC BY 4.0
   project: thesis-kv1of
-  url: https://universe.roboflow.com/thesis-qqm5a/thesis-kv1of/dataset/7
-  version: 7
+  url: https://universe.roboflow.com/thesis-qqm5a/thesis-kv1of/dataset/9
+  version: 9
   workspace: thesis-qqm5a
 test: test/images
 train: train/images

@@ -12,6 +12,15 @@ const { ensureAuth } = require("../helpers/auth"); // ✅ ensures user is authen
 // Borrower uploads their own profile (authenticated)
 router.post("/upload", ensureAuth, profileController.uploadProfile);
 
+// 🆕 Update profile info (name, phone, division) - dedicated endpoint
+router.post("/update-info", ensureAuth, profileController.updateProfileInfo);
+
+// ✅ PATCH current user's profile (modern REST pattern)
+router.patch("/me", ensureAuth, profileController.updateProfileInfo);
+
+// 🆕 Verify school ID (AI/OCR detection)
+router.post("/verify-school-id", ensureAuth, profileController.verifySchoolId);
+
 // Get current user's profile
 // Frontend can call: axios.get("/api/profiles/me") or axios.get("/api/profiles/profile")
 router.get("/profile", ensureAuth, profileController.getMyProfile); // alias

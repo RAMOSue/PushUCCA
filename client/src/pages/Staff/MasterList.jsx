@@ -1,0 +1,950 @@
+// client/src/pages/Staff/MasterList.jsx
+import { useState, useEffect, useContext } from "react";
+import { UserContext } from "../../../context/userContext";
+import axios from "axios";
+import toast from "react-hot-toast";
+import PageLayout from "../../components/layout/PageLayout";
+import {
+  Plus,
+  Edit2,
+  Trash2,
+  X,
+  Search,
+  ChevronLeft,
+  ChevronRight,
+  Filter,
+  Settings,
+  Database,
+  Package,
+  Layers,
+  Clock,
+  BookOpen,
+  Shield,
+  Tag,
+  AlertCircle,
+  CheckCircle,
+  Eye,
+  EyeOff,
+  Image,
+  Upload,
+} from "lucide-react";
+
+export default function MasterList() {
+  const { user } = useContext(UserContext);
+  const [activeTab, setActiveTab] = useState("units"); // units, positions, terms, rules, events, categories, settings, slideshow
+  const [loading, setLoading] = useState(false);
+  const [dataList, setDataList] = useState([]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filterStatus, setFilterStatus] = useState("all");
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+
+  // Image upload state
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [imagePreview, setImagePreview] = useState(null);
+  const [imageFile, setImageFile] = useState(null);
+  const [imageTitle, setImageTitle] = useState("");
+  const [imageDescription, setImageDescription] = useState("");
+  const [imageError, setImageError] = useState(null);
+
+  // Modal state
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingItem, setEditingItem] = useState(null);
+  const [formData, setFormData] = useState({});
+
+  // Image viewer modal state
+  const [selectedImage, setSelectedImage] = useState(null);
+
+  // Tab configuration with API endpoints and form fields
+  const tabs = {
+    units: {
+      title: "Division",
+      icon: Layers,
+      endpoint: "/api/master-list/units",
+      fields: [
+        { name: "name", label: "Unit Name", type: "text", required: true },
+        { name: "description", label: "Description", type: "textarea" },
+        { name: "status", label: "Status", type: "select", options: ["Active", "Inactive"] },
+      ],
+    },
+    positions: {
+      title: "Positions",
+      icon: Shield,
+      endpoint: "/api/master-list/positions",
+      fields: [
+        { name: "name", label: "Position Name", type: "text", required: true },
+        { name: "description", label: "Description", type: "textarea" },
+        { name: "maxHolders", label: "Max Holders", type: "number", defaultValue: 1 },
+        { name: "isSharedRole", label: "Shared Global Role", type: "checkbox" },
+        { name: "status", label: "Status", type: "select", options: ["Active", "Inactive"] },
+      ],
+    },
+    terms: {
+      title: "A.Y.",
+      icon: Clock,
+      endpoint: "/api/master-list/terms",
+      fields: [
+        { name: "name", label: "Term Name", type: "text", required: true, placeholder: "e.g., 2025-2026" },
+        { name: "description", label: "Description", type: "textarea" },
+        { name: "startDate", label: "Start Date", type: "date", required: true },
+        { name: "endDate", label: "End Date", type: "date", required: true },
+        { name: "isActive", label: "Active Term", type: "checkbox" },
+      ],
+    },
+    rules: {
+      title: "Rules & Policies",
+      icon: BookOpen,
+      endpoint: "/api/master-list/rules",
+      fields: [
+        { name: "title", label: "Rule Title", type: "text", required: true },
+        { name: "description", label: "Description", type: "textarea" },
+        {
+          name: "category",
+          label: "Category",
+          type: "select",
+          options: ["Attendance", "Conduct", "Borrowing", "Finance", "Other"],
+          required: true,
+        },
+        { name: "severity", label: "Severity", type: "select", options: ["Low", "Medium", "High"], required: true },
+        { name: "sanction", label: "Sanction / Penalty", type: "textarea" },
+        { name: "isActive", label: "Active", type: "checkbox" },
+      ],
+    },
+    events: {
+      title: "Event / Activity Types",
+      icon: Tag,
+      endpoint: "/api/master-list/event-types",
+      fields: [
+        { name: "name", label: "Event Type Name", type: "text", required: true, placeholder: "e.g., Meeting, Practice" },
+        { name: "description", label: "Description", type: "textarea" },
+        { name: "status", label: "Status", type: "select", options: ["Active", "Inactive"] },
+      ],
+    },
+    categories: {
+      title: "Category",
+      icon: Package,
+      endpoint: "/api/master-list/inventory-categories",
+      fields: [
+        { name: "name", label: "Category Name", type: "text", required: true, placeholder: "e.g., Costume, Equipment" },
+        { name: "description", label: "Description", type: "textarea" },
+        { name: "status", label: "Status", type: "select", options: ["Active", "Inactive"] },
+      ],
+    },
+    settings: {
+      title: "Attendance Time",
+      icon: Settings,
+      endpoint: "/api/master-list/attendance-settings",
+      fields: [
+        { name: "amStart", label: "AM Time-In Start", type: "time" },
+        { name: "amEnd", label: "AM Time-In End", type: "time" },
+        { name: "pmStart", label: "PM Time-In Start", type: "time" },
+        { name: "pmEnd", label: "PM Time-In End", type: "time" },
+        { name: "gracePeriodMinutes", label: "Grace Period (minutes)", type: "number" },
+        { name: "undertimeThresholdMinutes", label: "Undertime Threshold (minutes)", type: "number" },
+        { name: "requiredHoursPerDay", label: "Required Hours per Day", type: "number", step: 0.5 },
+      ],
+      isSingleRecord: true,
+    },
+    slideshow: {
+      title: "GetStarted Slideshow",
+      icon: Image,
+      endpoint: "/api/master-list/slideshow-images",
+      fields: [],
+      isImageUpload: true,
+    },
+  };
+
+  const currentTab = tabs[activeTab];
+
+  // Fetch data
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      setImageError(null);
+      const res = await axios.get(currentTab.endpoint);
+      setDataList(Array.isArray(res.data) ? res.data : [res.data]);
+    } catch (err) {
+      console.error("Fetch error:", err);
+      const errorMsg = err.response?.data?.error || "Failed to load data";
+      setImageError(errorMsg);
+      // Only show toast if not slideshow tab (slideshow shows error in UI)
+      if (activeTab !== "slideshow") {
+        toast.error(errorMsg);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, [activeTab]);
+
+  // Filter and search logic
+  const filteredData = dataList
+    .filter((item) => {
+      const matchSearch =
+        !searchTerm ||
+        Object.values(item)
+          .join(" ")
+          .toLowerCase()
+          .includes(searchTerm.toLowerCase());
+
+      const matchStatus =
+        filterStatus === "all" || (item.status === filterStatus || item.is_active === (filterStatus === "active"));
+
+      return matchSearch && matchStatus;
+    });
+
+  const paginatedData = filteredData.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  const totalPages = Math.ceil(filteredData.length / itemsPerPage);
+
+  // Open add/edit modal
+  const openModal = (item = null) => {
+    if (item) {
+      setEditingItem(item);
+      setFormData(item);
+    } else {
+      setEditingItem(null);
+      setFormData({});
+    }
+    setIsModalOpen(true);
+  };
+
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setEditingItem(null);
+    setFormData({});
+  };
+
+  // Handle form submission
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    try {
+      const payload = { ...formData };
+
+      // Convert checkbox fields
+      if (currentTab.fields.some((f) => f.type === "checkbox")) {
+        currentTab.fields.forEach((field) => {
+          if (field.type === "checkbox" && payload[field.name] !== undefined) {
+            payload[field.name] = payload[field.name] === true || payload[field.name] === "on";
+          }
+        });
+      }
+
+      if (editingItem) {
+        // Update
+        await axios.put(`${currentTab.endpoint}/${editingItem.id}`, payload);
+        toast.success("✅ Updated successfully");
+      } else {
+        // Create
+        await axios.post(currentTab.endpoint, payload);
+        toast.success("✅ Created successfully");
+      }
+
+      fetchData();
+      closeModal();
+    } catch (err) {
+      console.error("Submit error:", err);
+      toast.error(err.response?.data?.error || "Failed to save");
+    }
+  };
+
+  // Delete item
+  const handleDelete = async (id) => {
+    if (!window.confirm("Are you sure you want to delete this item?")) return;
+
+    try {
+      await axios.delete(`${currentTab.endpoint}/${id}`);
+      toast.success("✅ Deleted successfully");
+      fetchData();
+    } catch (err) {
+      console.error("Delete error:", err);
+      toast.error("Failed to delete");
+    }
+  };
+
+  // Handle image file selection
+  const handleImageSelect = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setImageFile(file);
+      const reader = new FileReader();
+      reader.onload = (evt) => setImagePreview(evt.target.result);
+      reader.readAsDataURL(file);
+    }
+  };
+
+  // Handle image upload
+  const handleImageUpload = async (e) => {
+    e.preventDefault();
+    
+    // Validation
+    if (!imageFile) {
+      setImageError("Please select an image file");
+      toast.error("Please select an image file");
+      return;
+    }
+    
+    if (!imageTitle.trim()) {
+      setImageError("Please enter an image title");
+      toast.error("Please enter an image title");
+      return;
+    }
+
+    // File size validation (5MB)
+    const maxSize = 5 * 1024 * 1024;
+    if (imageFile.size > maxSize) {
+      setImageError("Image size must be less than 5MB");
+      toast.error("Image size must be less than 5MB");
+      return;
+    }
+
+    // File type validation
+    const allowedTypes = ["image/jpeg", "image/png", "image/gif", "image/webp"];
+    if (!allowedTypes.includes(imageFile.type)) {
+      setImageError("Only JPG, PNG, GIF, and WEBP images are allowed");
+      toast.error("Only JPG, PNG, GIF, and WEBP images are allowed");
+      return;
+    }
+
+    try {
+      setUploadingImage(true);
+      setImageError(null);
+      const formData = new FormData();
+      formData.append("image", imageFile);
+      formData.append("title", imageTitle.trim());
+      formData.append("description", imageDescription.trim());
+
+      const res = await axios.post(`${currentTab.endpoint}`, formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+
+      toast.success("✅ Image uploaded successfully");
+      setImageFile(null);
+      setImagePreview(null);
+      setImageTitle("");
+      setImageDescription("");
+      fetchData();
+    } catch (err) {
+      const errorMsg = err.response?.data?.error || err.message || "Failed to upload image";
+      console.error("Upload error:", err);
+      setImageError(errorMsg);
+      toast.error(errorMsg);
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  // Render form fields
+  const renderFormField = (field) => {
+    const value = formData[field.name] ?? "";
+
+    switch (field.type) {
+      case "text":
+      case "number":
+      case "date":
+      case "time":
+        return (
+          <input
+            type={field.type}
+            name={field.name}
+            value={value}
+            onChange={(e) => setFormData({ ...formData, [field.name]: e.target.value })}
+            placeholder={field.placeholder}
+            step={field.step}
+            required={field.required}
+            className="w-full border border-outline-variant/30 dark:border-gray-700 rounded-lg px-3 py-2 text-sm dark:bg-[#2a2a2a] dark:text-white dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary"
+          />
+        );
+
+      case "textarea":
+        return (
+          <textarea
+            name={field.name}
+            value={value}
+            onChange={(e) => setFormData({ ...formData, [field.name]: e.target.value })}
+            placeholder={field.placeholder}
+            rows="3"
+            className="w-full border border-outline-variant/30 dark:border-gray-700 rounded-lg px-3 py-2 text-sm dark:bg-[#2a2a2a] dark:text-white dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary resize-none"
+          />
+        );
+
+      case "select":
+        return (
+          <select
+            name={field.name}
+            value={value}
+            onChange={(e) => setFormData({ ...formData, [field.name]: e.target.value })}
+            required={field.required}
+            className="w-full border border-outline-variant/30 dark:border-gray-700 rounded-lg px-3 py-2 text-sm dark:bg-[#2a2a2a] dark:text-white focus:outline-none focus:ring-2 focus:ring-primary"
+          >
+            <option value="">Select {field.label}</option>
+            {field.options.map((opt) => (
+              <option key={opt} value={opt}>
+                {opt}
+              </option>
+            ))}
+          </select>
+        );
+
+      case "checkbox":
+        return (
+          <label className="flex items-center gap-2 dark:text-white">
+            <input
+              type="checkbox"
+              name={field.name}
+              checked={formData[field.name] === true}
+              onChange={(e) => setFormData({ ...formData, [field.name]: e.target.checked })}
+              className="w-4 h-4"
+            />
+            <span className="text-sm">{field.label}</span>
+          </label>
+        );
+
+      default:
+        return null;
+    }
+  };
+
+  // Render table with dynamic columns
+  const renderTable = () => {
+    if (loading) return <p className="text-center py-8 text-on-surface-variant dark:text-gray-400">Loading...</p>;
+    if (paginatedData.length === 0) return <p className="text-center py-8 text-on-surface-variant dark:text-gray-400">No data found</p>;
+
+    // Get dynamic columns from first item
+    const columns =
+      paginatedData.length > 0
+        ? Object.keys(paginatedData[0]).filter(
+            (k) => !["id", "created_at", "updated_at", "created_by"].includes(k)
+          )
+        : [];
+
+    return (
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead className="bg-surface-container-lowest dark:bg-[#1a1a1a] border-b border-outline-variant/20 dark:border-gray-700">
+            <tr>
+              {columns.map((col) => (
+                <th key={col} className="text-left px-4 py-3 font-semibold text-on-surface dark:text-white">
+                  {col.replace(/_/g, " ").toUpperCase()}
+                </th>
+              ))}
+              <th className="text-left px-4 py-3 font-semibold text-on-surface dark:text-white">ACTIONS</th>
+            </tr>
+          </thead>
+          <tbody>
+            {paginatedData.map((item) => (
+              <tr key={item.id} className="border-b border-outline-variant/10 dark:border-gray-700 hover:bg-surface-container-high dark:hover:bg-[#2a2a2a] transition">
+                {columns.map((col) => (
+                  <td key={col} className="px-4 py-3 text-on-surface dark:text-gray-300">
+                    {typeof item[col] === "boolean" ? (
+                      item[col] ? (
+                        <CheckCircle className="w-5 h-5 text-primary dark:text-blue-400" />
+                      ) : (
+                        <X className="w-5 h-5 text-on-surface-variant dark:text-gray-600" />
+                      )
+                    ) : (
+                      String(item[col] || "-").substring(0, 50)
+                    )}
+                  </td>
+                ))}
+                <td className="px-4 py-3 flex gap-2">
+                  <button
+                    onClick={() => openModal(item)}
+                    className="p-2 hover:bg-primary/10 dark:hover:bg-blue-900/30 rounded text-primary dark:text-blue-400 transition"
+                    title="Edit"
+                  >
+                    <Edit2 className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => handleDelete(item.id)}
+                    className="p-2 hover:bg-error/10 dark:hover:bg-red-900/30 rounded text-error dark:text-red-400 transition"
+                    title="Delete"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+  };
+
+  // Render image grid for slideshow tab
+  const renderImageGallery = () => {
+    if (loading) return <p className="text-center py-8 text-on-surface-variant dark:text-gray-400">Loading images...</p>;
+    
+    if (imageError) {
+      return (
+        <div className="bg-error/10 dark:bg-red-900/20 border border-error/30 dark:border-red-700 rounded-lg p-6 text-center">
+          <p className="text-error dark:text-red-400 font-semibold mb-2">⚠️ Error Loading Images</p>
+          <p className="text-error/70 dark:text-red-300/70 text-sm mb-4">{imageError}</p>
+          <button
+            onClick={fetchData}
+            className="px-4 py-2 bg-error dark:bg-red-600 text-white rounded-lg font-medium hover:bg-error/90 dark:hover:bg-red-700 transition"
+          >
+            Retry
+          </button>
+        </div>
+      );
+    }
+    
+    if (dataList.length === 0) return <p className="text-center py-8 text-on-surface-variant dark:text-gray-400">No images uploaded yet. Upload your first image above.</p>;
+
+    return (
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+        {dataList.map((image) => (
+          <div
+            key={image.id}
+            className="group relative bg-surface-container-low dark:bg-[#222] rounded-lg shadow-sm dark:shadow-black/40 border border-outline-variant/10 dark:border-gray-700 overflow-hidden hover:shadow-lg dark:hover:shadow-black/60 transition-shadow"
+          >
+            {/* Image Container - Clickable */}
+            <div
+              className="aspect-square bg-surface-container-high dark:bg-[#1a1a1a] overflow-hidden cursor-pointer"
+              onClick={() => setSelectedImage(image)}
+            >
+              <img
+                src={image.image_url || image.imageUrl}
+                alt={image.title}
+                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+              />
+            </div>
+
+            {/* Info Section */}
+            <div className="p-3 space-y-2">
+              <h3 className="font-semibold text-sm text-on-surface dark:text-white truncate">{image.title}</h3>
+              {image.description && (
+                <p className="text-xs text-on-surface-variant dark:text-gray-400 line-clamp-2">{image.description}</p>
+              )}
+            </div>
+
+            {/* Delete Button - Show on Hover */}
+            <button
+              onClick={() => {
+                if (window.confirm("Are you sure you want to delete this image?")) {
+                  handleDeleteImage(image.id);
+                }
+              }}
+              className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 p-2 bg-error dark:bg-red-600 text-white rounded-lg shadow-lg hover:bg-error/80 dark:hover:bg-red-700 transition-all duration-200"
+              title="Delete image"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  // Handle image deletion
+  const handleDeleteImage = async (imageId) => {
+    try {
+      setLoading(true);
+      setImageError(null);
+      await axios.delete(`${currentTab.endpoint}/${imageId}`);
+      toast.success("✅ Image deleted successfully");
+      fetchData();
+    } catch (err) {
+      const errorMsg = err.response?.data?.error || "Failed to delete image";
+      setImageError(errorMsg);
+      toast.error(errorMsg);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Render upload form for slideshow tab
+  const renderImageUploadForm = () => {
+    return (
+      <div className="mb-8">
+        {/* Upload Form Modal State */}
+        {imageFile && (
+          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+            <div className="bg-white dark:bg-[#1a1a1a] rounded-2xl shadow-2xl dark:shadow-black/60 max-w-md w-full p-6 space-y-4">
+              {/* Modal Header */}
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white">Upload Image</h3>
+                <button
+                  onClick={() => {
+                    setImageFile(null);
+                    setImagePreview(null);
+                    setImageTitle("");
+                    setImageDescription("");
+                  }}
+                  className="p-1 hover:bg-slate-100 dark:hover:bg-[#222] rounded transition"
+                >
+                  <X className="w-5 h-5 text-slate-600 dark:text-gray-400" />
+                </button>
+              </div>
+
+              {/* Image Preview */}
+              {imagePreview && (
+                <div className="w-full aspect-square bg-slate-100 dark:bg-[#222] rounded-lg overflow-hidden">
+                  <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
+                </div>
+              )}
+
+              <form onSubmit={handleImageUpload} className="space-y-3">
+                {/* Title Input */}
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                    Image Title <span className="text-error">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={imageTitle}
+                    onChange={(e) => setImageTitle(e.target.value)}
+                    placeholder="e.g., Cultural Festival 2024"
+                    maxLength="100"
+                    className="w-full px-3 py-2 border border-outline-variant/30 dark:border-gray-700 rounded-lg dark:bg-[#2a2a2a] dark:text-white dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary text-sm"
+                    disabled={uploadingImage}
+                    autoFocus
+                  />
+                </div>
+
+                {/* Description Input */}
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Description</label>
+                  <textarea
+                    value={imageDescription}
+                    onChange={(e) => setImageDescription(e.target.value)}
+                    placeholder="Optional description"
+                    maxLength="200"
+                    rows="2"
+                    className="w-full px-3 py-2 border border-outline-variant/30 dark:border-gray-700 rounded-lg dark:bg-[#2a2a2a] dark:text-white dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary text-sm resize-none"
+                    disabled={uploadingImage}
+                  />
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex gap-2 pt-2">
+                  <button
+                    type="submit"
+                    disabled={uploadingImage || !imageTitle}
+                    className="flex-1 px-4 py-2 bg-primary dark:bg-blue-600 text-white rounded-lg font-semibold text-sm hover:bg-primary/90 dark:hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                  >
+                    {uploadingImage ? "Uploading..." : "Upload"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setImageFile(null);
+                      setImagePreview(null);
+                      setImageTitle("");
+                      setImageDescription("");
+                    }}
+                    disabled={uploadingImage}
+                    className="flex-1 px-4 py-2 bg-slate-200 dark:bg-[#222] text-slate-900 dark:text-gray-300 rounded-lg font-semibold text-sm hover:bg-slate-300 dark:hover:bg-[#2a2a2a] disabled:opacity-50 transition"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* File Input (Hidden) */}
+        <input
+          type="file"
+          id="slideshow-file-input"
+          accept="image/*"
+          onChange={handleImageSelect}
+          className="hidden"
+        />
+
+        {/* Add Image Button */}
+        <label htmlFor="slideshow-file-input" className="inline-block">
+          <button
+            type="button"
+            onClick={() => document.getElementById("slideshow-file-input").click()}
+            className="flex items-center gap-2 px-6 py-3 bg-primary dark:bg-blue-600 text-white rounded-lg font-bold shadow-lg shadow-primary/20 dark:shadow-blue-600/20 hover:scale-[0.98] transition-all cursor-pointer"
+          >
+            <Plus className="w-5 h-5" />
+            Add Image
+          </button>
+        </label>
+      </div>
+    );
+  };
+
+  // Icon mapping
+  const getTabIcon = (tabKey) => {
+    const tab = tabs[tabKey];
+    const Icon = tab.icon;
+    return <Icon className="w-5 h-5" />;
+  };
+
+  return (
+    <PageLayout>
+      <div className="min-h-screen bg-surface dark:bg-[#171717]">
+        {/* Header */}
+        <div className="px-6 md:px-8 lg:px-12 pt-8 pb-6">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div>
+              <h1 className="text-3xl md:text-4xl font-bold text-on-surface dark:text-white mb-2">Master List</h1>
+              <p className="text-on-surface-variant dark:text-gray-400 text-sm">Centralized configuration hub for the organization</p>
+            </div>
+            {activeTab !== "slideshow" && (
+              <button
+                onClick={() => openModal()}
+                className="flex items-center gap-2 px-6 py-2.5 bg-primary dark:bg-blue-600 text-white rounded-lg font-semibold text-sm shadow-lg shadow-primary/20 dark:shadow-blue-600/20 hover:scale-[0.98] transition-all"
+              >
+                <Plus className="w-4 h-4" />
+                New Entry
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Tabs */}
+        <div className="px-6 md:px-8 lg:px-12 flex flex-wrap gap-2 border-b border-outline-variant/20 dark:border-gray-700 pb-4 mt-6">
+          {Object.entries(tabs).map(([key, tab]) => (
+            <button
+              key={key}
+              onClick={() => {
+                setActiveTab(key);
+                setCurrentPage(1);
+                setSearchTerm("");
+              }}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm transition-all ${
+                activeTab === key
+                  ? "bg-primary dark:bg-blue-600 text-white shadow-md"
+                  : "bg-surface-container-lowest dark:bg-[#222] text-slate-700 dark:text-gray-300 hover:bg-surface-container dark:hover:bg-[#2a2a2a]"
+              }`}
+            >
+              {getTabIcon(key)}
+              {tab.title.split(" ")[0]}
+            </button>
+          ))}
+        </div>
+
+        {/* Search & Filter - Only for non-slideshow tabs */}
+        {activeTab !== "slideshow" && (
+          <div className="px-6 md:px-8 lg:px-12 space-y-4 mt-6">
+            {/* Search */}
+            <div className="flex items-center gap-3 bg-surface-container-low dark:bg-[#222] rounded-lg px-4 py-3 border border-transparent dark:border-gray-700 hover:border-primary/20 dark:hover:border-blue-600 focus-within:ring-2 focus-within:ring-primary focus-within:border-transparent transition shadow-sm dark:shadow-black/40">
+              <Search className="w-5 text-on-surface-variant dark:text-gray-500 flex-shrink-0" />
+              <input
+                type="text"
+                placeholder="Search entries..."
+                value={searchTerm}
+                onChange={(e) => {
+                  setSearchTerm(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="flex-1 bg-transparent focus:outline-none text-sm text-on-surface dark:text-white dark:placeholder-gray-500"
+              />
+              {searchTerm && (
+                <button
+                  onClick={() => {
+                    setSearchTerm("");
+                    setCurrentPage(1);
+                  }}
+                  className="px-2 text-on-surface-variant dark:text-gray-500 hover:text-on-surface dark:hover:text-white transition"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+
+            {/* Filter */}
+            <div className="flex gap-2 flex-wrap items-center">
+              <select
+                value={filterStatus}
+                onChange={(e) => {
+                  setFilterStatus(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="px-4 py-2 bg-surface-container-low dark:bg-[#222] border border-outline-variant/30 dark:border-gray-700 rounded-lg text-sm font-medium text-on-surface dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent dark:focus:border-transparent"
+              >
+                <option value="all">All Status</option>
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </select>
+            </div>
+          </div>
+        )}
+
+        {/* Content - Table or Image Gallery */}
+        <div className="px-6 md:px-8 lg:px-12 mt-6">
+          {activeTab === "slideshow" ? (
+            <>
+              {/* Image Upload Form */}
+              {renderImageUploadForm()}
+
+            {/* Image Gallery */}
+            <div>
+              <h3 className="text-lg font-semibold text-on-surface dark:text-white mb-4">Uploaded Images</h3>
+              <div className="bg-surface-container-lowest dark:bg-[#1a1a1a] rounded-xl">
+                {renderImageGallery()}
+              </div>
+            </div>
+            </>
+          ) : (
+            <div className="bg-surface-container-low dark:bg-[#222] rounded-xl shadow-sm dark:shadow-black/40 border border-outline-variant/10 dark:border-gray-700 overflow-hidden">
+              {renderTable()}
+            </div>
+          )}
+        </div>
+
+        {/* Pagination - Only for non-slideshow tabs */}
+        {activeTab !== "slideshow" && totalPages > 1 && (
+          <div className="px-6 md:px-8 lg:px-12 mt-6">
+            <div className="flex items-center justify-center gap-4">
+            <button
+              onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+              disabled={currentPage === 1}
+              className="p-2 hover:bg-slate-200 dark:hover:bg-[#222] rounded disabled:opacity-50 transition"
+            >
+              <ChevronLeft className="w-5 h-5" />
+            </button>
+
+            <span className="text-sm font-medium text-on-surface dark:text-white">
+              Page {currentPage} of {totalPages}
+            </span>
+
+            <button
+              onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+              disabled={currentPage === totalPages}
+              className="p-2 hover:bg-slate-200 dark:hover:bg-[#222] rounded disabled:opacity-50 transition"
+            >
+              <ChevronRight className="w-5 h-5" />
+            </button>
+          </div>
+          </div>
+        )}
+
+        {/* Modal */}
+        {isModalOpen && (
+          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+            <div className="bg-white dark:bg-[#1a1a1a] rounded-2xl shadow-2xl dark:shadow-black/60 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+              {/* Modal Header */}
+              <div className="sticky top-0 bg-gradient-to-r from-primary to-primary-container dark:from-blue-600 dark:to-blue-700 px-6 py-4 flex items-center justify-between">
+                <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                  {getTabIcon(activeTab)}
+                  {editingItem ? "Edit" : "Add"} {currentTab.title}
+                </h3>
+                <button onClick={closeModal} className="p-1 hover:bg-white/20 rounded transition">
+                  <X className="w-6 h-6 text-white" />
+                </button>
+              </div>
+
+              {/* Modal Body */}
+              <form onSubmit={handleSubmit} className="p-6 space-y-4">
+                {currentTab.fields.map((field) => (
+                  <div key={field.name}>
+                    <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">{field.label}</label>
+                    {renderFormField(field)}
+                  </div>
+                ))}
+
+                {/* Form Actions */}
+                <div className="flex gap-3 pt-6 border-t border-outline-variant/20 dark:border-gray-700">
+                  <button
+                    type="button"
+                    onClick={closeModal}
+                    className="flex-1 px-4 py-2 bg-slate-200 dark:bg-[#222] text-slate-900 dark:text-gray-300 rounded-lg font-medium hover:bg-slate-300 dark:hover:bg-[#2a2a2a] transition"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex-1 px-4 py-2 bg-primary dark:bg-blue-600 text-white rounded-lg font-medium hover:bg-primary/90 dark:hover:bg-blue-700 transition"
+                  >
+                    {editingItem ? "Update" : "Create"}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Image Viewer Modal */}
+        {selectedImage && (
+          <div
+            className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4"
+            onClick={() => setSelectedImage(null)}
+          >
+            <div
+              className="bg-white dark:bg-[#1a1a1a] rounded-2xl shadow-2xl dark:shadow-black/60 max-w-4xl w-full max-h-[90vh] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Viewer Header */}
+              <div className="sticky top-0 bg-gradient-to-r from-primary to-primary-container dark:from-blue-600 dark:to-blue-700 px-6 py-4 flex items-center justify-between">
+                <h3 className="text-xl font-bold text-white truncate">{selectedImage.title}</h3>
+                <button
+                  onClick={() => setSelectedImage(null)}
+                  className="p-1 hover:bg-white/20 rounded transition"
+                >
+                  <X className="w-6 h-6 text-white" />
+                </button>
+              </div>
+
+              {/* Viewer Body */}
+              <div className="p-6 space-y-4">
+                {/* Full Image */}
+                <div className="w-full bg-slate-100 dark:bg-[#222] rounded-lg overflow-hidden">
+                  <img
+                    src={selectedImage.image_url || selectedImage.imageUrl}
+                    alt={selectedImage.title}
+                    className="w-full h-auto object-contain"
+                  />
+                </div>
+
+                {/* Image Details */}
+                <div className="space-y-3">
+                  <div>
+                    <p className="text-sm font-semibold text-slate-600 dark:text-gray-400">Title</p>
+                    <p className="text-lg text-slate-900 dark:text-white">{selectedImage.title}</p>
+                  </div>
+
+                  {selectedImage.description && (
+                    <div>
+                      <p className="text-sm font-semibold text-slate-600 dark:text-gray-400">Description</p>
+                      <p className="text-slate-700 dark:text-gray-300">{selectedImage.description}</p>
+                    </div>
+                  )}
+
+                  <div>
+                    <p className="text-sm font-semibold text-slate-600 dark:text-gray-400">Uploaded</p>
+                    <p className="text-slate-700 dark:text-gray-300">
+                      {new Date(selectedImage.created_at).toLocaleDateString()} at{" "}
+                      {new Date(selectedImage.created_at).toLocaleTimeString()}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div className="flex gap-3 pt-4 border-t border-outline-variant/20 dark:border-gray-700">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedImage(null)}
+                    className="flex-1 px-4 py-2 bg-slate-200 dark:bg-[#222] text-slate-900 dark:text-gray-300 rounded-lg font-medium hover:bg-slate-300 dark:hover:bg-[#2a2a2a] transition"
+                  >
+                    Close
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (window.confirm("Are you sure you want to delete this image?")) {
+                        handleDeleteImage(selectedImage.id);
+                        setSelectedImage(null);
+                      }
+                    }}
+                    className="flex-1 px-4 py-2 bg-error dark:bg-red-600 text-white rounded-lg font-medium hover:bg-error/90 dark:hover:bg-red-700 transition"
+                  >
+                    Delete Image
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </PageLayout>
+  );
+}

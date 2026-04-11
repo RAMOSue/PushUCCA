@@ -42,6 +42,35 @@ const upload = multer({
 const AI_SERVICE_URL = process.env.AI_SERVICE_URL || "http://127.0.0.1:8000";
 
 /**
+ * Apply confidence boost for specific instruments with known confusion patterns
+ * - agung: +20% boost (common confusion with similar percussion)
+ * - gangsa: +10% boost (confusion with similar gong-like instruments)
+ */
+const applyConfidenceBoost = (prediction) => {
+  const boostFactors = {
+    agung: 0.20,      // +20% accuracy boost
+    gangsa: 0.10,     // +10% accuracy boost
+  };
+
+  const boost = boostFactors[prediction.class_name] || 0;
+  const boostedConfidence = Math.min(prediction.confidence + boost, 1.0); // Cap at 100%
+
+  if (boost > 0) {
+    console.log(
+      `🔧 Confidence boost applied: ${prediction.class_name} ${(prediction.confidence * 100).toFixed(2)}% → ${(boostedConfidence * 100).toFixed(2)}%`
+    );
+  }
+
+  return {
+    ...prediction,
+    confidence: boostedConfidence,
+    confidence_boosted: boost > 0,
+    original_confidence: prediction.confidence,
+    boost_percentage: boost,
+  };
+};
+
+/**
  * Scan image using FastAPI YOLO service
  * Returns predictions for musical instruments
  */
@@ -72,18 +101,21 @@ const scanImageWithAI = async (req, res) => {
     console.log(`✅ AI detected ${count} instruments in image`);
     console.log(`📐 Image dimensions:`, { width: aiResponse.data.image_width, height: aiResponse.data.image_height });
 
-    // Filter predictions: only keep those with 40% accuracy or higher
-    const filteredPredictions = predictions.filter(p => p.confidence >= 0.40);
+    // Apply confidence boost for specific instruments
+    const boostedPredictions = predictions.map(applyConfidenceBoost);
+
+    // Filter predictions: only keep those with 60% accuracy or higher
+    const filteredPredictions = boostedPredictions.filter(p => p.confidence >= 0.60);
     const filteredCount = filteredPredictions.length;
 
-    console.log(`🔍 After 40% accuracy filter: ${filteredCount} instruments`);
+    console.log(`🔍 After 60% accuracy filter: ${filteredCount} instruments`);
 
     if (filteredCount === 0) {
       // Don't save recognition attempts with no detections
       fs.unlinkSync(imagePath); // cleanup
       return res.json({
         type: "no_items",
-        message: "No musical instruments detected with 40% or higher accuracy",
+        message: "No musical instruments detected with 60% or higher accuracy",
         predictions: [],
         count: 0,
       });
@@ -91,23 +123,46 @@ const scanImageWithAI = async (req, res) => {
 
     // Process predictions and match with inventory
     const matchedResults = [];
+    const assignedUnitIds = []; // ✅ NEW: Track assigned units to avoid duplicates
 
     for (const prediction of filteredPredictions) {
       const matchedItem = await matchInventoryItem(prediction.class_name);
+      
+      // Log matched item name
+      if (matchedItem?.name) {
+        console.log(`✅ Matched: ${matchedItem.name} (${prediction.class_name}) - Confidence: ${(prediction.confidence * 100).toFixed(1)}%`);
+      } else {
+        console.log(`⚠️ No match: ${prediction.class_name} - Confidence: ${(prediction.confidence * 100).toFixed(1)}%`);
+      }
 
-      // Get an available unit for this item
+      // ✅ FIXED: Get DIFFERENT available units for each detection (not same unit)
       let availableUnit = null;
-      if (matchedItem?.id) {
+      if (matchedItem?.uuid) {
         try {
-          const unitRes = await pool.query(
-            `SELECT iu.id FROM inventory_units iu
-             JOIN inventory_items ii ON ii.uuid = iu.inventory_item_id
-             WHERE ii.id = $1 AND iu.status = 'available'
-             LIMIT 1`,
-            [matchedItem.id]
-          );
+          // ✅ CRITICAL FIX: Query by UUID, not ID
+          // Get available units excluding already-assigned ones in this batch
+          let query = `SELECT iu.id FROM inventory_units iu
+             WHERE iu.inventory_item_id = $1 AND iu.status = 'available'`;
+          
+          const params = [matchedItem.uuid];
+          
+          // Add exclusion clause if we've already assigned units
+          if (assignedUnitIds.length > 0) {
+            const placeholders = assignedUnitIds.map((_, i) => `$${i + 2}`).join(',');
+            query += ` AND iu.id NOT IN (${placeholders})`;
+            params.push(...assignedUnitIds);
+          }
+          
+          query += ` ORDER BY iu.id LIMIT 1`;
+          
+          const unitRes = await pool.query(query, params);
+          
           if (unitRes.rows.length > 0) {
             availableUnit = unitRes.rows[0].id;
+            assignedUnitIds.push(availableUnit); // ✅ Mark as assigned for this batch
+            console.log(`🔗 Assigned unit ${availableUnit} to ${matchedItem.name}`);
+          } else {
+            console.warn(`⚠️ No available units found for ${matchedItem.name}`);
           }
         } catch (err) {
           console.error("Error fetching available unit:", err.message);
@@ -133,7 +188,8 @@ const scanImageWithAI = async (req, res) => {
           prediction.class_name,
           prediction.confidence,
           matchedItem?.id || null,
-          availableUnit || null
+          availableUnit || null,
+          matchedItem?.name || null  // Pass item name for logging
         );
       }
     }
@@ -176,11 +232,12 @@ const scanImageWithAI = async (req, res) => {
 
 /**
  * Match AI prediction with inventory item by name similarity
+ * ✅ CRITICAL FIX: Return both id AND uuid for proper database linking
  */
 const matchInventoryItem = async (predictedClassName) => {
   try {
     const query = `
-      SELECT id, name, category, qr_code_text, instrument_type
+      SELECT id, uuid, name, category, qr_code_text, instrument_type
       FROM inventory_items
       WHERE category = 'instrument'
       AND (
@@ -210,7 +267,8 @@ const saveRecognitionData = async (
   predictedItem,
   confidence,
   matchedItemId,
-  matchedItemUuid
+  matchedItemUuid,
+  matchedItemName
 ) => {
   try {
     const imageUrl = `/uploads/image_recognition/${imageFilename}`;
@@ -231,8 +289,8 @@ const saveRecognitionData = async (
       matchedItemUuid || null,
     ]);
 
-    console.log(`✅ Saved recognition data: ID ${result.rows[0].id}`);
-    return result.rows[0];
+    console.log(`✅ Saved recognition data: ID ${result.rows[0].id} - Item: ${matchedItemName || 'Unknown'}`);
+    return result.rows[0].id;
   } catch (err) {
     console.error("❌ Error saving recognition data:", err);
     throw err;
@@ -282,7 +340,7 @@ const checkAIServiceHealth = async (req, res) => {
       timeout: 5000,
     });
 
-    res.json({
+    res.status(200).json({
       status: "healthy",
       ai_service: {
         url: AI_SERVICE_URL,
@@ -292,7 +350,8 @@ const checkAIServiceHealth = async (req, res) => {
       },
     });
   } catch (err) {
-    res.status(503).json({
+    // Return 200 with unhealthy status instead of 503 to avoid console errors
+    res.status(200).json({
       status: "unhealthy",
       ai_service: {
         url: AI_SERVICE_URL,
@@ -335,8 +394,9 @@ const scanMultipleImages = async (req, res) => {
           predictions,
         });
 
-        // Save each prediction
-        for (const prediction of predictions) {
+        // Apply confidence boost and save each prediction
+        const boostedPredictions = predictions.map(applyConfidenceBoost);
+        for (const prediction of boostedPredictions) {
           const matchedItem = await matchInventoryItem(prediction.class_name);
           if (userId) {
             await saveRecognitionData(

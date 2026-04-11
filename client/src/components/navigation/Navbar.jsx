@@ -1,0 +1,586 @@
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useContext, useEffect, useState, useRef } from "react";
+import { UserContext } from "../../../context/userContext";
+import { BorrowingContext } from "../../../context/borrowingContext";
+import { SidebarContext } from "../../../context/SidebarContext"; // ✅ Import sidebar context
+import { LoginModalContext } from "../../../context/LoginModalContext"; // ✅ Import login modal context
+import axios from "axios";
+import { Home, LogOut, Camera, Menu, BookOpen, ShoppingCart, Smartphone, ImageIcon, X, User, ChevronDown, Bell, Settings, History, Search } from 'lucide-react';
+import NotificationBadge from "../ui/NotificationBadge";
+import { notificationService } from "../../services/notifications";
+
+// Material Symbols Icon Component
+const MaterialIcon = ({ icon, className = "" }) => (
+  <span className={`material-symbols-outlined ${className}`} data-icon={icon}>{icon}</span>
+);
+
+export default function Navbar() {
+  const { user, setUser, loading } = useContext(UserContext);
+  const { cart } = useContext(BorrowingContext);
+  const { sidebarOpen, setSidebarOpen } = useContext(SidebarContext); // ✅ Get sidebar toggle
+  const { openLoginModal } = useContext(LoginModalContext); // ✅ Get openLoginModal from context
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [showScannerModal, setShowScannerModal] = useState(false);
+  const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
+  const [profilePic, setProfilePic] = useState(null);
+  const [isScrolled, setIsScrolled] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const profileDropdownRef = useRef(null);
+
+  // ✅ Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (profileDropdownRef.current && !profileDropdownRef.current.contains(event.target)) {
+        setProfileDropdownOpen(false);
+      }
+    };
+
+    if (profileDropdownOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => document.removeEventListener("mousedown", handleClickOutside);
+    }
+  }, [profileDropdownOpen]);
+
+  // ✅ Detect scroll for dynamic z-index (borrower desktop navbar)
+  useEffect(() => {
+    const handleScroll = () => {
+      const scrollTop = window.scrollY;
+      setIsScrolled(scrollTop > 100);
+    };
+
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  useEffect(() => {
+    if (user) {
+      const setupNotifications = async () => {
+        const initialized = await notificationService.init();
+        if (initialized && Notification.permission === "granted") {
+          await notificationService.subscribe(user.id);
+        }
+      };
+      setupNotifications();
+      
+      // Fetch profile picture for all roles (staff, admin, and borrower)
+      if (user?.role === "staff" || user?.role === "admin" || user?.role === "borrower") {
+        fetchProfilePicture();
+      }
+    }
+  }, [user]);
+
+  const fetchProfilePicture = async () => {
+    try {
+      const { data } = await axios.get("/api/profiles/me", {
+        withCredentials: true,
+      });
+      if (data?.profile_pic_url) {
+        setProfilePic(data.profile_pic_url);
+      }
+    } catch (err) {
+      console.error("Failed to fetch profile picture:", err.message);
+    }
+  };
+
+  const handleViewProfile = () => {
+    if (user?.role === "admin") {
+      navigate("/admin/profile");
+    } else if (user?.role === "borrower") {
+      navigate("/profile");
+    } else if (user?.role === "staff") {
+      navigate("/staff/profile");
+    }
+    setProfileDropdownOpen(false);
+  };
+
+  const handleLogout = async () => {
+    try {
+      await axios.post("/api/auth/logout");
+      setUser(null);
+      navigate("/login");
+    } catch (err) {
+      console.error("Logout failed:", err.message);
+    }
+  };
+
+  const getDashboardLink = () => {
+    if (user?.role === "admin") return "/admin/available-items";
+    if (user?.role === "staff") return "/staff/available-items";
+    return "/dashboard"; // borrower
+  };
+
+  // Show loading navbar while checking authentication
+  if (loading) {
+    return (
+      <header className="w-full bg-[#001800] dark:bg-[#171717] backdrop-blur-xl bg-opacity-95 dark:bg-opacity-95 z-50 border-b-4 border-[#FBBC38] dark:border-[#2a2a2a] shadow-[0_20px_50px_rgba(0,24,0,0.3)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.5)] h-16 transition-colors duration-300">
+        <div className="flex items-center justify-between px-6 py-0 w-full h-full max-w-full">
+          <div className="flex items-center gap-6">
+            <button className="text-[#92D6A2] dark:text-gray-300 hover:scale-95 duration-150 transition-all">
+              <MaterialIcon icon="menu" className="text-2xl" />
+            </button>
+            <div className="text-xl font-black tracking-tighter text-[#C8EDBA] dark:text-white font-headline uppercase">
+              Golden Padlers
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-[#92D6A2] dark:border-blue-400"></div>
+            <span className="text-[#C8EDBA] dark:text-gray-400 opacity-60 text-sm">Loading...</span>
+          </div>
+        </div>
+      </header>
+    );
+  }
+
+  // Professional header for unauthenticated users (GetStarted page)
+  if (!user) {
+    return (
+      <header className="sticky top-0 bg-[#001800] dark:bg-[#171717] backdrop-blur-xl bg-opacity-95 dark:bg-opacity-95 z-40 border-b-4 border-[#FBBC38] dark:border-[#2a2a2a] shadow-[0_20px_50px_rgba(0,24,0,0.3)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.5)] h-16 transition-colors duration-300">
+        <div className="flex items-center justify-between px-6 py-0 w-full h-full max-w-full">
+          {/* Leading: Logo */}
+          <div className="flex items-center gap-6">
+            <button className="text-[#92D6A2] dark:text-gray-300 hover:scale-95 duration-150 transition-all">
+              <MaterialIcon icon="menu" className="text-2xl" />
+            </button>
+            <div className="text-xl font-black tracking-tighter text-[#C8EDBA] dark:text-white font-headline uppercase">
+              Golden Padlers
+            </div>
+          </div>
+
+          {/* Log In Button - Right aligned */}
+          <button
+            onClick={openLoginModal}
+            className="text-[#FBBC38] dark:text-blue-400 font-headline font-bold uppercase text-sm tracking-widest hover:text-[#92D6A2] dark:hover:text-blue-300 transition-all duration-300"
+          >
+            Log In
+          </button>
+        </div>
+      </header>
+    );
+  }
+
+  // <CHANGE> Updated borrower bottom navbar with green accent theme
+  if (user?.role === "borrower") {
+    const borrowerRoutes = [
+      "/dashboard",
+      "/available-items",
+      "/borrow-cart",
+      "/my-borrowed-items",
+      "/borrow-history",
+      "/settings",
+      "/profile",
+      "/scanner",
+      "/scan",
+    ];
+
+    const scannerRoutes = ["/scan", "/scanner"];
+    const isOnScannerPage = scannerRoutes.some(
+      (r) => location.pathname === r || location.pathname.startsWith(r + "/")
+    );
+
+    if (isOnScannerPage) {
+      return null;
+    }
+
+    const isBorrowerRoute = borrowerRoutes.some(
+      (r) => location.pathname === r || location.pathname.startsWith(r + "/")
+    );
+
+    if (isBorrowerRoute) {
+      return (
+        <>
+          {/* ✅ BORROWER HEADER - Same simple design as staff/admin */}
+          <header className="sticky top-0 bg-[#001800] dark:bg-[#171717] backdrop-blur-xl bg-opacity-95 dark:bg-opacity-95 z-40 border-b-4 border-[#FBBC38] dark:border-[#2a2a2a] shadow-[0_20px_50px_rgba(0,24,0,0.3)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.5)] h-16 transition-colors duration-300">
+            <div className="flex items-center justify-between px-6 py-0 w-full h-full max-w-full">
+              {/* Leading: Logo & Menu */}
+              <div className="flex items-center gap-6 h-full">
+                <button 
+                  onClick={() => setSidebarOpen(!sidebarOpen)}
+                  className="text-[#92D6A2] dark:text-gray-300 hover:scale-95 duration-150 transition-all flex items-center justify-center w-8 h-8"
+                >
+                  <MaterialIcon icon="menu" className="text-2xl" />
+                </button>
+                <div className="text-lg font-black tracking-tighter text-[#C8EDBA] dark:text-white font-headline uppercase line-clamp-1 leading-none">
+                  {user ? "Inventory System" : "Academic Conservator"}
+                </div>
+              </div>
+
+              {/* Trailing: Actions */}
+              <div className="flex items-center gap-6 ml-auto h-full">
+                {/* Search Bar (Desktop) */}
+                {user && (
+                  <div className="relative hidden md:flex items-center h-full">
+                    <MaterialIcon icon="search" className="absolute left-3 text-[#C8EDBA] dark:text-gray-400 opacity-60 text-lg" />
+                    <input
+                      className="bg-[#13300E] dark:bg-[#2a2a2a] border-none rounded-lg pl-10 pr-4 h-9 text-sm focus:ring-1 focus:ring-[#FBBC38] dark:focus:ring-blue-400 text-[#C8EDBA] dark:text-white placeholder-gray-500 dark:placeholder-gray-400 w-48 transition-all leading-none"
+                      placeholder="Search items..."
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                    />
+                  </div>
+                )}
+
+                {/* Borrower Cart Button (Desktop) */}
+                {user?.role === "borrower" && (
+                  <Link
+                    to="/borrow-cart"
+                    className="relative h-full flex items-center justify-center hover:opacity-80 transition-opacity duration-300"
+                    title="Borrow Cart"
+                  >
+                    <div className="flex items-center justify-center relative">
+                      <ShoppingCart className="w-6 h-6 text-[#92D6A2] dark:text-blue-400 hover:text-[#FBBC38] dark:hover:text-yellow-400 transition-colors duration-300" />
+                      {/* Cart badge */}
+                      {cart && cart.length > 0 && (
+                        <span className="absolute -top-2 -right-2 bg-red-500 dark:bg-red-600 text-white text-xs font-bold w-5 h-5 rounded-full flex items-center justify-center">
+                          {cart.length}
+                        </span>
+                      )}
+                    </div>
+                  </Link>
+                )}
+
+                {/* Notification Badge */}
+                {user?.role === "borrower" && (
+                  <div className="h-full flex items-center">
+                    <NotificationBadge />
+                  </div>
+                )}
+
+                {/* Profile Section with Dropdown */}
+                {user && (
+                  <div className="relative" ref={profileDropdownRef}>
+                    <button
+                      onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
+                      className="w-10 h-10 rounded-full bg-[#13300E] dark:bg-[#2a2a2a] flex items-center justify-center overflow-hidden border border-[#42493E]/20 dark:border-[#3a3a3a] flex-shrink-0 hover:border-[#FBBC38]/50 dark:hover:border-blue-400/50 transition-colors"
+                      title="Profile menu"
+                    >
+                      {profilePic ? (
+                        <img
+                          alt={user?.name}
+                          className="w-full h-full object-cover"
+                          src={profilePic}
+                        />
+                      ) : (
+                        <MaterialIcon icon="account_circle" className="text-[#92D6A2] dark:text-blue-400 text-2xl" />
+                      )}
+                    </button>
+
+                    {/* Dropdown Menu - Uses fixed positioning to overlay everything */}
+                    {profileDropdownOpen && (
+                      <div className="fixed right-6 top-20 bg-white dark:bg-[#1f1f1f] rounded-lg shadow-2xl dark:shadow-[0_10px_30px_rgba(0,0,0,0.5)] border border-gray-200 dark:border-[#2a2a2a] w-48 overflow-visible z-[9999] transition-colors duration-300">
+                        <button
+                          onClick={() => {
+                            handleViewProfile();
+                            setProfileDropdownOpen(false);
+                          }}
+                          className="w-full px-4 py-2.5 text-left text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#2a2a2a] flex items-center gap-2 transition-colors border-b border-gray-100 dark:border-[#2a2a2a]"
+                        >
+                          <User className="w-4 h-4" />
+                          View Profile
+                        </button>
+                        <button
+                          onClick={() => {
+                            handleLogout();
+                            setProfileDropdownOpen(false);
+                          }}
+                          className="w-full px-4 py-2.5 text-left text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2 transition-colors"
+                        >
+                          <LogOut className="w-4 h-4" />
+                          Logout
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          </header>
+
+          {/* <CHANGE> Mobile bottom navbar (hidden on 1024px+) */}
+          <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-[#1f1f1f] border-t border-gray-100 dark:border-[#2a2a2a] shadow-lg dark:shadow-[0_-10px_30px_rgba(0,0,0,0.5)] z-50 h-16 transition-colors duration-300">
+            <div className="flex justify-around items-center sm-mobile:py-2 md-mobile:py-2.5 lg-mobile:py-3 tablet:py-4 gap-0.5">
+              {/* Home Button */}
+              <Link
+                to="/available-items"
+                className={`flex flex-col items-center justify-center transition-all duration-300 ${
+                  location.pathname.includes("/available-items")
+                    ? "text-emerald-600 dark:text-blue-400"
+                    : "text-gray-500 dark:text-gray-400 hover:text-emerald-600 dark:hover:text-blue-300"
+                }`}
+              >
+                <div className="sm-mobile:p-2 md-mobile:p-2.5 lg-mobile:p-2.5 tablet:p-3">
+                  <Home className="sm-mobile:w-5 sm-mobile:h-5 md-mobile:w-5 md-mobile:h-5 lg-mobile:w-6 lg-mobile:h-6 tablet:w-6 tablet:h-6" />
+                </div>
+                <span className="sm-mobile:text-[10px] md-mobile:text-[10px] lg-mobile:text-xs tablet:text-xs font-medium">Home</span>
+              </Link>
+
+              {/* Borrowed Items Button */}
+              <Link
+                to="/my-borrowed-items"
+                className={`flex flex-col items-center justify-center transition-all duration-300 ${
+                  location.pathname.includes("/my-borrowed-items")
+                    ? "text-emerald-600 dark:text-blue-400"
+                    : "text-gray-500 dark:text-gray-400 hover:text-emerald-600 dark:hover:text-blue-300"
+                }`}
+              >
+                <div className="sm-mobile:p-2 md-mobile:p-2.5 lg-mobile:p-2.5 tablet:p-3">
+                  <BookOpen className="sm-mobile:w-5 sm-mobile:h-5 md-mobile:w-5 md-mobile:h-5 lg-mobile:w-6 lg-mobile:h-6 tablet:w-6 tablet:h-6" />
+                </div>
+                <span className="sm-mobile:text-[10px] md-mobile:text-[10px] lg-mobile:text-xs tablet:text-xs font-medium">Borrowed</span>
+              </Link>
+
+              {/* <CHANGE> Center Scanner Button with green gradient */}
+              <button
+                onClick={() => setShowScannerModal(true)}
+                className="flex flex-col items-center justify-center relative sm-mobile:-mt-4 md-mobile:-mt-5 lg-mobile:-mt-5 tablet:-mt-6 mb-1 transition-transform duration-300 hover:scale-110 active:scale-95"
+              >
+                <div className="sm-mobile:w-12 sm-mobile:h-12 md-mobile:w-14 md-mobile:h-14 lg-mobile:w-14 lg-mobile:h-14 tablet:w-16 tablet:h-16 bg-gradient-to-br from-emerald-400 to-emerald-600 dark:from-blue-500 dark:to-blue-600 rounded-full flex items-center justify-center shadow-md hover:shadow-lg transition-shadow">
+                  <Camera className="sm-mobile:w-6 sm-mobile:h-6 md-mobile:w-6 md-mobile:h-6 lg-mobile:w-7 lg-mobile:h-7 tablet:w-8 tablet:h-8 text-white" />
+                </div>
+                <span className="sm-mobile:text-[9px] md-mobile:text-[10px] lg-mobile:text-xs tablet:text-xs mt-1 font-medium text-gray-700 dark:text-gray-300">Scan</span>
+              </button>
+
+              {/* Cart Button */}
+              <Link
+                to="/borrow-cart"
+                className={`flex flex-col items-center justify-center transition-all duration-300 relative ${
+                  location.pathname.includes("/borrow-cart")
+                    ? "text-emerald-600 dark:text-blue-400"
+                    : "text-gray-500 dark:text-gray-400 hover:text-emerald-600 dark:hover:text-blue-300"
+                }`}
+              >
+                <div className="sm-mobile:p-2 md-mobile:p-2.5 lg-mobile:p-2.5 tablet:p-3 relative">
+                  <ShoppingCart className="sm-mobile:w-5 sm-mobile:h-5 md-mobile:w-5 md-mobile:h-5 lg-mobile:w-6 lg-mobile:h-6 tablet:w-6 tablet:h-6" />
+                  {/* <CHANGE> Cart badge styling updated */}
+                  {cart && cart.length > 0 && (
+                    <span className="absolute sm-mobile:-top-1 sm-mobile:-right-1 md-mobile:-top-1.5 md-mobile:-right-1.5 bg-emerald-500 dark:bg-blue-500 text-white sm-mobile:text-[7px] md-mobile:text-[8px] lg-mobile:text-[8px] tablet:text-xs font-bold sm-mobile:w-4 sm-mobile:h-4 md-mobile:w-5 md-mobile:h-5 lg-mobile:w-5 lg-mobile:h-5 tablet:w-6 tablet:h-6 rounded-full flex items-center justify-center">
+                      {cart.length}
+                    </span>
+                  )}
+                </div>
+                <span className="sm-mobile:text-[10px] md-mobile:text-[10px] lg-mobile:text-xs tablet:text-xs font-medium">Cart</span>
+              </Link>
+
+              {/* Profile Button */}
+              <Link
+                to="/profile"
+                className={`flex flex-col items-center justify-center transition-all duration-300 ${
+                  location.pathname === "/documents"
+                    ? "text-emerald-600 dark:text-blue-400"
+                    : "text-gray-500 dark:text-gray-400 hover:text-emerald-600 dark:hover:text-blue-300"
+                }`}
+              >
+                <div className="sm-mobile:p-2 md-mobile:p-2.5 lg-mobile:p-2.5 tablet:p-3">
+                  <User className="sm-mobile:w-5 sm-mobile:h-5 md-mobile:w-5 md-mobile:h-5 lg-mobile:w-6 lg-mobile:h-6 tablet:w-6 tablet:h-6" />
+                </div>
+                <span className="sm-mobile:text-[10px] md-mobile:text-[10px] lg-mobile:text-xs tablet:text-xs font-medium">Profile</span>
+              </Link>
+            </div>
+          </nav>
+
+          {/* <CHANGE> Scanner Modal with green accent theme - Mobile version */}
+          {showScannerModal && (
+            <div className="lg:hidden fixed inset-0 bg-black bg-opacity-40 dark:bg-black/60 flex items-center justify-center z-[60] sm-mobile:p-3 md-mobile:p-4 lg-mobile:p-4 tablet:p-6 animate-fadeIn">
+              <div className="bg-white dark:bg-[#1f1f1f] rounded-2xl shadow-2xl dark:shadow-[0_20px_60px_rgba(0,0,0,0.5)] sm-mobile:p-4 md-mobile:p-6 lg-mobile:p-6 tablet:p-8 w-full sm-mobile:max-w-xs md-mobile:max-w-sm lg-mobile:max-w-md tablet:max-w-lg animate-slideUp transition-colors duration-300">
+                {/* Header */}
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="sm-mobile:text-lg md-mobile:text-xl lg-mobile:text-xl tablet:text-2xl font-bold text-gray-900 dark:text-white">Choose Scanner</h2>
+                  <button
+                    onClick={() => setShowScannerModal(false)}
+                    className="p-1.5 hover:bg-gray-100 dark:hover:bg-[#2a2a2a] rounded-lg transition-colors"
+                  >
+                    <X className="sm-mobile:w-5 sm-mobile:h-5 md-mobile:w-6 md-mobile:h-6 lg-mobile:w-6 lg-mobile:h-6 tablet:w-6 tablet:h-6 text-gray-500 dark:text-gray-400" />
+                  </button>
+                </div>
+
+                {/* Scanner Options */}
+                <div className="grid grid-cols-1 gap-3">
+                  {/* Instrument Scanner */}
+                  <button
+                    onClick={() => {
+                      setShowScannerModal(false);
+                      navigate("/scanner");
+                    }}
+                    className="flex items-center gap-3 sm-mobile:p-3 md-mobile:p-4 lg-mobile:p-4 tablet:p-4 border-2 border-gray-200 rounded-xl hover:border-emerald-400 hover:bg-emerald-50 transition-all group"
+                  >
+                    <div className="sm-mobile:w-10 sm-mobile:h-10 md-mobile:w-12 md-mobile:h-12 lg-mobile:w-12 lg-mobile:h-12 tablet:w-14 tablet:h-14 bg-gray-100 rounded-lg flex items-center justify-center group-hover:bg-emerald-100 transition-colors">
+                      <Camera className="sm-mobile:w-5 sm-mobile:h-5 md-mobile:w-6 md-mobile:h-6 lg-mobile:w-6 lg-mobile:h-6 tablet:w-7 tablet:h-7 text-gray-600 group-hover:text-emerald-600 transition-colors" />
+                    </div>
+                    <div className="text-left flex-1">
+                      <p className="sm-mobile:text-sm md-mobile:text-base lg-mobile:text-base tablet:text-lg font-semibold text-gray-900">Scan Instrument</p>
+                      <p className="sm-mobile:text-xs md-mobile:text-sm lg-mobile:text-sm tablet:text-sm text-gray-500">Use AI to detect items</p>
+                    </div>
+                  </button>
+
+                  {/* QR Code Scanner */}
+                  <button
+                    onClick={() => {
+                      setShowScannerModal(false);
+                      navigate("/scan");
+                    }}
+                    className="flex items-center gap-3 sm-mobile:p-3 md-mobile:p-4 lg-mobile:p-4 tablet:p-4 border-2 border-gray-200 rounded-xl hover:border-emerald-400 hover:bg-emerald-50 transition-all group"
+                  >
+                    <div className="sm-mobile:w-10 sm-mobile:h-10 md-mobile:w-12 md-mobile:h-12 lg-mobile:w-12 lg-mobile:h-12 tablet:w-14 tablet:h-14 bg-gray-100 rounded-lg flex items-center justify-center group-hover:bg-emerald-100 transition-colors">
+                      <Smartphone className="sm-mobile:w-5 sm-mobile:h-5 md-mobile:w-6 md-mobile:h-6 lg-mobile:w-6 lg-mobile:h-6 tablet:w-7 tablet:h-7 text-gray-600 group-hover:text-emerald-600 transition-colors" />
+                    </div>
+                    <div className="text-left flex-1">
+                      <p className="sm-mobile:text-sm md-mobile:text-base lg-mobile:text-base tablet:text-lg font-semibold text-gray-900">QR Code Scanner</p>
+                      <p className="sm-mobile:text-xs md-mobile:text-sm lg-mobile:text-sm tablet:text-sm text-gray-500">Scan item QR codes</p>
+                    </div>
+                  </button>
+
+
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Global Styles for Modal Animations */}
+          <style>{`
+            @keyframes fadeIn {
+              from { opacity: 0; }
+              to { opacity: 1; }
+            }
+            @keyframes slideUp {
+              from {
+                opacity: 0;
+                transform: translateY(20px);
+              }
+              to {
+                opacity: 1;
+                transform: translateY(0);
+              }
+            }
+            .animate-fadeIn {
+              animation: fadeIn 0.3s ease-out;
+            }
+            .animate-slideUp {
+              animation: slideUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+            }
+          `}</style>
+        </>
+      );
+    }
+  }
+
+  // Updated header with reference design (green/gold theme)
+  return (
+    <header className="sticky top-0 bg-[#001800] dark:bg-[#171717] backdrop-blur-xl bg-opacity-95 dark:bg-opacity-95 z-40 border-b-4 border-[#FBBC38] dark:border-[#2a2a2a] shadow-[0_20px_50px_rgba(0,24,0,0.3)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.5)] h-16 transition-colors duration-300">
+      <div className="flex items-center justify-between px-6 py-0 w-full h-full max-w-full">
+        {/* Leading: Logo & Menu */}
+        <div className="flex items-center gap-6 h-full">
+          <button 
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            className="text-[#92D6A2] hover:scale-95 duration-150 transition-all flex items-center justify-center w-8 h-8"
+          >
+            <MaterialIcon icon="menu" className="text-2xl" />
+          </button>
+          <div className="text-lg font-black tracking-tighter text-[#C8EDBA] font-headline uppercase line-clamp-1 leading-none">
+            {user ? "Inventory System" : "Academic Conservator"}
+          </div>
+        </div>
+
+        {/* Trailing: Actions */}
+        <div className="flex items-center gap-6 ml-auto h-full">
+          {/* Search Bar (Desktop) */}
+          {user && (
+            <div className="relative hidden md:flex items-center h-full">
+              <MaterialIcon icon="search" className="absolute left-3 text-[#C8EDBA] opacity-60 text-lg" />
+              <input
+                className="bg-[#13300E] border-none rounded-lg pl-10 pr-4 h-9 text-sm focus:ring-1 focus:ring-[#FBBC38] text-[#C8EDBA] w-48 transition-all leading-none"
+                placeholder="Search items..."
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+          )}
+
+          {/* Staff/Admin Borrowing Cart Button */}
+          {user && (user?.role === "staff" || user?.role === "admin") && (
+            <Link
+              to="/staff-borrow-cart"
+              className="relative h-full flex items-center justify-center hover:opacity-80 transition-opacity duration-300"
+              title="Staff Borrowing Cart"
+            >
+              <div className="flex items-center justify-center relative">
+                <ShoppingCart className="w-6 h-6 text-[#92D6A2] hover:text-[#FBBC38] transition-colors duration-300" />
+                {/* Cart badge */}
+                {cart && cart.length > 0 && (
+                  <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold w-5 h-5 rounded-full flex items-center justify-center">
+                    {cart.length}
+                  </span>
+                )}
+              </div>
+            </Link>
+          )}
+
+          {/* Give/Action Button */}
+          {!user && (
+            <button
+              onClick={openLoginModal}
+              className="text-[#FBBC38] font-headline font-bold uppercase text-sm tracking-widest hover:text-[#92D6A2] transition-all duration-300 leading-tight line-clamp-1"
+            >
+              Get Started
+            </button>
+          )}
+
+          {/* Notification Badge */}
+          {user?.role === "staff" && (
+            <div className="h-full flex items-center">
+              <NotificationBadge />
+            </div>
+          )}
+
+          {/* Profile Section with Dropdown */}
+          {user && (
+            <div className="relative" ref={profileDropdownRef}>
+              <button
+                onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
+                className="w-10 h-10 rounded-full bg-[#13300E] flex items-center justify-center overflow-hidden border border-[#42493E]/20 flex-shrink-0 hover:border-[#FBBC38]/50 transition-colors"
+                title="Profile menu"
+              >
+                {profilePic ? (
+                  <img
+                    alt={user?.name}
+                    className="w-full h-full object-cover"
+                    src={profilePic}
+                  />
+                ) : (
+                  <MaterialIcon icon="account_circle" className="text-[#92D6A2] text-2xl" />
+                )}
+              </button>
+
+              {/* Dropdown Menu - Uses fixed positioning to overlay everything */}
+              {profileDropdownOpen && (
+                <div className="fixed right-6 top-20 bg-white dark:bg-[#1f1f1f] rounded-lg shadow-2xl dark:shadow-[0_10px_30px_rgba(0,0,0,0.5)] border border-gray-200 dark:border-[#2a2a2a] w-48 overflow-visible z-[9999] transition-colors duration-300">
+                  <button
+                    onClick={() => {
+                      handleViewProfile();
+                      setProfileDropdownOpen(false);
+                    }}
+                    className="w-full px-4 py-2.5 text-left text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#2a2a2a] flex items-center gap-2 transition-colors border-b border-gray-100 dark:border-[#2a2a2a]"
+                  >
+                    <User className="w-4 h-4" />
+                    View Profile
+                  </button>
+                  <button
+                    onClick={() => {
+                      handleLogout();
+                      setProfileDropdownOpen(false);
+                    }}
+                    className="w-full px-4 py-2.5 text-left text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2 transition-colors"
+                  >
+                    <LogOut className="w-4 h-4" />
+                    Logout
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </header>
+  );
+}

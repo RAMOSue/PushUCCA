@@ -4,50 +4,68 @@ import { useContext, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { Toaster } from "react-hot-toast";
+import toast from "react-hot-toast";
 
-import Navbar from "./components/Navbar";
-import Register from "./pages/Register";
-import Login from "./pages/Login";
-import Dashboard from "./pages/Dashboard";
-import GetStarted from "./pages/GetStarted";
-import AvailableItems from "./pages/AvailableItems";
-import BorrowCart from "./pages/BorrowCart";
-import MyBorrowedItems from "./pages/MyBorrowedItems"; // ✅ Newly added page
-import BorrowerHistory from "./pages/BorrowerHistory"; // ✅ New dedicated borrow history page
-import PersonalInformation from "./pages/PersonalInformation"; // ✅ Personal Information page
-import ScanQR from "./pages/ScanQR";
-import MusicInstrumentScanner from "./pages/MusicInstrumentScanner"; // ✅ New image scanner
-import AdminUserManagement from "./pages/AdminUserManagement";
-import DashboardStaff from "./pages/DashboardStaff";
-import StaffSchedule from "./pages/StaffSchedule";
-import DashboardAdmin from "./pages/DashboardAdmin";
-import ManageBorrowRequests from "./pages/ManageBorrowRequests";
-import ManageInventory from "./pages/ManageInventory";
-import AdminReports from "./pages/AdminReports";
-import ReturnItems from "./pages/ReturnItems";
-import BorrowerProfiles from "./pages/BorrowerProfiles";
-import Settings from "./pages/Settings"; // ✅ Settings page
+import Navbar from "./components/navigation/Navbar";
+import SideNavbar from "./components/navigation/SideNavbar"; // ✅ Borrower sidebar
+import RightNavbar from "./components/navigation/RightNavbar"; // ✅ Right navbar
+import TestUserSwitcher from "./components/TestUserSwitcher"; // ✅ Multi-user testing
+import Register from "./pages/Auth/Register";
+import Login from "./pages/Auth/Login";
+import VerifyEmail from "./pages/Auth/VerifyEmail";
+import Dashboard from "./pages/Dashboard/Dashboard";
+import GetStarted from "./pages/Home/GetStarted";
+import AvailableItems from "./pages/Inventory/AvailableItems";
+import BorrowCart from "./pages/Borrower/BorrowCart";
+import StaffBorrowCart from "./pages/Staff/StaffBorrowCart";
+import MyBorrowedItems from "./pages/Borrower/MyBorrowedItems";
+import BorrowerHistory from "./pages/Borrower/BorrowerHistory";
+import ScanQR from "./pages/Inventory/ScanQR";
+import MusicInstrumentScanner from "./pages/Inventory/MusicInstrumentScanner";
+import ScannerSelection from "./pages/Inventory/ScannerSelection";
+import AdminUserManagement from "./pages/Admin/AdminUserManagement";
+import DashboardStaff from "./pages/Dashboard/DashboardStaff";
+import StaffSchedule from "./pages/Staff/StaffSchedule";
+import DashboardAdmin from "./pages/Dashboard/DashboardAdmin";
+import StaffBorrowTimeline from "./pages/Staff/StaffBorrowTimeline";
+import ManageInventory from "./pages/Inventory/ManageInventory";
+import AdminReports from "./pages/Admin/AdminReports";
+import BorrowerProfiles from "./pages/Borrower/BorrowerProfiles";
+import BorrowerProfileFacebook from "./pages/Borrower/BorrowerProfileFacebook"; // ✅ Facebook-style UI
+import Settings from "./pages/Settings/Settings";
+import StaffAdminProfileFacebook from "./pages/Staff/StaffAdminProfileFacebook"; // ✅ Facebook-style UI
+import MasterList from "./pages/Staff/MasterList";
+import StaffLayout from "./components/layout/StaffLayout"; // ✅ Staff layout shell
+import BorrowerLayout from "./components/layout/BorrowerLayout"; // ✅ Borrower layout shell
 
 import { UserContextProvider, UserContext } from "../context/userContext";
 import { BorrowingProvider } from "../context/borrowingContext";
+import { SidebarProvider } from "../context/SidebarContext";
+import { LoginModalProvider } from "../context/LoginModalContext"; // ✅ Import login modal context
 import { notificationService } from "./services/notifications"; // ✅ Import notification service
+import { useInactivityTimeout } from "./hooks/useInactivityTimeout.jsx"; // ✅ Import inactivity hook
 import "./index.css";
 
-// ✅ Global axios configuration
-axios.defaults.baseURL = "http://localhost:8000";
+// ✅ Global axios configuration (supports both local and production)
+const apiURL = import.meta.env.VITE_API_URL || "http://localhost:8000"
+axios.defaults.baseURL = apiURL
 axios.defaults.withCredentials = true;
 
 function AppContent() {
-  const { user, isDarkMode } = useContext(UserContext);
+  const { user, darkMode } = useContext(UserContext);
 
-  // ✅ Automatically toggle Tailwind’s dark mode globally
+  // ✅ Initialize inactivity timeout monitoring
+  useInactivityTimeout();
+
+
+  // ✅ Automatically toggle Tailwind's dark mode globally
   useEffect(() => {
-    if (isDarkMode) {
+    if (darkMode) {
       document.documentElement.classList.add("dark");
     } else {
       document.documentElement.classList.remove("dark");
     }
-  }, [isDarkMode]);
+  }, [darkMode]);
 
   // ✅ Initialize push notifications after user logs in
   useEffect(() => {
@@ -56,29 +74,70 @@ function AppContent() {
         try {
           console.log("🔔 [App.jsx] Starting notification setup for user:", user.id);
           
+          // Run diagnostics first
+          console.log("🔔 [App.jsx] Running notification diagnostics...");
+          const diagnostics = await notificationService.diagnoseNotifications();
+          console.log("🔔 [App.jsx] Diagnostics complete:", diagnostics);
+          
           const ok = await notificationService.init();
           console.log("🔔 [App.jsx] Service Worker init result:", ok);
           
           if (ok) {
-            // Always request permission (will show prompt if not granted)
-            const permissionGranted = await notificationService.requestPermission(user.id);
-            console.log("🔔 [App.jsx] Permission granted:", permissionGranted);
+            console.log("✅ [App.jsx] Service Worker initialized for user:", user.id);
             
-            if (permissionGranted) {
-              console.log("✅ Push notifications initialized for user:", user.id);
+            // Check if permission already granted from previous session
+            if (Notification.permission === 'granted') {
+              console.log("🔔 [App.jsx] Notification permission already granted from previous session");
+              const subscribed = await notificationService.subscribe(user.id);
+              if (subscribed) {
+                console.log("✅ [App.jsx] Already subscribed, resuming notifications");
+              }
             } else {
-              console.warn("⚠️ Push notifications permission not granted");
+              console.log("🔔 [App.jsx] Notification permission not yet granted - user needs to click enable button");
             }
+            
+            // Run diagnostics again after setup
+            setTimeout(async () => {
+              console.log("🔔 [App.jsx] Running post-setup diagnostics...");
+              const postDiagnostics = await notificationService.diagnoseNotifications();
+              console.log("🔔 [App.jsx] Post-setup diagnostics:", postDiagnostics);
+            }, 1000);
           } else {
-            console.warn("⚠️ Push notification setup skipped (unsupported or failed)");
+            console.warn("⚠️ [App.jsx] Push notification setup skipped (unsupported or failed)");
           }
         } catch (error) {
-          console.error("❌ Notification setup error:", error);
+          console.error("❌ [App.jsx] Notification setup error:", error);
         }
       }
     };
     setupNotifications();
   }, [user]);
+
+  // Setup listener for push notifications received
+  useEffect(() => {
+    const handlePushReceived = (payload) => {
+      try {
+        console.log("🔔 [App.jsx] PUSH_RECEIVED message handled:", payload);
+        // Optional: Show toast notification in app
+        if (payload && payload.message) {
+          toast.success(payload.message, { 
+            duration: 5000,
+            icon: '🔔'
+          });
+        }
+      } catch (e) {
+        console.error("Error handling push received:", e);
+      }
+    };
+
+    // Set up the message listener
+    notificationService.setupMessageListener(handlePushReceived);
+    
+    return () => {
+      // Cleanup message listener on unmount
+      notificationService.removeMessageListener();
+    };
+  }, []);
 
   // Handle notification click messages forwarded from the service worker
   const navigate = useNavigate();
@@ -128,11 +187,30 @@ function AppContent() {
   return (
     <div
       className={`min-h-screen transition-colors duration-300 ${
-        isDarkMode ? "bg-gray-900 text-white" : "bg-gray-50 text-gray-900"
+        darkMode ? "bg-[#171717] text-white" : "bg-gray-50 text-gray-900"
       }`}
     >
       <BorrowingProvider>
         <Navbar />
+        
+        {/* ✅ Show RightNavbar for all authenticated users (borrower, staff, admin) */}
+        {user && (user?.role === "borrower" || user?.role === "staff" || user?.role === "admin") && (
+          <RightNavbar />
+        )}
+        
+        {/* ✅ Show left sidebar for borrower users */}
+        {user?.role === "borrower" && (
+          <SideNavbar role="borrower" />
+        )}
+        
+        {/* ✅ Show floating scanner buttons for borrower users (always visible) */}
+        {user?.role === "borrower" && (
+          <ScannerSelection />
+        )}
+
+        {/* ✅ Test User Switcher - for multi-user testing */}
+        <TestUserSwitcher />
+        
         <Toaster position="bottom-right" toastOptions={{ duration: 2000 }} />
 
         <Routes>
@@ -141,6 +219,7 @@ function AppContent() {
           ============================== */}
           <Route path="/" element={<GetStarted />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/verify-email" element={<VerifyEmail />} />
           <Route path="/login" element={<Login />} />
           <Route path="/dashboard" element={<Dashboard />} />
 
@@ -154,6 +233,20 @@ function AppContent() {
             element={
               user?.role === "borrower" ? (
                 <BorrowCart />
+              ) : (
+                <div className="text-center mt-10 text-red-500 text-xl">
+                  ❌ Access Denied
+                </div>
+              )
+            }
+          />
+
+          {/* ✅ Staff Borrow Cart */}
+          <Route
+            path="/staff-borrow-cart"
+            element={
+              user?.role === "staff" ? (
+                <StaffBorrowCart />
               ) : (
                 <div className="text-center mt-10 text-red-500 text-xl">
                   ❌ Access Denied
@@ -182,20 +275,6 @@ function AppContent() {
             element={
               user?.role === "borrower" ? (
                 <BorrowerHistory />
-              ) : (
-                <div className="text-center mt-10 text-red-500 text-xl">
-                  ❌ Access Denied
-                </div>
-              )
-            }
-          />
-
-          {/* ✅ Personal Information page */}
-          <Route
-            path="/personal-information"
-            element={
-              user?.role === "borrower" ? (
-                <PersonalInformation />
               ) : (
                 <div className="text-center mt-10 text-red-500 text-xl">
                   ❌ Access Denied
@@ -245,6 +324,22 @@ function AppContent() {
             }
           />
 
+          {/* ✅ BORROWER PROFILE ROUTES */}
+          <Route
+            path="/profile"
+            element={
+              user?.role === "borrower" ? (
+                <BorrowerProfileFacebook />
+              ) : (
+                <div className="text-center mt-10 text-red-500 text-xl">
+                  ❌ Access Denied
+                </div>
+              )
+            }
+          />
+
+
+
           {/* ==============================
               STAFF DASHBOARD (NESTED)
           ============================== */}
@@ -252,7 +347,7 @@ function AppContent() {
             path="/staff"
             element={
               user?.role === "staff" ? (
-                <DashboardStaff />
+                <StaffLayout />
               ) : (
                 <div className="text-center mt-10 text-red-500 text-xl">
                   ❌ Access Denied
@@ -260,35 +355,25 @@ function AppContent() {
               )
             }
           >
-            {/* 🟢 Default dashboard welcome screen */}
-            <Route
-              index
-              element={
-                <div className="p-10 text-center text-purple-400">
-                  <h1 className="text-3xl font-bold mb-2">
-                    Welcome to the Staff Dashboard!
-                  </h1>
-                  <p className="text-gray-400">
-                    Use the menu on the left to manage requests, inventory, and borrower profiles.
-                  </p>
-                </div>
-              }
-            />
+            {/* 🟢 Default staff dashboard home (welcome + tiles) */}
+            <Route index element={<DashboardStaff />} />
 
             {/* Other nested staff pages */}
-            <Route path="manage-requests" element={<ManageBorrowRequests />} />
-            <Route path="return-items" element={<ReturnItems />} />
+            <Route path="manage-requests" element={<StaffBorrowTimeline />} />
+            <Route path="return-items" element={<StaffBorrowTimeline />} />
             <Route path="available-items" element={<AvailableItems />} />
             <Route path="schedule" element={<StaffSchedule />} />
             <Route path="manage-inventory" element={<ManageInventory />} />
             <Route path="borrower-profiles" element={<BorrowerProfiles />} />
+            <Route path="master-list" element={<MasterList />} />
+            <Route path="profile" element={<StaffAdminProfileFacebook />} />
           </Route>
 
           {/* ==============================
-              ADMIN ROUTES
+              ADMIN ROUTES (NESTED)
           ============================== */}
           <Route
-            path="/admin/dashboard"
+            path="/admin"
             element={
               user?.role === "admin" ? (
                 <DashboardAdmin />
@@ -298,86 +383,22 @@ function AppContent() {
                 </div>
               )
             }
-          />
+          >
+            {/* 🟢 Default redirect to available-items */}
+            <Route
+              index
+              element={<AvailableItems />}
+            />
 
-          <Route
-            path="/admin/users"
-            element={
-              user?.role === "admin" ? (
-                <AdminUserManagement />
-              ) : (
-                <div className="text-center mt-10 text-red-500 text-xl">
-                  ❌ Access Denied
-                </div>
-              )
-            }
-          />
-
-          <Route
-            path="/admin/reports"
-            element={
-              user?.role === "admin" ? (
-                <AdminReports />
-              ) : (
-                <div className="text-center mt-10 text-red-500 text-xl">
-                  ❌ Access Denied
-                </div>
-              )
-            }
-          />
-
-          {/* ✅ Admin can also access these management pages */}
-          <Route
-            path="/admin/manage-requests"
-            element={
-              user?.role === "admin" ? (
-                <ManageBorrowRequests />
-              ) : (
-                <div className="text-center mt-10 text-red-500 text-xl">
-                  ❌ Access Denied
-                </div>
-              )
-            }
-          />
-
-          <Route
-            path="/admin/return-items"
-            element={
-              user?.role === "admin" ? (
-                <ReturnItems />
-              ) : (
-                <div className="text-center mt-10 text-red-500 text-xl">
-                  ❌ Access Denied
-                </div>
-              )
-            }
-          />
-
-          <Route
-            path="/admin/manage-inventory"
-            element={
-              user?.role === "admin" ? (
-                <ManageInventory />
-              ) : (
-                <div className="text-center mt-10 text-red-500 text-xl">
-                  ❌ Access Denied
-                </div>
-              )
-            }
-          />
-
-          <Route
-            path="/admin/available-items"
-            element={
-              user?.role === "admin" ? (
-                <AvailableItems />
-              ) : (
-                <div className="text-center mt-10 text-red-500 text-xl">
-                  ❌ Access Denied
-                </div>
-              )
-            }
-          />
+            {/* Admin nested pages */}
+            <Route path="available-items" element={<AvailableItems />} />
+            <Route path="manage-requests" element={<StaffBorrowTimeline />} />
+            <Route path="return-items" element={<StaffBorrowTimeline />} />
+            <Route path="manage-inventory" element={<ManageInventory />} />
+            <Route path="users" element={<AdminUserManagement />} />
+            <Route path="reports" element={<AdminReports />} />
+            <Route path="profile" element={<StaffAdminProfileFacebook />} />
+          </Route>
         </Routes>
       </BorrowingProvider>
     </div>
@@ -387,7 +408,11 @@ function AppContent() {
 function App() {
   return (
     <UserContextProvider>
-      <AppContent />
+      <LoginModalProvider>
+        <SidebarProvider>
+          <AppContent />
+        </SidebarProvider>
+      </LoginModalProvider>
     </UserContextProvider>
   );
 }

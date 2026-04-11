@@ -1,0 +1,40 @@
+# Render Deployment Configuration for Backend
+# Deploy Node.js Server to Render
+
+# This file helps with deploying to Render.com
+# Steps:
+# 1. Push this repo to GitHub (public repo)
+# 2. Go to https://dashboard.render.com
+# 3. Create new Web Service
+# 4. Connect your GitHub repo
+# 5. Fill in these settings:
+
+# ==== BACKEND CONFIGURATION ====
+name: loginauth-server        # Service name
+runtime: node
+buildCommand: npm install
+startCommand: npm start
+envVars:
+  - key: NODE_ENV
+    value: production
+  - key: PORT
+    value: "8000"
+  - key: DB_USER
+    value: postgres
+  - key: DB_PASSWORD
+    value: jMyDjSbiCz17nU64
+  - key: DB_HOST
+    value: db.iphatcclueqrsjgwgemq.supabase.co
+  - key: DB_PORT
+    value: "5432"
+  - key: DB_NAME
+    value: postgres
+  - key: JWT_SECRET
+    value: 2342423534
+  - key: FRONTEND_URL
+    value: https://your-frontend-url.onrender.com  # Update after frontend deployed
+  - key: SERVER_URL
+    value: auto  # Render will auto-generate this
+
+# Note: Keep GOOGLE_CALLBACK_URL, EMAIL credentials, and VAPID keys in Render dashboard
+# (Don't commit sensitive keys to git)

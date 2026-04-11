@@ -10,6 +10,19 @@ webpush.setVapidDetails(
   process.env.VAPID_PRIVATE_KEY
 );
 
+// Debounce map: track recently-triggered resend operations to avoid rapid duplicates
+// Key: userId, Value: timestamp of last resend trigger
+const _resendDebounce = new Map();
+const _RESEND_DEBOUNCE_MS = 3 * 1000; // 3 seconds — prevent resend within 3 seconds of last trigger
+
+// Periodically clean old entries from debounce map
+setInterval(() => {
+  const now = Date.now();
+  for (const [userId, ts] of _resendDebounce.entries()) {
+    if (now - ts > _RESEND_DEBOUNCE_MS * 2) _resendDebounce.delete(userId);
+  }
+}, 30 * 1000);
+
 const notificationController = {
   /**
    * ✅ Save a new push subscription from the client
@@ -49,15 +62,14 @@ const notificationController = {
 
       const { endpoint, keys } = subscription;
 
-      // NOTE: Using INSERT ON CONFLICT DO NOTHING to ensure we don't overwrite subscriptions from other devices
-      // Each endpoint is unique, so same device re-subscribing won't create duplicates
-      // But different devices for the same user create separate rows
+      // Immediately insert/update the subscription (non-blocking)
       const result = await db.query(
         `
         INSERT INTO push_subscriptions (user_id, endpoint, p256dh, auth, created_at, last_seen)
         VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
         ON CONFLICT (endpoint) DO UPDATE SET
-          last_seen = CURRENT_TIMESTAMP
+          last_seen = CURRENT_TIMESTAMP,
+          user_id = COALESCE(EXCLUDED.user_id, push_subscriptions.user_id)
         RETURNING id, user_id, endpoint
       `,
         [userId, endpoint, keys.p256dh, keys.auth]
@@ -68,12 +80,38 @@ const notificationController = {
         `✅ Subscription saved for user ${userId}: endpoint=${endpoint.substring(0, 50)}...`
       );
 
-      if (res)
-        return res.json({
+      // Return response immediately (don't wait for resend)
+      if (res) {
+        res.json({
           success: true,
           message: "Subscription saved successfully",
           subscriptionId: savedSub?.id,
         });
+      }
+
+      // Trigger resend asynchronously with debounce to prevent rapid duplicate triggers
+      // This happens AFTER the response is sent, so it doesn't delay the client
+      (async () => {
+        try {
+          const now = Date.now();
+          const lastResend = _resendDebounce.get(userId);
+          
+          // Check if we recently triggered a resend for this user (within debounce window)
+          if (lastResend && (now - lastResend) < _RESEND_DEBOUNCE_MS) {
+            console.log(`⏱️ Resend for user ${userId} already triggered ${now - lastResend}ms ago, skipping (debounce)`);
+            return;
+          }
+
+          // Mark this resend as triggered
+          _resendDebounce.set(userId, now);
+
+          // Perform resend in background (non-blocking)
+          const resendResult = await notificationController.resendPendingForUser(userId);
+          console.log(`🔁 Resend after subscribe result for user ${userId}:`, resendResult && resendResult.resent !== undefined ? `${resendResult.resent} resent` : resendResult);
+        } catch (rrErr) {
+          console.error(`❌ Error while resending pending notifications after subscribe for user ${userId}:`, rrErr && rrErr.message ? rrErr.message : rrErr);
+        }
+      })();
 
       return true;
     } catch (error) {
@@ -125,10 +163,16 @@ const notificationController = {
         [userId]
       );
 
-      const subscriptions = subResult.rows;
-      console.log(
-        `🔍 Found ${subscriptions.length} subscription(s) for user ${userId}`
-      );
+      // Deduplicate subscriptions by endpoint to avoid sending the same
+      // payload multiple times when duplicate rows exist for the same device.
+      const rawSubs = subResult.rows || [];
+      const subsByEndpoint = new Map(rawSubs.map((s) => [s.endpoint, s]));
+      const subscriptions = Array.from(subsByEndpoint.values());
+      if (rawSubs.length !== subscriptions.length) {
+        console.log(`🔍 Found ${rawSubs.length} subscription rows, deduped to ${subscriptions.length} unique endpoint(s) for user ${userId}`);
+      } else {
+        console.log(`🔍 Found ${subscriptions.length} subscription(s) for user ${userId}`);
+      }
 
       // Debug: list endpoints to help trace delivery failures
       try {
@@ -161,11 +205,16 @@ const notificationController = {
 
           // Debug: log payload and target subscription id
           try {
-            console.log(`➡️ Sending payload to subscription ${sub.id} (user ${userId}) - payload snippet:`, payload.substring(0, 400));
+            console.log(`➡️ Sending to subscription ${sub.id}:`);
+            console.log(`   - Endpoint: ${sub.endpoint.substring(0, 80)}...`);
+            console.log(`   - Keys valid: p256dh=${!!sub.p256dh}, auth=${!!sub.auth}`);
+            console.log(`   - Payload: ${payload.substring(0, 300)}...`);
           } catch (e) {}
 
           // TTL: 24 hours — allows offline users to receive push when they reconnect
           const options = { TTL: 60 * 60 * 24 };
+
+          console.log(`📤 [CRITICAL] About to call webpush.sendNotification() for sub ${sub.id}`);
 
           await webpush.sendNotification(
             {
@@ -176,14 +225,17 @@ const notificationController = {
             options
           );
 
-          console.log(`✅ Push sent to subscription ${sub.id}`);
+          console.log(`✅ Push sent to subscription ${sub.id} - SUCCESS`);
           successCount++;
         } catch (error) {
           console.error(
-            `❌ Push send failed for subscription ${sub.id}: ${error && error.message ? error.message : error}`
+            `❌ Push send FAILED for subscription ${sub.id}: ${error && error.message ? error.message : error}`
           );
+          console.error(`   Status Code: ${error?.statusCode}`);
+          console.error(`   Error Name: ${error?.name}`);
+          console.error(`   Body: ${error?.body}`);
           try {
-            console.error('   Full error:', error);
+            console.error('   Full error object:', JSON.stringify(error, Object.getOwnPropertyNames(error)));
           } catch (e) {}
           failureCount++;
 
@@ -276,15 +328,30 @@ const notificationController = {
             data: notif.data || {},
           });
 
-          // Get all active subscriptions for this user
+          // Get all active subscriptions for this user and dedupe by endpoint
           const subs = await db.query(
             "SELECT id, endpoint, p256dh, auth FROM push_subscriptions WHERE user_id = $1",
             [userId]
           );
 
+          const subsRows = subs.rows || [];
+          const subsByEndpoint = new Map(subsRows.map((s) => [s.endpoint, s]));
+          const uniqueSubs = Array.from(subsByEndpoint.values());
+          console.log(`🔍 Resend: found ${subsRows.length} subscription rows, deduped to ${uniqueSubs.length} endpoint(s) for user ${userId} while resending notification ${notif.id}`);
+          try {
+            const endpoints = uniqueSubs.map(s => s.endpoint);
+            console.log(`🔗 Resend endpoints for user ${userId}:`, endpoints);
+          } catch (e) {}
+
+          if (uniqueSubs.length === 0) {
+            results.push({ id: notif.id, sent: false, reason: 'no_subscriptions' });
+            // nothing to send to; continue to next pending notification
+            continue;
+          }
+
           let wasSent = false;
 
-          for (const sub of subs.rows) {
+          for (const sub of uniqueSubs) {
             try {
               const options = { TTL: 60 * 60 * 24 };
               await webpush.sendNotification(
@@ -296,12 +363,23 @@ const notificationController = {
                 options
               );
               wasSent = true;
+              console.log(`✅ Resend: Push sent to subscription ${sub.id} for notification ${notif.id}`);
             } catch (err) {
-              if (err.statusCode === 410 || err.statusCode === 404) {
-                await db.query(
-                  "DELETE FROM push_subscriptions WHERE id = $1",
-                  [sub.id]
-                );
+              console.error(`❌ Resend: push send failed for subscription ${sub.id} (notif ${notif.id}):`, err && err.message ? err.message : err);
+              try {
+                console.error('   Full err:', err);
+              } catch (e) {}
+              // Remove invalid/expired subscriptions
+              if (err && (err.statusCode === 410 || err.statusCode === 404)) {
+                console.log(`🗑️ Resend: Removing expired subscription ${sub.id} (HTTP ${err.statusCode})`);
+                try {
+                  await db.query(
+                    "DELETE FROM push_subscriptions WHERE id = $1",
+                    [sub.id]
+                  );
+                } catch (delErr) {
+                  console.error('Failed to delete subscription during resend:', delErr && delErr.message ? delErr.message : delErr);
+                }
               }
             }
           }
@@ -360,13 +438,19 @@ const notificationController = {
       const result = await db.query(
         `SELECT id, type, message, data, is_delivered, is_read, created_at 
          FROM notifications 
-         WHERE user_id = $1 
+         WHERE user_id = $1 AND message IS NOT NULL AND message != ''
          ORDER BY created_at DESC 
          LIMIT 100`,
         [userId]
       );
 
-      res.json(result.rows);
+      // Normalize timestamps to ISO strings so the client can reliably parse them
+      const normalized = result.rows.map((r) => ({
+        ...r,
+        created_at: r.created_at ? new Date(r.created_at).toISOString() : null,
+      }));
+
+      res.json(normalized);
     } catch (error) {
       console.error("Get notifications error:", error.message || error);
       res.status(500).json({ error: "Server error" });
@@ -412,6 +496,71 @@ const notificationController = {
       res.json({ count: parseInt(result.rows[0].count) || 0 });
     } catch (error) {
       console.error("Get unread count error:", error.message || error);
+      res.status(500).json({ error: "Server error" });
+    }
+  },
+
+  /**
+   * ✅ Mark all notifications as read for a user
+   */
+  markAllAsRead: async (req, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+
+      await db.query(
+        `UPDATE notifications SET is_read = true WHERE user_id = $1 AND is_read = false`,
+        [userId]
+      );
+
+      res.json({ success: true, message: "All notifications marked as read" });
+    } catch (error) {
+      console.error("Mark all as read error:", error.message || error);
+      res.status(500).json({ error: "Server error" });
+    }
+  },
+
+  /**
+   * ✅ Delete a notification
+   */
+  deleteNotification: async (req, res) => {
+    try {
+      const userId = req.user?.id;
+      const { id } = req.body;
+      if (!userId || !id) return res.status(400).json({ error: "Invalid request" });
+
+      const result = await db.query(
+        `DELETE FROM notifications WHERE id = $1 AND user_id = $2 RETURNING id`,
+        [id, userId]
+      );
+
+      if (result.rowCount === 0) {
+        return res.status(404).json({ error: "Notification not found" });
+      }
+
+      res.json({ success: true, message: "Notification deleted" });
+    } catch (error) {
+      console.error("Delete notification error:", error.message || error);
+      res.status(500).json({ error: "Server error" });
+    }
+  },
+
+  /**
+   * ✅ Delete all read notifications for a user
+   */
+  deleteAllReadNotifications: async (req, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+
+      const result = await db.query(
+        `DELETE FROM notifications WHERE user_id = $1 AND is_read = true`,
+        [userId]
+      );
+
+      res.json({ success: true, message: `Deleted ${result.rowCount} read notifications` });
+    } catch (error) {
+      console.error("Delete all read notifications error:", error.message || error);
       res.status(500).json({ error: "Server error" });
     }
   },

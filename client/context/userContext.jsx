@@ -1,13 +1,30 @@
 // client/src/context/userContext.jsx
 import axios from "axios";
 import { createContext, useEffect, useState } from "react";
-import { notificationService } from "../src/services/notifications";
+import notificationService from "../src/services/notifications";
+import { INACTIVITY_CONFIG } from "../src/config/inactivityConfig";
+import tokenManager from "../src/utils/tokenManager"; // ✅ Multi-user testing
 
 export const UserContext = createContext({});
 
 // ✅ Global axios defaults
 axios.defaults.baseURL = "http://localhost:8000";
 axios.defaults.withCredentials = true;
+
+/**
+ * 🔧 Axios interceptor to inject active user token from tokenManager
+ * This allows switching between multiple logged-in users
+ */
+axios.interceptors.request.use(
+  (config) => {
+    const activeToken = tokenManager.getActiveTokenString();
+    if (activeToken) {
+      config.headers.Authorization = `Bearer ${activeToken}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
 
 export function UserContextProvider({ children }) {
   const [user, setUser] = useState(null);
@@ -19,11 +36,16 @@ export function UserContextProvider({ children }) {
     return saved ? JSON.parse(saved) : false;
   });
 
-  // ✅ Fetch user profile once when the app loads
+  // ✅ Session Persistence - recover session from localStorage on app load
   useEffect(() => {
-    const fetchProfile = async () => {
+    const recoverSession = async () => {
+      if (!INACTIVITY_CONFIG.PERSIST_SESSION) {
+        return;
+      }
+
       try {
-        const { data } = await axios.get("/api/auth/profile", {
+        // Check if valid session exists by fetching profile
+        const { data } = await axios.get("/api/profiles/me", {
           withCredentials: true,
         });
 
@@ -32,6 +54,64 @@ export function UserContextProvider({ children }) {
             ...data,
             id: data.id ? parseInt(data.id, 10) : null,
           });
+          console.log("✅ [Session] Recovered session for:", data.email);
+        } else {
+          setUser(null);
+          localStorage.removeItem(INACTIVITY_CONFIG.SESSION_KEY);
+        }
+      } catch (err) {
+        if (err.response?.status === 401 || err.response?.status === 404) {
+          // Expected for logged-out users or missing profiles - don't log as error
+          setUser(null);
+          localStorage.removeItem(INACTIVITY_CONFIG.SESSION_KEY);
+        } else {
+          console.error("Session recovery error:", err.response?.data || err.message);
+        }
+      }
+    };
+
+    recoverSession();
+  }, []);
+
+  // ✅ Fetch user profile once when the app loads
+  // Also listen for changes to active user in tokenManager (multi-user support)
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        // ✅ Check if there's an active token in tokenManager (multi-user testing)
+        const activeTokenUser = tokenManager.getActiveUser();
+        if (activeTokenUser) {
+          console.log(`✅ [Profile] Using active user from tokenManager: ${activeTokenUser.email}`);
+          setUser(activeTokenUser);
+          setLoading(false);
+          return;
+        }
+
+        // Otherwise, fetch from API
+        const { data } = await axios.get("/api/profiles/me", {
+          withCredentials: true,
+        });
+
+        if (data && data.id) {
+          const userData = {
+            ...data,
+            id: data.id ? parseInt(data.id, 10) : null,
+          };
+          setUser(userData);
+
+          // ✅ Store session token for persistence
+          if (INACTIVITY_CONFIG.PERSIST_SESSION) {
+            localStorage.setItem(
+              INACTIVITY_CONFIG.SESSION_KEY,
+              JSON.stringify({
+                userId: userData.id,
+                email: userData.email,
+                role: userData.role,
+                timestamp: Date.now(),
+              })
+            );
+          }
+
           // Initialize notifications service and auto-subscribe on login
           try {
             // Init service worker
@@ -57,10 +137,17 @@ export function UserContextProvider({ children }) {
           }
         } else {
           setUser(null);
+          if (INACTIVITY_CONFIG.PERSIST_SESSION) {
+            localStorage.removeItem(INACTIVITY_CONFIG.SESSION_KEY);
+          }
         }
       } catch (err) {
-        if (err.response?.status === 401) {
-          setUser(null); // Not logged in
+        if (err.response?.status === 401 || err.response?.status === 404) {
+          // Expected for logged-out users or missing profiles - don't log as error
+          setUser(null);
+          if (INACTIVITY_CONFIG.PERSIST_SESSION) {
+            localStorage.removeItem(INACTIVITY_CONFIG.SESSION_KEY);
+          }
         } else {
           console.error("Profile fetch error:", err.response?.data || err.message);
         }
@@ -70,6 +157,17 @@ export function UserContextProvider({ children }) {
     };
 
     fetchProfile();
+
+    // ✅ Listen for changes to active user in tokenManager (multi-user testing)
+    const handleStorageChange = (e) => {
+      if (e.key === tokenManager.ACTIVE_TOKEN_KEY || e.key === tokenManager.STORAGE_KEY) {
+        console.log("🔄 [Profile] Active user changed, refetching...");
+        fetchProfile();
+      }
+    };
+
+    window.addEventListener("storage", handleStorageChange);
+    return () => window.removeEventListener("storage", handleStorageChange);
   }, []);
 
   // ✅ Automatically apply dark mode class to the <html> element
@@ -91,18 +189,29 @@ export function UserContextProvider({ children }) {
   // ✅ Dynamic Change Password (connected to backend)
   const changePassword = async (currentPassword, newPassword) => {
     try {
-      const { data } = await axios.put(
+      const { data } = await axios.post(
         "/api/auth/change-password",
         { currentPassword, newPassword },
         { withCredentials: true }
       );
 
-      return { success: true, message: data.message || "Password changed successfully" };
+      return { 
+        success: true, 
+        message: data.message || "✅ Password changed successfully" 
+      };
     } catch (err) {
       console.error("Change password error:", err.response?.data || err.message);
+      
+      // Extract error message from various response structures
+      const errorMessage = 
+        err.response?.data?.message || 
+        err.response?.data?.error || 
+        err.message || 
+        "Failed to change password";
+      
       return {
         success: false,
-        message: err.response?.data?.message || "Failed to change password",
+        message: errorMessage,
       };
     }
   };
@@ -115,6 +224,7 @@ export function UserContextProvider({ children }) {
         setUser,
         loading,
         darkMode,
+        setDarkMode,
         toggleDarkMode,
         changePassword,
       }}

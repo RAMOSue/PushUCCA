@@ -1,0 +1,243 @@
+import { useEffect, useState } from "react";
+import { Image as ImageIcon, X, Download, Trash2, AlertCircle } from "lucide-react";
+import axios from "axios";
+import toast from "react-hot-toast";
+
+/**
+ * Modal to view return photos from borrowers
+ * Used by staff to verify returned items and condition
+ */
+export default function ViewReturnPhotosModal({
+  isOpen,
+  requestId,
+  borrowerName,
+  onClose,
+}) {
+  const [photos, setPhotos] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [fullScreenPhoto, setFullScreenPhoto] = useState(null);
+
+  // Fetch photos when modal opens
+  useEffect(() => {
+    if (!isOpen || !requestId) return;
+
+    const fetchPhotos = async () => {
+      setLoading(true);
+      setError("");
+
+      try {
+        const response = await axios.get(`/api/borrow/return/photos/${requestId}`, {
+          withCredentials: true,
+        });
+
+        if (response.data.success) {
+          setPhotos(response.data.photos || []);
+        } else {
+          setError("Failed to load return photos");
+        }
+      } catch (err) {
+        console.error("Fetch return photos error:", err);
+        setError(err.response?.data?.error || "Failed to load return photos");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchPhotos();
+  }, [isOpen, requestId]);
+
+  const handleDelete = async (photoId) => {
+    if (!window.confirm("Delete this return photo?")) return;
+
+    try {
+      const response = await axios.delete(`/api/borrow/return/photos/${photoId}`, {
+        withCredentials: true,
+      });
+
+      if (response.data.success) {
+        setPhotos(photos.filter((p) => p.id !== photoId));
+        toast.success("Return photo deleted");
+      }
+    } catch (err) {
+      toast.error("Failed to delete return photo");
+    }
+  };
+
+  const handleDownload = async (photo) => {
+    try {
+      const photoUrl = photo.photo_url?.startsWith("http")
+        ? photo.photo_url
+        : `http://localhost:8000${photo.photo_url}`;
+
+      const response = await axios.get(photoUrl, { responseType: "blob" });
+      const blob = new Blob([response.data], { type: "image/jpeg" });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `return-photo-${Date.now()}.jpg`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      toast.success("Return photo downloaded");
+    } catch (err) {
+      toast.error("Failed to download return photo");
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <>
+      {/* Full Screen Viewer */}
+      {fullScreenPhoto && (
+        <div className="fixed inset-0 z-[60] bg-black/95 flex items-center justify-center p-4">
+          <div className="relative max-w-4xl w-full">
+            <button
+              onClick={() => setFullScreenPhoto(null)}
+              className="absolute top-4 right-4 z-10 bg-white rounded-full p-2 hover:bg-gray-200 transition"
+            >
+              <X className="w-6 h-6 text-black" />
+            </button>
+            <img
+              src={
+                fullScreenPhoto.startsWith("http")
+                  ? fullScreenPhoto
+                  : `http://localhost:8000${fullScreenPhoto}`
+              }
+              alt="Full screen return photo"
+              className="w-full h-auto rounded-lg"
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Modal */}
+      <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-lg shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+          {/* Header */}
+          <div className="flex items-center justify-between p-6 border-b bg-gradient-to-r from-orange-50 to-orange-100">
+            <div className="flex items-center gap-2">
+              <ImageIcon className="w-6 h-6 text-orange-600" />
+              <div>
+                <h2 className="text-xl font-bold text-gray-900">↩️ Return Photos</h2>
+                {borrowerName && (
+                  <p className="text-sm text-gray-600">Borrower: {borrowerName}</p>
+                )}
+              </div>
+            </div>
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600 transition"
+            >
+              <X className="w-6 h-6" />
+            </button>
+          </div>
+
+          {/* Content */}
+          <div className="flex-1 overflow-y-auto p-6">
+            {loading && (
+              <div className="flex items-center justify-center h-48">
+                <div className="animate-spin border-4 border-orange-200 border-t-orange-600 rounded-full w-12 h-12"></div>
+              </div>
+            )}
+
+            {error && (
+              <div className="p-4 bg-red-50 border border-red-200 rounded flex items-start gap-2">
+                <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                <p className="text-red-700">{error}</p>
+              </div>
+            )}
+
+            {!loading && !error && photos.length === 0 && (
+              <div className="flex flex-col items-center justify-center h-48 text-gray-500">
+                <ImageIcon className="w-12 h-12 mb-3 opacity-50" />
+                <p>No return photos captured yet</p>
+              </div>
+            )}
+
+            {!loading && photos.length > 0 && (
+              <div className="space-y-4">
+                <p className="text-sm text-gray-600">
+                  Total: <strong>{photos.length}</strong> photo{photos.length !== 1 ? "s" : ""}
+                </p>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {photos.map((photo) => {
+                    const photoUrl = photo.photo_url?.startsWith("http")
+                      ? photo.photo_url
+                      : `http://localhost:8000${photo.photo_url}`;
+
+                    return (
+                      <div
+                        key={photo.id}
+                        className="relative group bg-gray-100 rounded-lg overflow-hidden aspect-square hover:shadow-lg transition cursor-pointer"
+                        onClick={() => setFullScreenPhoto(photo.photo_url)}
+                      >
+                        <img
+                          src={photoUrl}
+                          alt="Return photo"
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            e.target.src =
+                              "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Crect fill='%23e5e7eb' width='100' height='100'/%3E%3Ctext x='50' y='50' text-anchor='middle' dy='.3em' font-family='system-ui' font-size='12' fill='%239ca3af'%3EImage not found%3C/text%3E%3C/svg%3E";
+                          }}
+                        />
+
+                        {/* Overlay with actions */}
+                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDownload(photo);
+                            }}
+                            title="Download"
+                            className="p-2 bg-white rounded-full hover:bg-orange-600 hover:text-white transition"
+                          >
+                            <Download className="w-5 h-5" />
+                          </button>
+
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDelete(photo.id);
+                            }}
+                            title="Delete"
+                            className="p-2 bg-white rounded-full hover:bg-red-600 hover:text-white transition"
+                          >
+                            <Trash2 className="w-5 h-5" />
+                          </button>
+                        </div>
+
+                        {/* Date badge */}
+                        <div className="absolute bottom-2 right-2 bg-black/60 text-white text-xs px-2 py-1 rounded">
+                          {new Date(photo.uploaded_at).toLocaleDateString()}
+                        </div>
+
+                        {/* Return photo indicator */}
+                        <div className="absolute top-2 left-2 bg-orange-600 text-white text-xs px-2 py-1 rounded">
+                          Return
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Footer */}
+          <div className="border-t p-4 flex justify-end">
+            <button
+              onClick={onClose}
+              className="px-6 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition font-semibold"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}

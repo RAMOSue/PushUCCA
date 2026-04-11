@@ -4,7 +4,15 @@ const QRCode = require("qrcode");
 const path = require("path");
 const fs = require("fs");
 const multer = require("multer"); // npm install multer
-const { v4: uuidv4 } = require("uuid"); 
+const { v4: uuidv4 } = require("uuid");
+
+// Backend base URL (set in .env, defaults to port 8000 in dev)
+const BASE_URL = process.env.BASE_URL || "http://localhost:8000";
+
+// Helper: convert relative path to full URL
+function toFullUrl(filePath) {
+  return filePath ? `${BASE_URL}${filePath}` : null;
+} 
 
 /*
  * Inventory Controller
@@ -70,12 +78,12 @@ const upload = multer({
 const rawColumns = `
   id, name, category, collection_group, quantity, description,
   qr_code_url, qr_code_text,
-  cultural_group, garment_type, accessory_type, gender, size, cleaning_status,
+  indigenous_group, garment_type, accessory_type, gender, size, cleaning_status,
   color, condition, date_acquired,
   instrument_classification, instrument_type, material, age, usage,
   created_by, created_at,
   qty_small, qty_medium, qty_large,
-  dance_type,
+  indigenous_dance, region,
   image_url
 `;
 
@@ -83,6 +91,17 @@ const rawColumns = `
 /* Row -> response mapper                                          */
 /* -------------------------------------------------------------- */
 function mapRow(row) {
+  // Transform image_url to proper full URL
+  let imageUrl = row.image_url;
+  if (imageUrl && !imageUrl.startsWith('http')) {
+    // If it's a relative path, ensure it starts with /uploads/
+    if (!imageUrl.startsWith('/uploads')) {
+      imageUrl = `/uploads/${imageUrl}`;
+    }
+    // Convert relative path to full URL
+    imageUrl = toFullUrl(imageUrl);
+  }
+  
   return {
     id: row.id,
     name: row.name,
@@ -93,7 +112,7 @@ function mapRow(row) {
     qty_small: row.qty_small,
     qty_medium: row.qty_medium,
     qty_large: row.qty_large,
-    image_url: row.image_url,
+    image_url: imageUrl || null,  // Return null if no image, frontend will handle placeholder
     available_units: Number(row.available_units),
     is_accessory: row.garment_type?.toLowerCase() === "accessory"
   };
@@ -113,21 +132,41 @@ const getAllInventory = async (req, res) => {
     `;
     const { rows: inventoryItems } = await pool.query(inventoryQuery);
 
-    // Get all units
+    // Get all units sorted by size and unit_number
     const unitQuery = `
       SELECT * 
       FROM inventory_units
-      ORDER BY created_at DESC
+      ORDER BY 
+        CASE 
+          WHEN size = 'small' THEN 1
+          WHEN size = 'medium' THEN 2
+          WHEN size = 'large' THEN 3
+          ELSE 4
+        END,
+        unit_number ASC,
+        created_at ASC
     `;
     const { rows: allUnits } = await pool.query(unitQuery);
 
-    // Match units to items — use UUID for FK match
+    // Match units to items — use UUID for FK match and transform image URLs
     const itemsWithUnits = inventoryItems.map(item => {
       const matchingUnits = allUnits.filter(
         unit => String(unit.inventory_item_id) === String(item.uuid)
       );
+      
+      // Transform image_url to proper full URL
+      let imageUrl = item.image_url;
+      if (imageUrl && !imageUrl.startsWith('http')) {
+        if (!imageUrl.startsWith('/uploads')) {
+          imageUrl = `/uploads/${imageUrl}`;
+        }
+        // Convert relative path to full URL
+        imageUrl = toFullUrl(imageUrl);
+      }
+      
       return {
         ...item,
+        image_url: imageUrl || null,
         units: matchingUnits
       };
     });
@@ -162,6 +201,7 @@ const getAvailableInventory = async (req, res) => {
 
     const query = `
       SELECT 
+        i.id AS item_id,
         i.uuid AS item_uuid,
         i.name,
         i.description,
@@ -171,7 +211,11 @@ const getAvailableInventory = async (req, res) => {
         i.collection_group,
         i.accessory_type,
         i.instrument_type,
+        i.qty_small,
+        i.qty_medium,
+        i.qty_large,
         u.id AS unit_id,
+        u.unit_number,
         u.size,
         u.status
       FROM inventory_items i
@@ -186,19 +230,35 @@ const getAvailableInventory = async (req, res) => {
 
     result.rows.forEach((row) => {
       if (!itemsMap[row.item_uuid]) {
+        // Transform image_url to proper full URL
+        let imageUrl = row.image_url;
+        if (imageUrl && !imageUrl.startsWith('http')) {
+          if (!imageUrl.startsWith('/uploads')) {
+            imageUrl = `/uploads/${imageUrl}`;
+          }
+          // Convert relative path to full URL
+          imageUrl = toFullUrl(imageUrl);
+        }
+        
         itemsMap[row.item_uuid] = {
           uuid: row.item_uuid,
+          id: row.item_id, // ✅ FIX: Use actual integer ID instead of UUID
           name: row.name,
           description: row.description,
-          image_url: row.image_url,
+          image_url: imageUrl || null,
           category: row.category,
           garment_type: row.garment_type,
           collection_group: row.collection_group,
           accessory_type: row.accessory_type,
           instrument_type: row.instrument_type,
+          qty_small: row.qty_small || 0,      // ✅ NEW: Size breakdown
+          qty_medium: row.qty_medium || 0,    // ✅ NEW: Size breakdown
+          qty_large: row.qty_large || 0,      // ✅ NEW: Size breakdown
           sizes: {},              // for costumes
           total_available: 0,     // for instruments/accessories
           available_unit_ids: [], // all available units
+          // ✅ NEW: Include individual units array for granular selection
+          units: []
         };
       }
 
@@ -209,6 +269,15 @@ const getAvailableInventory = async (req, res) => {
       if (row.unit_id && row.status === "available") {
         // Always track available units
         itemsMap[row.item_uuid].available_unit_ids.push(row.unit_id);
+
+        // ✅ NEW: Add individual unit with full details
+        itemsMap[row.item_uuid].units.push({
+          id: row.unit_id,
+          unit_number: row.unit_number,
+          size: row.size,
+          status: row.status,
+          size_category: row.size // for consistency with AvailableItems
+        });
 
         if (garmentType === "costume" && row.size) {
           // Costumes → per size counts
@@ -277,126 +346,73 @@ const uploadImage = (req, res) => {
 /* POST: add inventory item                                        */
 /* -------------------------------------------------------------- */
 const addInventoryItem = async (req, res) => {
-  const client = await pool.connect();
   try {
     const {
-      group,
-      collection_group,
-      category,
       name,
+      category,
       quantity,
-      description,
-      cultural_group,
-      dance_type,
+      indigenous_group,
+      indigenous_dance,
+      region,
+      collection_group,
       garment_type,
       gender,
-      size,
       color,
       date_acquired,
+      image_url,
       instrument_classification,
       instrument_type,
-      material,
-      age,
-      usage,
       qty_small,
       qty_medium,
       qty_large,
-      accessory_type,
+      description // ✅ ADDED: Accept description from request
     } = req.body;
 
-    const gInput = group ?? collection_group;
-    const gNorm = normalizeGroup(gInput) || null;
-    const catNorm = category ? String(category).trim().toLowerCase() : null;
+    // ✅ NEW: Sanitize and validate data - convert empty strings to null
+    const sanitizedDateAcquired = date_acquired?.trim() ? date_acquired.trim() : null;
+    const sanitizedDescription = description?.trim() ? description.trim() : null;
+    const sanitizedIndigenousGroup = indigenous_group?.trim() ? indigenous_group.trim() : null;
+    const sanitizedIndigenousDance = indigenous_dance?.trim() ? indigenous_dance.trim() : null;
+    const sanitizedRegion = region?.trim() ? region.trim() : null;
+    const sanitizedClassification = instrument_classification?.trim() ? instrument_classification.trim() : null;
+    const sanitizedInstrumentType = instrument_type?.trim() ? instrument_type.trim() : null;
+    const sanitizedColor = color?.trim() ? color.trim() : null;
+    const sanitizedGender = gender?.trim() ? gender.trim() : null;
+    const sanitizedGarmentType = garment_type?.trim() ? garment_type.trim() : null; // ✅ ADDED
+    // ✅ FIX: Don't set collection_group to null - keep original if trim fails
+    const sanitizedCollectionGroup = collection_group?.trim() ? collection_group.trim() : collection_group;
 
-    if (!name || !catNorm || quantity == null) {
-      return res
-        .status(400)
-        .json({ error: "Name, category, and quantity are required." });
-    }
+    // ✅ NEW: Validate quantities are numbers (not strings)
+    const safeQuantity = Number.isFinite(quantity) ? quantity : (parseInt(quantity) || 0);
+    const safeQtySmall = Number.isFinite(qty_small) ? qty_small : (parseInt(qty_small) || 0);
+    const safeQtyMedium = Number.isFinite(qty_medium) ? qty_medium : (parseInt(qty_medium) || 0);
+    const safeQtyLarge = Number.isFinite(qty_large) ? qty_large : (parseInt(qty_large) || 0);
 
-    const q = Number(quantity);
-    if (!Number.isInteger(q) || q < 0) {
-      return res
-        .status(400)
-        .json({ error: "Quantity must be a non-negative integer." });
-    }
+    // ✅ UPDATED: Include description in INSERT query
+    const result = await pool.query(
+      `INSERT INTO inventory_items (
+        name, category, quantity, indigenous_group, indigenous_dance, region,
+        collection_group, garment_type, gender, color, date_acquired, image_url,
+        instrument_classification, instrument_type,
+        qty_small, qty_medium, qty_large, description, uuid
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, gen_random_uuid())
+      RETURNING *`,
+      [
+        name, category.toLowerCase(), safeQuantity, sanitizedIndigenousGroup, sanitizedIndigenousDance, sanitizedRegion,
+        sanitizedCollectionGroup, sanitizedGarmentType, sanitizedGender, sanitizedColor, sanitizedDateAcquired, image_url,
+        sanitizedClassification, sanitizedInstrumentType,
+        safeQtySmall, safeQtyMedium, safeQtyLarge, sanitizedDescription
+      ]
+    );
 
-    // Handle image upload
-    let imageUrl = null;
-    if (req.file) {
-      imageUrl = `${req.protocol}://${req.get("host")}/uploads/${req.file.filename}`;
-    } else if (req.body.image_url) {
-      imageUrl = req.body.image_url;
-    }
-
-    await client.query("BEGIN");
-
-    const smallCount = parseIntOrZero(qty_small);
-    const mediumCount = parseIntOrZero(qty_medium);
-    const largeCount = parseIntOrZero(qty_large);
-    const totalSizedCount = smallCount + mediumCount + largeCount;
-
-    const itemUuid = uuidv4();
-
-    // Insert inventory item
-    const insertText = `
-      INSERT INTO inventory_items (
-        name, category, quantity, description,
-        created_by, created_at,
-        cultural_group, garment_type, gender, size, color,
-        date_acquired, instrument_classification, instrument_type,
-        material, age, usage, collection_group, accessory_type,
-        qty_small, qty_medium, qty_large, dance_type,
-        image_url, uuid
-      )
-      VALUES (
-        $1, $2, $3, $4,
-        $5, NOW(),
-        $6, $7, $8, $9, $10,
-        $11, $12, $13,
-        $14, $15, $16, $17, $18,
-        $19, $20, $21, $22,
-        $23, $24
-      )
-      RETURNING uuid
-    `;
-
-    const insertVals = [
-      name.trim(),
-      catNorm,
-      q,
-      description || "",
-      req.user?.id || null,
-      nullIfEmpty(cultural_group),
-      nullIfEmpty(garment_type),
-      nullIfEmpty(gender),
-      nullIfEmpty(size),
-      nullIfEmpty(color),
-      date_acquired || null,
-      nullIfEmpty(instrument_classification),
-      nullIfEmpty(instrument_type),
-      nullIfEmpty(material),
-      nullIfEmpty(age),
-      nullIfEmpty(usage),
-      gNorm,
-      nullIfEmpty(accessory_type),
-      smallCount,
-      mediumCount,
-      largeCount,
-      nullIfEmpty(dance_type),
-      imageUrl,
-      itemUuid,
-    ];
-
-    const result = await client.query(insertText, insertVals);
-    const itemUuidDb = result.rows[0].uuid;
-
+    const newItem = result.rows[0];
+    
     // Item-level QR
-    const qrText = `ITEM-${itemUuidDb}`;
+    const qrText = `ITEM-${newItem.uuid}`;
     const qrCodeUrl = await QRCode.toDataURL(qrText);
-    await client.query(
+    await pool.query(
       `UPDATE inventory_items SET qr_code_text = $1, qr_code_url = $2 WHERE uuid = $3`,
-      [qrText, qrCodeUrl, itemUuidDb]
+      [qrText, qrCodeUrl, newItem.uuid]
     );
 
     const qrDir = path.join(__dirname, "..", "public", "qr_codes");
@@ -407,43 +423,74 @@ const addInventoryItem = async (req, res) => {
       for (let i = 0; i < count; i++) {
         const label = sizeLabel?.toLowerCase() || "nosize"; // ✅ default "nosize"
         const unitId = uuidv4();
-        const unitQrText = `UNIT-${itemUuidDb}-${label}-${i + 1}`;
+        const unitQrText = `UNIT-${newItem.uuid}-${label}-${i + 1}`;
         const qrCodeFileName = `${unitId}.png`;
         const qrCodePath = `qr_codes/${qrCodeFileName}`;
         const qrCodeUrlFile = `${req.protocol}://${req.get("host")}/${qrCodePath}`;
 
         await QRCode.toFile(path.join(qrDir, qrCodeFileName), unitQrText);
 
-        await client.query(
-          `INSERT INTO inventory_units (id, inventory_item_id, size, status, qr_code_url, qr_code_text, created_at)
-           VALUES ($1, $2, $3, 'available', $4, $5, NOW())`,
-          [unitId, itemUuidDb, label, qrCodeUrlFile, unitQrText]
+        // ✅ Generate unit_number in format: "ItemName-Size-Number" (e.g., "Suyam-S-1")
+        let sizeAbbrev = "";
+        if (label === "small") {
+          sizeAbbrev = "S";
+        } else if (label === "medium") {
+          sizeAbbrev = "M";
+        } else if (label === "large") {
+          sizeAbbrev = "L";
+        }
+        
+        // Calculate position within this size group (or overall for nosize)
+        const posInGroup = i + 1;
+        const generatedUnitNumber = sizeAbbrev 
+          ? `${name.trim()}-${sizeAbbrev}-${posInGroup}` 
+          : `${name.trim()}-${posInGroup}`;
+
+        await pool.query(
+          `INSERT INTO inventory_units (id, inventory_item_id, size, status, qr_code_url, qr_code_text, unit_number, created_at)
+           VALUES ($1, $2, $3, 'available', $4, $5, $6, NOW())`,
+          [unitId, newItem.uuid, label, qrCodeUrlFile, unitQrText, generatedUnitNumber]
         );
       }
     };
 
     // ✅ Create units
-    if (catNorm === "costume" && totalSizedCount > 0) {
-      if (smallCount > 0) await insertUnit("small", smallCount);
-      if (mediumCount > 0) await insertUnit("medium", mediumCount);
-      if (largeCount > 0) await insertUnit("large", largeCount);
+    if (category.toLowerCase() === "costume" && (safeQtySmall + safeQtyMedium + safeQtyLarge) > 0) {
+      if (safeQtySmall > 0) await insertUnit("small", safeQtySmall);
+      if (safeQtyMedium > 0) await insertUnit("medium", safeQtyMedium);
+      if (safeQtyLarge > 0) await insertUnit("large", safeQtyLarge);
     } else {
-      if (q > 0) await insertUnit(null, q); // Instruments & Accessories → "nosize"
+      if (safeQuantity > 0) await insertUnit(null, safeQuantity); // Instruments & Accessories → "nosize"
     }
 
-    await client.query("COMMIT");
-
     res.status(201).json({
-      newItemId: itemUuidDb,
-      qr_code_url: qrCodeUrl,
-      qr_code_text: qrText,
+      success: true,
+      message: 'Item added successfully',
+      newItemId: newItem.uuid,
+      item: newItem
     });
-  } catch (err) {
-    await client.query("ROLLBACK");
-    console.error("❌ Error adding inventory item:", err.message);
-    res.status(500).json({ error: "Failed to add inventory item" });
-  } finally {
-    client.release();
+  } catch (error) {
+    console.error('❌ Error adding inventory item:', error.message);
+    
+    // ✅ Professional error handling
+    let statusCode = 500;
+    let errorMessage = 'Failed to add inventory item';
+    
+    if (error.message.includes('invalid input syntax for type date')) {
+      statusCode = 400;
+      errorMessage = 'Invalid date format. Please use YYYY-MM-DD format.';
+    } else if (error.message.includes('duplicate')) {
+      statusCode = 409;
+      errorMessage = 'An item with this name already exists in this group.';
+    } else if (error.message.includes('unique constraint')) {
+      statusCode = 409;
+      errorMessage = 'This item already exists. Please use a different name.';
+    } else if (error.message.includes('foreign key')) {
+      statusCode = 400;
+      errorMessage = 'Invalid category or group selected.';
+    }
+    
+    res.status(statusCode).json({ error: errorMessage });
   }
 };
 
@@ -452,111 +499,157 @@ const addInventoryItem = async (req, res) => {
 /* PUT: update inventory item                                     */
 /* -------------------------------------------------------------- */
 const updateInventoryItem = async (req, res) => {
-  const { id } = req.params;
-  const {
-    group,
-    collection_group,
-    category,
-    name,
-    quantity,
-    description,
-    cultural_group,
-    dance_type,
-    garment_type,
-    gender,
-    size,
-    color,
-    date_acquired,
-    instrument_classification,
-    instrument_type,
-    material,
-    age,
-    usage,
-    qty_small,
-    qty_medium,
-    qty_large,
-    image_url,
-  } = req.body;
-
-  const gInput = group ?? collection_group;
-  const gNorm = normalizeGroup(gInput) || null;
-  const catNorm = category ? String(category).trim().toLowerCase() : null;
-
-  if (!name || !catNorm || quantity == null) {
-    return res
-      .status(400)
-      .json({ error: "Name, category, and quantity are required." });
-  }
-
-  const q = Number(quantity);
-  if (!Number.isInteger(q) || q < 0) {
-    return res
-      .status(400)
-      .json({ error: "Quantity must be a non‑negative integer." });
-  }
-
   try {
+    const { id } = req.params;
+    const {
+      name,
+      category,
+      quantity,
+      indigenous_group,
+      indigenous_dance,
+      region,
+      collection_group,
+      garment_type,
+      gender,
+      color,
+      date_acquired,
+      image_url,
+      instrument_classification,
+      instrument_type,
+      qty_small,
+      qty_medium,
+      qty_large,
+      description // ✅ ADDED: Accept description from request
+    } = req.body;
+
+    // ✅ DEBUG: Log what we received
+    console.log("🔍 DEBUG - updateInventoryItem received:", {
+      id,
+      name,
+      category,
+      collection_group,
+      garment_type,
+      quantity,
+      qty_small,
+      qty_medium,
+      qty_large
+    });
+
+    // ✅ Validate required fields and category value
+    if (!id || !name || !category) {
+      console.warn("⚠️ Missing required fields in update request");
+      return res.status(400).json({ error: 'Missing required fields: id, name, or category' });
+    }
+
+    // ✅ Validate category is one of the expected values
+    const validCategories = ['costume', 'instrument', 'accessories'];
+    if (!validCategories.includes(category?.toLowerCase())) {
+      console.warn(`⚠️ Invalid category: "${category}". Must be one of: ${validCategories.join(', ')}`);
+      return res.status(400).json({ error: `Invalid category. Must be one of: ${validCategories.join(', ')}` });
+    }
+
+    // ✅ NEW: Sanitize and validate data - convert empty strings to null
+    const sanitizedDateAcquired = date_acquired?.trim() ? date_acquired.trim() : null;
+    const sanitizedDescription = description?.trim() ? description.trim() : null;
+    const sanitizedIndigenousGroup = indigenous_group?.trim() ? indigenous_group.trim() : null;
+    const sanitizedIndigenousDance = indigenous_dance?.trim() ? indigenous_dance.trim() : null;
+    const sanitizedRegion = region?.trim() ? region.trim() : null;
+    const sanitizedClassification = instrument_classification?.trim() ? instrument_classification.trim() : null;
+    const sanitizedInstrumentType = instrument_type?.trim() ? instrument_type.trim() : null;
+    const sanitizedColor = color?.trim() ? color.trim() : null;
+    const sanitizedGender = gender?.trim() ? gender.trim() : null;
+    const sanitizedGarmentType = garment_type?.trim() ? garment_type.trim() : null;
+    // ✅ FIX: Don't set collection_group to null - keep original if trim fails
+    const sanitizedCollectionGroup = collection_group?.trim() ? collection_group.trim() : collection_group;
+    const sanitizedImageUrl = image_url?.trim() ? image_url.trim() : null;
+
+    // ✅ Ensure quantities are numbers
+    const safeQuantity = Number.isFinite(quantity) ? quantity : (parseInt(quantity) || 0);
+    const safeQtySmall = Number.isFinite(qty_small) ? qty_small : (parseInt(qty_small) || 0);
+    const safeQtyMedium = Number.isFinite(qty_medium) ? qty_medium : (parseInt(qty_medium) || 0);
+    const safeQtyLarge = Number.isFinite(qty_large) ? qty_large : (parseInt(qty_large) || 0);
+
+    // ✅ UPDATED: Include all sanitized fields in UPDATE query
+    console.log("📝 UPDATE Query parameters:", {
+      $1: name,
+      $2: category.toLowerCase(),
+      $3: safeQuantity,
+      $4: sanitizedIndigenousGroup,
+      $5: sanitizedIndigenousDance,
+      $6: sanitizedRegion,
+      $7: sanitizedCollectionGroup,
+      $8: sanitizedGarmentType,
+      $9: sanitizedGender,
+      $10: sanitizedColor,
+      $11: sanitizedDateAcquired,
+      $12: sanitizedImageUrl,
+      $13: sanitizedClassification,
+      $14: sanitizedInstrumentType,
+      $15: safeQtySmall,
+      $16: safeQtyMedium,
+      $17: safeQtyLarge,
+      $18: sanitizedDescription,
+      $19: id
+    });
+
     const result = await pool.query(
-      `
-      UPDATE inventory_items
-      SET name = $1,
-          category = $2,
-          collection_group = $3,
-          quantity = $4,
-          description = $5,
-          cultural_group = $6,
-          dance_type = $7,
-          garment_type = $8,
-          gender = $9,
-          size = $10,
-          color = $11,
-          date_acquired = $12,
-          instrument_classification = $13,
-          instrument_type = $14,
-          material = $15,
-          age = $16,
-          usage = $17,
-          qty_small = $18,
-          qty_medium = $19,
-          qty_large = $20,
-          image_url = $21
-      WHERE id = $22
-      RETURNING ${rawColumns}
-      `,
+      `UPDATE inventory_items SET
+        name = $1, category = $2, quantity = $3, indigenous_group = $4, indigenous_dance = $5,
+        region = $6, collection_group = $7, garment_type = $8, gender = $9, color = $10,
+        date_acquired = $11, image_url = $12, instrument_classification = $13,
+        instrument_type = $14, qty_small = $15, qty_medium = $16, qty_large = $17,
+        description = $18
+      WHERE uuid::text = $19 OR id::text = $19
+      RETURNING *`,
       [
-        name.trim(),
-        catNorm,
-        gNorm,
-        q,
-        description || "",
-        nullIfEmpty(cultural_group),
-        nullIfEmpty(dance_type),
-        nullIfEmpty(garment_type),
-        nullIfEmpty(gender),
-        nullIfEmpty(size),
-        nullIfEmpty(color),
-        date_acquired || null,
-        nullIfEmpty(instrument_classification),
-        nullIfEmpty(instrument_type),
-        nullIfEmpty(material),
-        nullIfEmpty(age),
-        nullIfEmpty(usage),
-        parseIntOrZero(qty_small),
-        parseIntOrZero(qty_medium),
-        parseIntOrZero(qty_large),
-        image_url || null,
-        id,
+        name, category.toLowerCase(), safeQuantity, sanitizedIndigenousGroup, sanitizedIndigenousDance, sanitizedRegion,
+        sanitizedCollectionGroup, sanitizedGarmentType, sanitizedGender, sanitizedColor, sanitizedDateAcquired, 
+        sanitizedImageUrl, sanitizedClassification, sanitizedInstrumentType,
+        safeQtySmall, safeQtyMedium, safeQtyLarge, sanitizedDescription, id
       ]
     );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: "Item not found" });
+      return res.status(404).json({ error: 'Item not found' });
     }
 
-    res.json({ success: true, updatedItem: mapRow(result.rows[0]) });
-  } catch (err) {
-    console.error("❌ Error updating inventory:", err.message);
-    res.status(500).json({ error: "Failed to update item" });
+    res.json({ success: true, item: result.rows[0] });
+  } catch (error) {
+    console.error('❌ Error updating inventory item:', error.message);
+    console.error('❌ Full PostgreSQL error:', {
+      message: error.message,
+      code: error.code,
+      detail: error.detail || 'No detail provided',
+      hint: error.hint || 'No hint provided',
+      severity: error.severity || 'Unknown',
+      position: error.position || 'Unknown',
+      internalPosition: error.internalPosition || 'Unknown',
+      routine: error.routine || 'Unknown',
+      file: error.file || 'Unknown'
+    });
+    
+    // ✅ Professional error handling
+    let statusCode = 500;
+    let errorMessage = `Failed to update inventory item: ${error.message}`;
+    
+    if (error.message.includes('invalid input syntax for type date')) {
+      statusCode = 400;
+      errorMessage = 'Invalid date format. Please use YYYY-MM-DD format.';
+    } else if (error.message.includes('duplicate')) {
+      statusCode = 409;
+      errorMessage = 'An item with this name already exists in this group.';
+    } else if (error.message.includes('unique constraint')) {
+      statusCode = 409;
+      errorMessage = 'This item already exists. Please use a different name.';
+    } else if (error.message.includes('foreign key')) {
+      statusCode = 400;
+      errorMessage = 'Invalid category or group selected.';
+    } else if (error.code === '42883') {
+      statusCode = 400;
+      errorMessage = `Database type mismatch: ${error.message}`;
+    }
+    
+    res.status(statusCode).json({ error: errorMessage });
   }
 };
 
@@ -567,14 +660,51 @@ const updateInventoryItem = async (req, res) => {
 const deleteInventoryItem = async (req, res) => {
   const { id } = req.params;
   try {
-    const result = await pool.query(
-      `DELETE FROM inventory_items WHERE id = $1 RETURNING id`,
-      [id]
+    // Determine if id is UUID format or integer
+    const isUUID = /^[0-9a-fA-F\-]{36}$/.test(id);
+    const parsedId = isUUID ? id : parseInt(id);
+
+    console.log(`🗑️ deleteInventoryItem: id=${id}, isUUID=${isUUID}, parsedId=${parsedId}`);
+
+    // Get the item
+    const itemRes = await pool.query(
+      isUUID 
+        ? `SELECT uuid, id, name FROM inventory_items WHERE uuid = $1`
+        : `SELECT uuid, id, name FROM inventory_items WHERE id = $1`,
+      [parsedId]
     );
-    if (result.rows.length === 0) {
+
+    if (itemRes.rows.length === 0) {
+      console.error(`❌ Item not found: ${id}`);
       return res.status(404).json({ error: "Item not found" });
     }
-    res.json({ success: true, message: "Item deleted successfully" });
+
+    const { uuid: itemUuid, name: itemName } = itemRes.rows[0];
+    console.log(`✅ Found item: ${itemName} (UUID: ${itemUuid})`);
+
+    // ✅ CRITICAL: Delete all units associated with this item FIRST
+    const unitsDeleteRes = await pool.query(
+      `DELETE FROM inventory_units WHERE inventory_item_id = $1`,
+      [itemUuid]
+    );
+    console.log(`✅ Deleted ${unitsDeleteRes.rowCount} units for item ${itemName}`);
+
+    // ✅ Then delete the item itself
+    const result = await pool.query(
+      `DELETE FROM inventory_items WHERE uuid = $1 RETURNING uuid, name`,
+      [itemUuid]
+    );
+
+    if (result.rows.length === 0) {
+      console.error(`❌ Failed to delete item: ${itemName}`);
+      return res.status(404).json({ error: "Item not found" });
+    }
+
+    console.log(`✅ Successfully deleted item: ${itemName} and ${unitsDeleteRes.rowCount} units`);
+    res.json({ 
+      success: true, 
+      message: `Item "${itemName}" and ${unitsDeleteRes.rowCount} associated units deleted successfully`
+    });
   } catch (err) {
     console.error("❌ Error deleting inventory:", err.message);
     res.status(500).json({ error: "Failed to delete item" });
@@ -871,7 +1001,9 @@ const scanByQrCode = async (req, res) => {
         ii.description,
         ii.image_url,
         ii.gender,
-        ii.cultural_group,
+        ii.indigenous_group,
+        ii.indigenous_dance,
+        ii.region,
         ii.garment_type,
         ii.accessory_type,
         ii.instrument_type,
@@ -905,7 +1037,9 @@ const scanByQrCode = async (req, res) => {
         ii.description,
         ii.image_url,
         ii.gender,
-        ii.cultural_group,
+        ii.indigenous_group,
+        ii.indigenous_dance,
+        ii.region,
         ii.garment_type,
         ii.accessory_type,
         ii.instrument_type,
@@ -946,12 +1080,15 @@ const scanQRCode = async (req, res) => {
         iu.status,
         iu.condition,
         ii.id AS item_id,
+        ii.uuid AS item_uuid,
         ii.name,
         ii.category,
         ii.description,
         ii.image_url,
         ii.gender,
-        ii.cultural_group,
+        ii.indigenous_group,
+        ii.indigenous_dance,
+        ii.region,
         ii.garment_type,
         ii.accessory_type,
         ii.instrument_type,
@@ -959,7 +1096,7 @@ const scanQRCode = async (req, res) => {
         ii.collection_group
       FROM inventory_units iu
       JOIN inventory_items ii 
-        ON iu.inventory_item_id = ii.id
+        ON iu.inventory_item_id = ii.uuid
       WHERE iu.qr_code_text = $1
       LIMIT 1;
     `;
@@ -983,7 +1120,9 @@ const scanQRCode = async (req, res) => {
         ii.description,
         ii.image_url,
         ii.gender,
-        ii.cultural_group,
+        ii.indigenous_group,
+        ii.indigenous_dance,
+        ii.region,
         ii.garment_type,
         ii.accessory_type,
         ii.instrument_type,
@@ -1008,12 +1147,15 @@ const scanQRCode = async (req, res) => {
         iu.status,
         iu.condition,
         ii.id AS item_id,
+        ii.uuid AS item_uuid,
         ii.name,
         ii.category,
         ii.description,
         ii.image_url,
         ii.gender,
-        ii.cultural_group,
+        ii.indigenous_group,
+        ii.indigenous_dance,
+        ii.region,
         ii.garment_type,
         ii.accessory_type,
         ii.instrument_type,
@@ -1021,7 +1163,7 @@ const scanQRCode = async (req, res) => {
         ii.collection_group
       FROM inventory_units iu
       JOIN inventory_items ii 
-        ON iu.inventory_item_id = ii.id
+        ON iu.inventory_item_id = ii.uuid
       WHERE $1 ILIKE '%' || iu.qr_code_text || '%'
       LIMIT 1;
     `;
@@ -1045,7 +1187,7 @@ const scanQRCode = async (req, res) => {
         ii.description,
         ii.image_url,
         ii.gender,
-        ii.cultural_group,
+        ii.indigenous_group,
         ii.garment_type,
         ii.accessory_type,
         ii.instrument_type,
@@ -1070,6 +1212,9 @@ const scanQRCode = async (req, res) => {
 
 
 // ✅ Generate units (integer ID version)
+// IMPORTANT: This is called ONLY when EDITING items or updating quantities
+// For NEW items: addInventoryItem already creates all units, so this is not called
+// This function creates ONLY DELTA units (additional units needed beyond existing)
 const generateUnitsForItem = async (req, res) => {
   try {
     let itemId = req.params.id; // always UUID now
@@ -1089,9 +1234,9 @@ const generateUnitsForItem = async (req, res) => {
     let unitsToGenerate = [];
     let totalQty = 0;
 
-    // ✅ fetch current item quantities
+    // ✅ fetch current item quantities, category, AND name for unit naming
     const itemRes = await pool.query(
-      `SELECT qty_small, qty_medium, qty_large, quantity 
+      `SELECT name, category, qty_small, qty_medium, qty_large, quantity 
        FROM inventory_items 
        WHERE uuid = $1`,
       [itemId]
@@ -1100,11 +1245,11 @@ const generateUnitsForItem = async (req, res) => {
       return res.status(404).json({ error: "Item not found" });
     }
 
-    const { qty_small = 0, qty_medium = 0, qty_large = 0, quantity = 0 } =
+    const { name: itemName, category: itemCategory, qty_small = 0, qty_medium = 0, qty_large = 0, quantity = 0 } =
       itemRes.rows[0];
 
     // ✅ costumes use size breakdown, others use total
-    if (garment_type && garment_type.toLowerCase() === "costume") {
+    if (itemCategory && itemCategory.toLowerCase() === "costume") {
       totalQty = qty_small + qty_medium + qty_large;
     } else {
       totalQty = newQty && newQty > 0 ? newQty : quantity;
@@ -1114,19 +1259,102 @@ const generateUnitsForItem = async (req, res) => {
       return res.status(400).json({ error: "No units to generate" });
     }
 
-    // ✅ check existing units count
-    const existingRes = await pool.query(
-      `SELECT COUNT(*) FROM inventory_units WHERE inventory_item_id = $1`,
+    // ✅ Fetch EXISTING units and get their sizes for proper numbering
+    const existingUnitsRes = await pool.query(
+      `SELECT id, size, unit_number FROM inventory_units 
+       WHERE inventory_item_id = $1 
+       ORDER BY created_at ASC`,
       [itemId]
     );
-    const existingCount = parseInt(existingRes.rows[0].count, 10);
-    let generateCount = Math.max(totalQty - existingCount, 0);
+    const existingUnits = existingUnitsRes.rows;
+    const existingCount = existingUnits.length;
 
-    if (generateCount <= 0) {
-      return res.status(200).json({ message: "No new units to generate" });
+    // ✅ Regenerate unit_numbers if item name changed (update prefix, keep sequence)
+    if (existingCount > 0) {
+      for (const unit of existingUnits) {
+        if (unit.unit_number) {
+          // Extract the sequence part from existing unit_number
+          // Format: "OldName-Size-Number" → extract "-Size-Number" part (everything after first hyphen)
+          const firstHyphenIndex = unit.unit_number.indexOf('-');
+          if (firstHyphenIndex !== -1) {
+            const sequencePart = unit.unit_number.substring(firstHyphenIndex);
+            
+            // Regenerate with new item name
+            const newUnitNumber = `${itemName}${sequencePart}`;
+            
+            // Only update if it actually changed
+            if (newUnitNumber !== unit.unit_number) {
+              await pool.query(
+                `UPDATE inventory_units SET unit_number = $1 WHERE id = $2`,
+                [newUnitNumber, unit.id]
+              );
+            }
+          }
+        }
+      }
     }
 
-    // ✅ helper to make unit with high-quality QR
+    // ✅ Calculate how many new units need to be created
+    let generateCount = Math.max(totalQty - existingCount, 0);
+
+    // ✅ Track counters for each size (start from existing unit counts)
+    let sizeCounters = { small: 0, medium: 0, large: 0, nosize: 0 };
+    
+    // ✅ Count existing units by size to know where to start numbering new ones
+    existingUnits.forEach(unit => {
+      const sizeKey = unit.size || 'nosize';
+      if (sizeKey === 'small') sizeCounters.small++;
+      else if (sizeKey === 'medium') sizeCounters.medium++;
+      else if (sizeKey === 'large') sizeCounters.large++;
+      else sizeCounters.nosize++;
+    });
+
+    // ✅ Update existing units that don't have unit_number yet
+    for (const unit of existingUnits) {
+      if (!unit.unit_number) {
+        const sizeKey = unit.size || 'nosize';
+        let sizeAbbrev = '';
+        let counter = 0;
+        
+        if (sizeKey === 'small') {
+          sizeAbbrev = 'S';
+          counter = sizeCounters.small--;
+        } else if (sizeKey === 'medium') {
+          sizeAbbrev = 'M';
+          counter = sizeCounters.medium--;
+        } else if (sizeKey === 'large') {
+          sizeAbbrev = 'L';
+          counter = sizeCounters.large--;
+        } else {
+          counter = sizeCounters.nosize--;
+        }
+        
+        // ✅ Regenerate the correct order - count position within size group
+        const sizeGroupUnits = existingUnits.filter(u => (u.size || 'nosize') === sizeKey);
+        const posInGroup = sizeGroupUnits.indexOf(unit) + 1;
+        
+        const generatedUnitNumber = sizeAbbrev 
+          ? `${itemName}-${sizeAbbrev}-${posInGroup}` 
+          : `${itemName}-${posInGroup}`;
+        
+        await pool.query(
+          `UPDATE inventory_units SET unit_number = $1 WHERE id = $2`,
+          [generatedUnitNumber, unit.id]
+        );
+      }
+    }
+    
+    // ✅ Reset counters for new units - count current max per size
+    sizeCounters = { small: 0, medium: 0, large: 0, nosize: 0 };
+    existingUnits.forEach(unit => {
+      const sizeKey = unit.size || 'nosize';
+      if (sizeKey === 'small') sizeCounters.small++;
+      else if (sizeKey === 'medium') sizeCounters.medium++;
+      else if (sizeKey === 'large') sizeCounters.large++;
+      else sizeCounters.nosize++;
+    });
+
+    // ✅ helper to make unit with high-quality QR and unit name
     const createQrAndPush = async (sizeLabel, forceNoSize = false) => {
       const unitId = uuidv4();
       const qrCodeId = uuidv4();
@@ -1144,42 +1372,93 @@ const generateUnitsForItem = async (req, res) => {
         }
       });
 
-      const qrUrl = `/qr_codes/${qrCodeId}.png`;
+      const qrUrl = `${req.protocol}://${req.get("host")}/qr_codes/${qrCodeId}.png`;
+      const size = forceNoSize ? "nosize" : (sizeLabel ? sizeLabel.toLowerCase() : "nosize");
+      
+      // ✅ Generate unit name: "ItemName-Size-Number" (e.g., "Suyam-S-1")
+      let sizeAbbrev = "";
+      let counter = 0;
+      if (size === "small") {
+        sizeAbbrev = "S";
+        counter = ++sizeCounters.small;
+      } else if (size === "medium") {
+        sizeAbbrev = "M";
+        counter = ++sizeCounters.medium;
+      } else if (size === "large") {
+        sizeAbbrev = "L";
+        counter = ++sizeCounters.large;
+      } else {
+        counter = ++sizeCounters.nosize;
+      }
+      
+      // ✅ Generate unit name: "ItemName-Size-Number" format (e.g., "Suyam-S-1")
+      const unitNumber = sizeAbbrev 
+        ? `${itemName}-${sizeAbbrev}-${counter}` 
+        : `${itemName}-${counter}`;
 
       unitsToGenerate.push({
         id: unitId,
         inventory_item_id: itemId,
         qr_code_text: qrCodeId,
         qr_code_url: qrUrl,
-        // ✅ Always insert "nosize" for instruments/accessories
-        size: forceNoSize ? "nosize" : (sizeLabel ? sizeLabel.toLowerCase() : "nosize"),
+        size: size,
+        unit_number: unitNumber, // ✅ Add unit name
       });
     };
 
-    // ✅ generate units
-    if (garment_type && garment_type.toLowerCase() === "costume") {
-      for (let i = 0; i < qty_small; i++) await createQrAndPush("small");
-      for (let i = 0; i < qty_medium; i++) await createQrAndPush("medium");
-      for (let i = 0; i < qty_large; i++) await createQrAndPush("large");
+    // ✅ generate units - ONLY CREATE DELTA (new units needed, not all)
+    if (itemCategory && itemCategory.toLowerCase() === "costume") {
+      // For costumes: only generate ADDITIONAL units needed beyond existing count
+      const smallExisting = existingUnits.filter(u => u.size === 'small').length;
+      const mediumExisting = existingUnits.filter(u => u.size === 'medium').length;
+      const largeExisting = existingUnits.filter(u => u.size === 'large').length;
+      
+      const smallToCreate = Math.max(qty_small - smallExisting, 0);
+      const mediumToCreate = Math.max(qty_medium - mediumExisting, 0);
+      const largeToCreate = Math.max(qty_large - largeExisting, 0);
+      
+      for (let i = 0; i < smallToCreate; i++) await createQrAndPush("small");
+      for (let i = 0; i < mediumToCreate; i++) await createQrAndPush("medium");
+      for (let i = 0; i < largeToCreate; i++) await createQrAndPush("large");
     } else {
-      for (let i = 0; i < generateCount; i++) {
+      // For instruments/accessories: only generate DELTA
+      const accessoryExisting = existingUnits.filter(u => u.size === 'nosize' || !u.size).length;
+      const accessoryToCreate = Math.max(generateCount, 0);
+      
+      for (let i = 0; i < accessoryToCreate; i++) {
         await createQrAndPush(null, true); // force nosize for non-costumes
       }
     }
 
-    // ✅ insert all generated units
+    // ✅ insert all generated units with unit_number
     for (const unit of unitsToGenerate) {
       await pool.query(
         `INSERT INTO inventory_units 
-         (id, inventory_item_id, qr_code_text, qr_code_url, size, status, created_at) 
-         VALUES ($1, $2, $3, $4, $5, 'available', NOW())`,
-        [unit.id, unit.inventory_item_id, unit.qr_code_text, unit.qr_code_url, unit.size]
+         (id, inventory_item_id, qr_code_text, qr_code_url, size, unit_number, status, created_at) 
+         VALUES ($1, $2, $3, $4, $5, $6, 'available', NOW())`,
+        [unit.id, unit.inventory_item_id, unit.qr_code_text, unit.qr_code_url, unit.size, unit.unit_number]
       );
     }
 
+    // ✅ Fetch all units (both updated existing and newly created) and return them sorted
+    const allUnitsRes = await pool.query(
+      `SELECT id, inventory_item_id, size, qr_code_url, qr_code_text, unit_number, status, created_at
+       FROM inventory_units 
+       WHERE inventory_item_id = $1
+       ORDER BY 
+         CASE 
+           WHEN size = 'small' THEN 1
+           WHEN size = 'medium' THEN 2
+           WHEN size = 'large' THEN 3
+           ELSE 4
+         END,
+         unit_number ASC`,
+      [itemId]
+    );
+
     res.status(200).json({
-      message: `Generated ${unitsToGenerate.length} new units successfully`,
-      generatedUnits: unitsToGenerate, // ✅ return units for frontend use
+      message: `Generated ${unitsToGenerate.length} new units successfully, updated ${existingUnits.length} existing units`,
+      allUnits: allUnitsRes.rows, // ✅ return ALL units (both updated and new) for frontend use
     });
   } catch (err) {
     console.error("Error generating units:", err);
@@ -1216,9 +1495,19 @@ const getUnitsForItem = async (req, res) => {
       });
     }
 
-    // Step 3: Handle garments with sizes (fetch units)
+    // Step 3: Handle garments with sizes (fetch units with unit_number)
     const result = await pool.query(
-      `SELECT * FROM inventory_units WHERE inventory_item_id = $1 ORDER BY size`,
+      `SELECT id, inventory_item_id, size, qr_code_url, qr_code_text, unit_number, status, created_at 
+       FROM inventory_units 
+       WHERE inventory_item_id = $1 
+       ORDER BY 
+         CASE 
+           WHEN size = 'small' THEN 1
+           WHEN size = 'medium' THEN 2
+           WHEN size = 'large' THEN 3
+           ELSE 4
+         END,
+         unit_number`,
       [itemId]
     );
 
@@ -1512,6 +1801,65 @@ const scanImageFallback = async (req, res) => {
   }
 };
 
+// ✅ NEW ENDPOINT: Get available inventory units for a specific item
+// Used by frontend to resolve temporary unitIds to real available units
+// GET /api/inventory-units/available/:itemId?quantity=5
+const getAvailableUnits = async (req, res) => {
+  const { itemId } = req.params;
+  const { quantity = 1 } = req.query;
+
+  try {
+    const quantityNum = parseInt(quantity) || 1;
+
+    if (!itemId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing itemId parameter'
+      });
+    }
+
+    console.log(`📦 Getting available units - itemId: ${itemId}, quantity: ${quantityNum}`);
+
+    // Query available units for this item, ordered by created_at (FIFO)
+    const result = await pool.query(
+      `SELECT 
+        id, 
+        unit_id, 
+        inventory_item_id as item_id, 
+        status,
+        created_at
+       FROM inventory_units 
+       WHERE inventory_item_id = $1 
+         AND status = 'available'
+       ORDER BY created_at ASC
+       LIMIT $2`,
+      [itemId, quantityNum]
+    );
+
+    console.log(`✅ Found ${result.rows.length} available units for itemId: ${itemId}`);
+
+    // Return units in simplified format
+    return res.json({
+      success: true,
+      count: result.rows.length,
+      units: result.rows.map(u => ({
+        id: u.id,
+        unit_id: u.unit_id,
+        item_id: u.item_id,
+        status: u.status
+      })),
+      requested_quantity: quantityNum
+    });
+
+  } catch (error) {
+    console.error('❌ Error fetching available units:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to fetch available units: ' + error.message
+    });
+  }
+};
+
 module.exports = {
   getAllInventory,
   getAvailableInventory,
@@ -1536,4 +1884,5 @@ module.exports = {
   updateBorrowQuantity,
   scanImageFallback,
   scanByQrCodeInternal,
+  getAvailableUnits, // ✅ NEW EXPORT
 };

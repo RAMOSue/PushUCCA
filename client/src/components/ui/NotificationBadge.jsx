@@ -34,7 +34,14 @@ const NotificationBadge = () => {
             notificationService.getNotifications(),
             notificationService.getUnreadCount()
           ]);
-          setNotificationList(list || []);
+
+          // Normalize each notification so it always has a parsable `timestamp` (ISO string)
+          const normalized = (list || []).map((n) => ({
+            ...n,
+            timestamp: n.created_at || n.data?.createdAt || n.data?.timestamp || new Date().toISOString()
+          }));
+
+          setNotificationList(normalized);
           setNotificationCount(Number(count) || 0);
         } catch (err) {
           console.warn('Could not fetch notifications from server:', err);
@@ -78,13 +85,15 @@ const NotificationBadge = () => {
 
       // If the service worker posts a notification object, normalize it
       const incoming = payload.notification || payload;
+      const ts = incoming.created_at || incoming.data?.createdAt || incoming.data?.timestamp || new Date().toISOString();
       const newNotif = {
         id: incoming.id || Date.now(),
         title: incoming.title || incoming.data?.title || 'Notification',
         message: incoming.message || incoming.data?.message || '',
-        data: incoming.data || incoming.data || {},
+        data: incoming.data || {},
         is_read: incoming.is_read === true || false,
-        timestamp: incoming.created_at ? new Date(incoming.created_at) : new Date()
+        // store as ISO string for consistency with server responses
+        timestamp: typeof ts === 'string' ? ts : new Date(ts).toISOString()
       };
 
       setNotificationList(prev => [newNotif, ...prev].slice(0, 50));
@@ -124,12 +133,12 @@ const NotificationBadge = () => {
       {/* Notification Bell Icon with Badge */}
       <button
         onClick={() => setShowDropdown(!showDropdown)}
-        className="relative p-2 text-gray-600 hover:text-gray-800 focus:outline-none"
+        className="relative p-2 text-white hover:text-yellow-200 focus:outline-none transition-colors"
       >
         <svg
           xmlns="http://www.w3.org/2000/svg"
           className="h-6 w-6"
-          fill="none"
+          fill="currentColor"
           viewBox="0 0 24 24"
           stroke="currentColor"
         >
@@ -141,7 +150,7 @@ const NotificationBadge = () => {
           />
         </svg>
         {notificationCount > 0 && (
-          <span className="absolute top-0 right-0 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-red-100 transform translate-x-1/2 -translate-y-1/2 bg-red-600 rounded-full">
+          <span className="absolute top-0 right-0 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white bg-red-600 rounded-full">
             {notificationCount}
           </span>
         )}
@@ -186,7 +195,12 @@ const NotificationBadge = () => {
                     </p>
                     <p className="text-sm text-gray-600">{notification.message}</p>
                     <p className="text-xs text-gray-400 mt-1">
-                      {new Date(notification.timestamp).toLocaleString()}
+                      {(() => {
+                        const raw = notification.timestamp || notification.created_at;
+                        const d = raw ? new Date(raw) : new Date();
+                        const safeDate = isNaN(d.getTime()) ? new Date() : d;
+                        return safeDate.toLocaleString();
+                      })()}
                     </p>
                   </button>
                 ))

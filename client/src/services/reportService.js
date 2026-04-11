@@ -38,13 +38,45 @@ export const generateMonthlyReport = async (month, year) => {
 
 /**
  * Export monthly report in the specified format (csv or pdf).
- * Opens the report in a new browser tab.
+ * Downloads as a proper file attachment.
  */
-export const exportMonthlyReport = (month, year, format) => {
-  // For same-origin, cookies (session) send automatically.
-  // If you proxy, ensure credentials are passed.
-  const url = `/api/reports/monthly/export?month=${month}&year=${year}&format=${format}`;
-  window.open(url, "_blank", "noopener,noreferrer");
+export const exportMonthlyReport = async (month, year, format) => {
+  try {
+    const response = await axios.get(
+      `/api/reports/monthly/export`,
+      {
+        params: { month, year, format },
+        ...AXIOS_OPTS,
+        responseType: 'blob'
+      }
+    );
+
+    // Create blob URL and trigger download
+    const blob = new Blob([response.data], { 
+      type: format === 'csv' ? 'text/csv;charset=utf-8;' : 'application/pdf'
+    });
+    
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    
+    // Generate filename with proper extension
+    const monthStr = String(month).padStart(2, '0');
+    const filename = `monthly-report-${year}-${monthStr}.${format}`;
+    
+    link.setAttribute('href', url);
+    link.setAttribute('download', filename);
+    link.style.visibility = 'hidden';
+    
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    // Clean up
+    URL.revokeObjectURL(url);
+  } catch (err) {
+    console.error('Export error:', err);
+    throw err;
+  }
 };
 
 /**
