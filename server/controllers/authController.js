@@ -244,16 +244,20 @@ const loginUser = async (req, res) => {
     }
 
     const emailLower = email.toLowerCase();
+    console.log(`🔐 [loginUser] Login attempt for: ${emailLower}`);
 
     const userQuery = await pool.query("SELECT * FROM users WHERE email = $1", [emailLower]);
     if (userQuery.rows.length === 0) {
+      console.warn(`⚠️ [loginUser] No user found: ${emailLower}`);
       return res.status(400).json({ error: "No user found with this email" });
     }
 
     const user = userQuery.rows[0];
+    console.log(`✅ [loginUser] User found: ${user.email} (ID: ${user.id}, role: ${user.role})`);
 
     // ✅ NEW: Check if email is verified
     if (!user.is_verified) {
+      console.warn(`⚠️ [loginUser] User not verified: ${email}`);
       return res.status(403).json({
         error: "Please verify your email before logging in",
         email: user.email,
@@ -263,8 +267,11 @@ const loginUser = async (req, res) => {
 
     const match = await comparePassword(password, user.password);
     if (!match) {
+      console.warn(`⚠️ [loginUser] Wrong password for: ${emailLower}`);
       return res.status(400).json({ error: "Incorrect password" });
     }
+
+    console.log(`✅ [loginUser] Password correct for user: ${emailLower}`);
 
     const token = jwt.sign(
       {
@@ -275,26 +282,34 @@ const loginUser = async (req, res) => {
         phone: user.phone,
       },
       process.env.JWT_SECRET,
-      { expiresIn: "7d" } // ✅ CHANGED: Extended to 7 days for session persistence
+      { expiresIn: "7d" }
     );
 
-    res.cookie("token", token, {
+    console.log(`🔐 [loginUser] JWT created for user ${user.id}`);
+
+    // ✅ Enhanced cookie options with explicit path
+    const cookieOptions = {
       httpOnly: true,
       secure: false,
       sameSite: "lax",
-      maxAge: 7 * 24 * 60 * 60 * 1000, // ✅ CHANGED: Extended to 7 days
-    });
+      path: "/",
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    };
+
+    res.cookie("token", token, cookieOptions);
+    console.log(`✅ [loginUser] Cookie set with options: ${JSON.stringify(cookieOptions)}`);
 
     // Trigger resend of pending notifications
     try {
       await notificationController.resendPendingForUser(user.id);
     } catch (notifyError) {
       console.warn(
-        "⚠️ Failed to resend pending notifications on login:",
-        notifyError && notifyError.message ? notifyError.message : notifyError
+        "⚠️ [loginUser] Failed to resend pending notifications:",
+        notifyError?.message || notifyError
       );
     }
 
+    console.log(`✅ [loginUser] Login successful for: ${emailLower}`);
     res.json({
       message: "Login successful",
       user: {
@@ -306,8 +321,8 @@ const loginUser = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Login error:", error.message);
-    res.status(500).json({ error: "Internal server error" });
+    console.error("❌ [loginUser] Error:", error.message, error);
+    res.status(500).json({ error: "Internal server error", details: error.message });
   }
 };
 
@@ -325,11 +340,13 @@ const googleCallback = async (req, res) => {
         [name, email, "borrower"]
       );
       user = newUser.rows[0];
+      console.log(`✅ [Google OAuth] New user created: ${email} (role: borrower)`);
     } else {
       user = userQuery.rows[0];
       // ✅ Mark existing user as verified on Google login
       await pool.query("UPDATE users SET is_verified = TRUE WHERE id = $1", [user.id]);
       user.is_verified = true;
+      console.log(`✅ [Google OAuth] Existing user logged in: ${email} (role: ${user.role})`);
     }
 
     const token = jwt.sign(
@@ -341,15 +358,19 @@ const googleCallback = async (req, res) => {
         phone: user.phone,
       },
       process.env.JWT_SECRET,
-      { expiresIn: "7d" } // ✅ CHANGED: Extended to 7 days for session persistence
+      { expiresIn: "7d" }
     );
 
+    // ✅ FIX: Set cookie with explicit path to ensure it's accessible to all routes
     res.cookie("token", token, {
       httpOnly: true,
-      secure: false,
+      secure: false, // Set to true only in production with HTTPS
       sameSite: "lax",
-      maxAge: 7 * 24 * 60 * 60 * 1000, // ✅ CHANGED: Extended to 7 days
+      path: "/", // ✅ IMPORTANT: Ensure cookie is accessible to "/" and all subpaths
+      maxAge: 7 * 24 * 60 * 60 * 1000,
     });
+
+    console.log(`🔐 [Google OAuth] Token cookie set for user: ${user.email}`);
 
     // ✅ Step 4 also for Google login: trigger resend of pending notifications
     try {
@@ -360,13 +381,16 @@ const googleCallback = async (req, res) => {
 
     // ✅ Redirect based on user role for staff/admin
     const redirectPath = 
-      user.role === "admin" ? "/admin/available-items" :
-      user.role === "staff" ? "/staff/available-items" :
+      user.role === "admin" ? "/admin" :
+      user.role === "staff" ? "/staff" :
       "/available-items";
 
-    res.redirect(`${process.env.FRONTEND_URL || "http://localhost:5173"}${redirectPath}`);
+    const redirectURL = `${process.env.FRONTEND_URL || "http://localhost:5173"}${redirectPath}`;
+    console.log(`✅ [Google OAuth] Redirecting to: ${redirectURL}`);
+    
+    res.redirect(redirectURL);
   } catch (error) {
-    console.error("Google auth error:", error.message);
+    console.error("❌ Google auth error:", error.message);
     res.redirect(`${process.env.FRONTEND_URL || "http://localhost:5173"}/login?error=Google login failed`);
   }
 };
@@ -376,8 +400,15 @@ const getProfile = async (req, res) => {
   try {
     // ✅ Use req.user set by ensureAuth middleware
     const userId = req.user?.id;
+    
+    console.log(`📋 [getProfile] Profile request for user ID: ${userId}`);
+    
     if (!userId) {
-      return res.status(401).json({ error: "Unauthorized - No user ID" });
+      console.warn(`❌ [getProfile] No user ID in req.user: ${JSON.stringify(req.user)}`);
+      return res.status(401).json({ 
+        error: "Unauthorized - No user ID",
+        details: "req.user not set by ensureAuth middleware"
+      });
     }
 
     const userQuery = await pool.query(
@@ -386,13 +417,18 @@ const getProfile = async (req, res) => {
     );
 
     if (userQuery.rows.length === 0) {
-      return res.status(404).json({ error: "User not found" });
+      console.warn(`❌ [getProfile] User not found in DB: ${userId}`);
+      return res.status(404).json({ 
+        error: "User not found",
+        userId: userId
+      });
     }
 
+    console.log(`✅ [getProfile] Profile retrieved for user: ${userQuery.rows[0].email}`);
     res.json(userQuery.rows[0]);
   } catch (error) {
-    console.error("Profile error:", error.message);
-    res.status(500).json({ error: "Internal server error" });
+    console.error(`❌ [getProfile] Error: ${error.message}`, error);
+    res.status(500).json({ error: "Internal server error", details: error.message });
   }
 };
 
@@ -612,6 +648,145 @@ const deleteUser = async (req, res) => {
   }
 };
 
+/* ============ ACTIVITY LOGS ============ */
+
+/**
+ * Get activity logs for the current authenticated user
+ */
+const getActivityLogs = async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    
+    if (!userId) {
+      return res.status(401).json({ error: "User not authenticated" });
+    }
+
+    // For now, return mock data - can integrate with actual logs table later
+    const activityLogs = [
+      {
+        id: 1,
+        action: "Login",
+        description: "Logged in from web",
+        timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000),
+        device: "Chrome",
+      },
+      {
+        id: 2,
+        action: "View Profile",
+        description: "Viewed accommodation profile",
+        timestamp: new Date(Date.now() - 5 * 60 * 60 * 1000),
+        device: "Chrome",
+      },
+      {
+        id: 3,
+        action: "Edit Settings",
+        description: "Updated notification preferences",
+        timestamp: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
+        device: "Safari",
+      },
+      {
+        id: 4,
+        action: "Download Report",
+        description: "Downloaded activity report",
+        timestamp: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
+        device: "Firefox",
+      },
+    ];
+
+    res.json(activityLogs);
+  } catch (err) {
+    console.error("Error fetching activity logs:", err.message);
+    res.status(500).json({ error: "Failed to fetch activity logs" });
+  }
+};
+
+/**
+ * Get login history for the current authenticated user
+ */
+const getLoginHistory = async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    
+    if (!userId) {
+      return res.status(401).json({ error: "User not authenticated" });
+    }
+
+    // For now, return mock data - can integrate with actual login_history table later
+    const loginHistory = [
+      {
+        id: 1,
+        ip_address: "192.168.1.100",
+        device: "Chrome",
+        device_type: "Desktop",
+        location: "Manila, Philippines",
+        timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000),
+        status: "successful",
+      },
+      {
+        id: 2,
+        ip_address: "203.153.45.67",
+        device: "Safari",
+        device_type: "Mobile",
+        location: "Quezon City, Philippines",
+        timestamp: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
+        status: "successful",
+      },
+      {
+        id: 3,
+        ip_address: "156.123.45.89",
+        device: "Firefox",
+        device_type: "Desktop",
+        location: "Makati, Philippines",
+        timestamp: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
+        status: "successful",
+      },
+      {
+        id: 4,
+        ip_address: "Unknown",
+        device: "Unknown",
+        device_type: "Unknown",
+        location: "Unknown",
+        timestamp: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
+        status: "failed",
+      },
+    ];
+
+    res.json(loginHistory);
+  } catch (err) {
+    console.error("Error fetching login history:", err.message);
+    res.status(500).json({ error: "Failed to fetch login history" });
+  }
+};
+
+/**
+ * Download activity logs as CSV
+ */
+const downloadActivityLogsCSV = async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    
+    if (!userId) {
+      return res.status(401).json({ error: "User not authenticated" });
+    }
+
+    // Create CSV header and sample data
+    const csvContent = [
+      ["Action", "Description", "Timestamp", "Device"].join(","),
+      ["Login", "Logged in from web", new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(), "Chrome"].join(","),
+      ["View Profile", "Viewed accommodation profile", new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString(), "Chrome"].join(","),
+      ["Edit Settings", "Updated notification preferences", new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(), "Safari"].join(","),
+      ["Download Report", "Downloaded activity report", new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(), "Firefox"].join(","),
+    ].join("\n");
+
+    res.setHeader("Content-Type", "text/csv");
+    res.setHeader("Content-Disposition", "attachment; filename=activity-logs.csv");
+    res.send(csvContent);
+  } catch (err) {
+    console.error("Error downloading activity logs:", err.message);
+    res.status(500).json({ error: "Failed to download logs" });
+  }
+};
+
 /* ============ EXPORT CONTROLLERS ============ */
 module.exports = {
   test,
@@ -628,4 +803,7 @@ module.exports = {
   deleteUser,
   changePassword,
   updateThemePreference,
+  getActivityLogs,
+  getLoginHistory,
+  downloadActivityLogsCSV,
 };

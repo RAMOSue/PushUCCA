@@ -1,35 +1,63 @@
 const pool = require('../db');
 
+// Backend base URL (set in .env, defaults to port 8000 in dev)
+const BASE_URL = process.env.BASE_URL || "http://localhost:8000";
+
+// Helper: convert relative path to full URL
+function toFullUrl(filePath) {
+  return filePath ? `${BASE_URL}${filePath}` : null;
+}
+
 // GET /api/performances
 async function getAllPerformances(req, res) {
   try {
     const q = 'SELECT * FROM performances ORDER BY start_time DESC';
     const { rows } = await pool.query(q);
     
-    // Fetch items for each performance
+    // Fetch items and borrowers for each performance
     const performancesWithDetails = await Promise.all(
       rows.map(async (perf) => {
         try {
           // ✅ UPDATED: Simplified query without subquery
           const itemsResult = await pool.query(
-            `SELECT pi.*, ii.name, ii.category
+            `SELECT pi.*, ii.name, ii.category, ii.image_url
              FROM performance_items pi
              LEFT JOIN inventory_items ii ON pi.inventory_item_id = ii.id
              WHERE pi.performance_id = $1
              ORDER BY pi.created_at`,
             [perf.id]
           );
+
+          // ✅ NEW: Fetch borrowers with full details including profile picture
+          const borrowersResult = await pool.query(
+            `SELECT pb.borrower_user_id, u.name, u.email, p.profile_pic_url
+             FROM performance_borrowers pb
+             LEFT JOIN users u ON pb.borrower_user_id = u.id
+             LEFT JOIN user_profiles p ON u.id = p.user_id
+             WHERE pb.performance_id = $1
+             ORDER BY u.name`,
+            [perf.id]
+          );
+
+          // ✅ UPDATED: Convert profile_pic_url to full URL
+          const borrowersWithUrls = borrowersResult.rows.map(borrower => ({
+            ...borrower,
+            profile_pic_url: toFullUrl(borrower.profile_pic_url)
+          }));
+
           return {
             ...perf,
             dancers: [],
-            items: itemsResult.rows
+            items: itemsResult.rows,
+            performance_borrowers: borrowersWithUrls // ✅ NEW: Include full borrower details
           };
         } catch (itemErr) {
           console.error(`Error fetching items for performance ${perf.id}:`, itemErr.message);
           return {
             ...perf,
             dancers: [],
-            items: []
+            items: [],
+            performance_borrowers: []
           };
         }
       })
@@ -54,18 +82,36 @@ async function getPerformanceById(req, res) {
     
     // Fetch items
     const itemsResult = await pool.query(
-      `SELECT pi.*, ii.name, ii.category
+      `SELECT pi.*, ii.name, ii.category, ii.image_url
        FROM performance_items pi
        LEFT JOIN inventory_items ii ON pi.inventory_item_id = ii.id
        WHERE pi.performance_id = $1
        ORDER BY pi.created_at`,
       [id]
     );
+
+    // ✅ NEW: Fetch borrowers with full details including profile picture
+    const borrowersResult = await pool.query(
+      `SELECT pb.borrower_user_id, u.name, u.email, p.profile_pic_url
+       FROM performance_borrowers pb
+       LEFT JOIN users u ON pb.borrower_user_id = u.id
+       LEFT JOIN user_profiles p ON u.id = p.user_id
+       WHERE pb.performance_id = $1
+       ORDER BY u.name`,
+      [id]
+    );
+
+    // ✅ UPDATED: Convert profile_pic_url to full URL
+    const borrowersWithUrls = borrowersResult.rows.map(borrower => ({
+      ...borrower,
+      profile_pic_url: toFullUrl(borrower.profile_pic_url)
+    }));
     
     res.json({
       ...perf,
       dancers: [],
-      items: itemsResult.rows
+      items: itemsResult.rows,
+      performance_borrowers: borrowersWithUrls // ✅ NEW: Include full borrower details
     });
   } catch (err) {
     console.error('getPerformanceById error:', err.message);
@@ -77,7 +123,7 @@ async function getPerformanceById(req, res) {
 async function createPerformance(req, res) {
   const client = await pool.connect();
   try {
-    const { title, description, location, start_time, end_time, selectedBorrowers, dancers, items } = req.body;
+    const { title, description, location, start_time, end_time, selectedBorrowerIds, selectedItemIds } = req.body;
     const created_by = req.user?.id || null;
     
     await client.query('BEGIN');
@@ -91,9 +137,9 @@ async function createPerformance(req, res) {
     
     const performance = perfResult.rows[0];
     
-    // Add selected borrowers if provided
-    if (selectedBorrowers && Array.isArray(selectedBorrowers)) {
-      for (const borrowerId of selectedBorrowers) {
+    // ✅ FIXED: Add selected borrowers if provided (changed from selectedBorrowers to selectedBorrowerIds)
+    if (selectedBorrowerIds && Array.isArray(selectedBorrowerIds)) {
+      for (const borrowerId of selectedBorrowerIds) {
         await client.query(
           `INSERT INTO performance_borrowers (performance_id, borrower_user_id)
            VALUES ($1, $2) ON CONFLICT DO NOTHING`,
@@ -102,36 +148,28 @@ async function createPerformance(req, res) {
       }
     }
     
-    // ✅ NOTE: Dancer data is not persisted to database (performance_dancers table doesn't exist)
-    // Dancers info is maintained in frontend state only
-    
-    // ✅ UPDATED: Add items with unit_number support
-    if (items && Array.isArray(items)) {
-      for (const item of items) {
-        // Store unit information if available (unit_id, unit_number)
+    // ✅ FIXED: Add items with simple IDs (changed from items to selectedItemIds)
+    if (selectedItemIds && Array.isArray(selectedItemIds)) {
+      for (const itemId of selectedItemIds) {
         await client.query(
           `INSERT INTO performance_items (performance_id, inventory_item_id, size, quantity)
            VALUES ($1, $2, $3, $4)`,
-          [performance.id, item.inventory_item_id, item.size || null, item.quantity || 1]
+          [performance.id, itemId, null, 1]
         );
-        
-        // Note: If unit_id column exists, can extend to:
-        // INSERT INTO performance_items (performance_id, inventory_item_id, unit_id, size, quantity)
-        // For now, unit tracking is maintained in frontend form structure
       }
     }
 
     // Create recommendations for all selected borrowers
     // Each borrower gets recommendations for all items in the performance
-    if (selectedBorrowers && Array.isArray(selectedBorrowers) && items && Array.isArray(items)) {
-      for (const borrowerId of selectedBorrowers) {
-        for (const item of items) {
+    if (selectedBorrowerIds && Array.isArray(selectedBorrowerIds) && selectedItemIds && Array.isArray(selectedItemIds)) {
+      for (const borrowerId of selectedBorrowerIds) {
+        for (const itemId of selectedItemIds) {
           await client.query(
             `INSERT INTO performance_recommendations 
              (performance_id, borrower_id, inventory_item_id, size, quantity, is_viewed)
              VALUES ($1, $2, $3, $4, $5, FALSE)
              ON CONFLICT (performance_id, borrower_id, inventory_item_id, size) DO NOTHING`,
-            [performance.id, borrowerId, item.inventory_item_id, item.size || null, item.quantity || 1]
+            [performance.id, borrowerId, itemId, null, 1]
           );
         }
       }
@@ -165,7 +203,7 @@ async function updatePerformance(req, res) {
   const client = await pool.connect();
   try {
     const { id } = req.params;
-    const { title, description, location, start_time, end_time, selectedBorrowers, dancers, items } = req.body;
+    const { title, description, location, start_time, end_time, selectedBorrowerIds, selectedItemIds } = req.body;
     
     await client.query('BEGIN');
     
@@ -181,10 +219,10 @@ async function updatePerformance(req, res) {
       return res.status(404).json({ error: 'Not found' });
     }
     
-    // Delete and recreate borrowers
+    // ✅ FIXED: Delete and recreate borrowers (changed from selectedBorrowers to selectedBorrowerIds)
     await client.query('DELETE FROM performance_borrowers WHERE performance_id = $1', [id]);
-    if (selectedBorrowers && Array.isArray(selectedBorrowers)) {
-      for (const borrowerId of selectedBorrowers) {
+    if (selectedBorrowerIds && Array.isArray(selectedBorrowerIds)) {
+      for (const borrowerId of selectedBorrowerIds) {
         await client.query(
           `INSERT INTO performance_borrowers (performance_id, borrower_user_id)
            VALUES ($1, $2) ON CONFLICT DO NOTHING`,
@@ -193,33 +231,29 @@ async function updatePerformance(req, res) {
       }
     }
     
-    // ✅ NOTE: Dancer data is not persisted to database (performance_dancers table doesn't exist)
-    // Dancers info is maintained in frontend state only
-    
-    // Delete and recreate items
+    // ✅ FIXED: Delete and recreate items (changed from items to selectedItemIds)
     await client.query('DELETE FROM performance_items WHERE performance_id = $1', [id]);
-    // ✅ UPDATED: Support unit tracking
-    if (items && Array.isArray(items)) {
-      for (const item of items) {
+    if (selectedItemIds && Array.isArray(selectedItemIds)) {
+      for (const itemId of selectedItemIds) {
         await client.query(
           `INSERT INTO performance_items (performance_id, inventory_item_id, size, quantity)
            VALUES ($1, $2, $3, $4)`,
-          [id, item.inventory_item_id, item.size || null, item.quantity || 1]
+          [id, itemId, null, 1]
         );
       }
     }
 
     // Delete and recreate recommendations for updated performance
     await client.query('DELETE FROM performance_recommendations WHERE performance_id = $1', [id]);
-    if (selectedBorrowers && Array.isArray(selectedBorrowers) && items && Array.isArray(items)) {
-      for (const borrowerId of selectedBorrowers) {
-        for (const item of items) {
+    if (selectedBorrowerIds && Array.isArray(selectedBorrowerIds) && selectedItemIds && Array.isArray(selectedItemIds)) {
+      for (const borrowerId of selectedBorrowerIds) {
+        for (const itemId of selectedItemIds) {
           await client.query(
             `INSERT INTO performance_recommendations 
              (performance_id, borrower_id, inventory_item_id, size, quantity, is_viewed)
              VALUES ($1, $2, $3, $4, $5, FALSE)
              ON CONFLICT (performance_id, borrower_id, inventory_item_id, size) DO NOTHING`,
-            [id, borrowerId, item.inventory_item_id, item.size || null, item.quantity || 1]
+            [id, borrowerId, itemId, null, 1]
           );
         }
       }
@@ -304,7 +338,7 @@ async function getPerformanceItems(req, res) {
     const { id } = req.params;
     // ✅ UPDATED: Simplified query for performance items
     const { rows } = await pool.query(
-      `SELECT pi.*, ii.name, ii.category
+      `SELECT pi.*, ii.name, ii.category, ii.image_url
        FROM performance_items pi
        LEFT JOIN inventory_items ii ON pi.inventory_item_id = ii.id
        WHERE pi.performance_id = $1
@@ -360,14 +394,20 @@ async function getFullPerformance(client, performanceId) {
   );
   const perf = perfResult.rows[0];
   
+  // ✅ UPDATED: Fetch borrowers with full details (name, email, and profile picture)
   const borrowersResult = await client.query(
-    'SELECT borrower_user_id FROM performance_borrowers WHERE performance_id = $1',
+    `SELECT pb.borrower_user_id, u.name, u.email, p.profile_pic_url
+     FROM performance_borrowers pb
+     LEFT JOIN users u ON pb.borrower_user_id = u.id
+     LEFT JOIN user_profiles p ON u.id = p.user_id
+     WHERE pb.performance_id = $1
+     ORDER BY u.name`,
     [performanceId]
   );
   
   // ✅ UPDATED: Simplified query for items
   const itemsResult = await client.query(
-    `SELECT pi.*, ii.name, ii.category
+    `SELECT pi.*, ii.name, ii.category, ii.image_url
      FROM performance_items pi
      LEFT JOIN inventory_items ii ON pi.inventory_item_id = ii.id
      WHERE pi.performance_id = $1
@@ -375,9 +415,15 @@ async function getFullPerformance(client, performanceId) {
     [performanceId]
   );
   
+  // ✅ UPDATED: Convert profile_pic_url to full URL
+  const borrowersWithUrls = borrowersResult.rows.map(borrower => ({
+    ...borrower,
+    profile_pic_url: toFullUrl(borrower.profile_pic_url)
+  }));
+  
   return {
     ...perf,
-    selectedBorrowers: borrowersResult.rows.map(r => r.borrower_user_id),
+    performance_borrowers: borrowersWithUrls, // ✅ UPDATED: Return full borrower details instead of just IDs
     dancers: [],
     items: itemsResult.rows
   };
@@ -437,6 +483,164 @@ async function markRecommendationViewed(req, res) {
   }
 }
 
+// ✅ NEW: GET /api/performances/borrower/:borrowerId
+// Get all performances assigned to a specific borrower
+async function getBorrowerPerformances(req, res) {
+  try {
+    const { borrowerId } = req.params;
+
+    // Get all performances where this borrower is assigned
+    const performancesResult = await pool.query(
+      `SELECT DISTINCT p.*
+       FROM performances p
+       JOIN performance_borrowers pb ON p.id = pb.performance_id
+       WHERE pb.borrower_user_id = $1
+       ORDER BY p.start_time DESC`,
+      [borrowerId]
+    );
+
+    // Fetch items and borrowers for each performance
+    const performancesWithDetails = await Promise.all(
+      performancesResult.rows.map(async (perf) => {
+        try {
+          // Fetch items for this performance
+          const itemsResult = await pool.query(
+            `SELECT pi.*, ii.name, ii.category, ii.image_url
+             FROM performance_items pi
+             LEFT JOIN inventory_items ii ON pi.inventory_item_id = ii.id
+             WHERE pi.performance_id = $1
+             ORDER BY pi.created_at`,
+            [perf.id]
+          );
+
+          // Fetch all borrowers for this performance
+          const borrowersResult = await pool.query(
+            `SELECT pb.borrower_user_id, u.name, u.email, p.profile_pic_url
+             FROM performance_borrowers pb
+             LEFT JOIN users u ON pb.borrower_user_id = u.id
+             LEFT JOIN user_profiles p ON u.id = p.user_id
+             WHERE pb.performance_id = $1
+             ORDER BY u.name`,
+            [perf.id]
+          );
+
+          // ✅ UPDATED: Convert profile_pic_url to full URL
+          const borrowersWithUrls = borrowersResult.rows.map(borrower => ({
+            ...borrower,
+            profile_pic_url: toFullUrl(borrower.profile_pic_url)
+          }));
+
+          return {
+            ...perf,
+            dancers: [],
+            items: itemsResult.rows,
+            performance_borrowers: borrowersWithUrls
+          };
+        } catch (itemErr) {
+          console.error(`Error fetching details for performance ${perf.id}:`, itemErr.message);
+          return {
+            ...perf,
+            dancers: [],
+            items: [],
+            performance_borrowers: []
+          };
+        }
+      })
+    );
+
+    res.json(performancesWithDetails);
+  } catch (err) {
+    console.error('getBorrowerPerformances error:', err.message);
+    res.status(500).json({ error: 'Failed to fetch borrower performances' });
+  }
+}
+
+// ✅ NEW: GET /api/performances/borrower/:borrowerId/all
+// Get ALL performances with a flag indicating if borrower is assigned
+async function getAllPerformancesForBorrower(req, res) {
+  try {
+    const { borrowerId } = req.params;
+
+    // Get ALL performances
+    const performancesResult = await pool.query(
+      `SELECT p.* FROM performances p ORDER BY p.start_time DESC`
+    );
+
+    // Get list of performance IDs where borrower is assigned
+    const assignedResult = await pool.query(
+      `SELECT DISTINCT pb.performance_id 
+       FROM performance_borrowers pb 
+       WHERE pb.borrower_user_id = $1`,
+      [borrowerId]
+    );
+    const assignedPerformanceIds = new Set(assignedResult.rows.map(r => r.performance_id));
+
+    // Fetch items and borrowers for each performance + mark as assigned
+    const performancesWithDetails = await Promise.all(
+      performancesResult.rows.map(async (perf) => {
+        try {
+          // Fetch items for this performance
+          const itemsResult = await pool.query(
+            `SELECT pi.*, ii.name, ii.category, ii.image_url
+             FROM performance_items pi
+             LEFT JOIN inventory_items ii ON pi.inventory_item_id = ii.id
+             WHERE pi.performance_id = $1
+             ORDER BY pi.created_at`,
+            [perf.id]
+          );
+
+          // Fetch all borrowers for this performance
+          const borrowersResult = await pool.query(
+            `SELECT pb.borrower_user_id, u.name, u.email, p.profile_pic_url
+             FROM performance_borrowers pb
+             LEFT JOIN users u ON pb.borrower_user_id = u.id
+             LEFT JOIN user_profiles p ON u.id = p.user_id
+             WHERE pb.performance_id = $1
+             ORDER BY u.name`,
+            [perf.id]
+          );
+
+          // ✅ UPDATED: Convert profile_pic_url to full URL
+          const borrowersWithUrls = borrowersResult.rows.map(borrower => ({
+            ...borrower,
+            profile_pic_url: toFullUrl(borrower.profile_pic_url)
+          }));
+
+          return {
+            ...perf,
+            dancers: [],
+            items: itemsResult.rows,
+            performance_borrowers: borrowersWithUrls,
+            isAssigned: assignedPerformanceIds.has(perf.id) // ✅ Flag for borrower assignment
+          };
+        } catch (itemErr) {
+          console.error(`Error fetching details for performance ${perf.id}:`, itemErr.message);
+          return {
+            ...perf,
+            dancers: [],
+            items: [],
+            performance_borrowers: [],
+            isAssigned: assignedPerformanceIds.has(perf.id)
+          };
+        }
+      })
+    );
+
+    // Sort: assigned first, then by start_time
+    const sorted = performancesWithDetails.sort((a, b) => {
+      if (a.isAssigned !== b.isAssigned) {
+        return a.isAssigned ? -1 : 1; // Assigned first
+      }
+      return new Date(a.start_time) - new Date(b.start_time);
+    });
+
+    res.json(sorted);
+  } catch (err) {
+    console.error('getAllPerformancesForBorrower error:', err.message);
+    res.status(500).json({ error: 'Failed to fetch performances' });
+  }
+}
+
 module.exports = {
   getAllPerformances,
   getPerformanceById,
@@ -451,4 +655,6 @@ module.exports = {
   removePerformanceItem,
   getBorrowerRecommendations,
   markRecommendationViewed,
+  getBorrowerPerformances,
+  getAllPerformancesForBorrower,
 };

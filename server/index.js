@@ -12,6 +12,7 @@ const startNotificationScheduler = require("./cron/notificationScheduler");
 
 // Import routes
 const authRoutes = require("./routes/authRoutes");
+const userRoutes = require("./routes/userRoutes");
 const inventoryRoutes = require("./routes/inventoryRoutes");
 const borrowRoutes = require("./routes/borrowRoutes");
 const reportRoutes = require("./routes/reportRoutes");
@@ -21,6 +22,9 @@ const performanceRoutes = require("./routes/performanceRoutes");
 const notificationRoutes = require("./routes/notificationRoutes");
 const masterListRoutes = require("./routes/masterListRoutes");
 const settingsRoutes = require("./routes/settingsRoutes");
+
+// ✅ Testing System Routes
+const metricsRouter = require("./testing/metricsAPI");
 
 // ✅ Initialize Express
 const app = express();
@@ -132,6 +136,7 @@ app.get("/api/files/download", (req, res) => {
 
 /* -------------------- Routes -------------------- */
 app.use("/api/auth", authRoutes);
+app.use("/api/user", userRoutes);
 app.use("/api/inventory", inventoryRoutes);
 app.use("/api/borrow", borrowRoutes);
 app.use("/api/reports", reportRoutes);
@@ -141,6 +146,9 @@ app.use("/api/performances", performanceRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/master-list", masterListRoutes);
 app.use("/api/settings", settingsRoutes);
+
+// ✅ Testing System API Routes
+app.use("/api", metricsRouter);
 
 /* -------------------- Health Check -------------------- */
 app.get("/api", (req, res) => {

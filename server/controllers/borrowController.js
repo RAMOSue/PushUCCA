@@ -1640,6 +1640,7 @@ const startBorrowingSession = async (req, res) => {
       success: true,
       message: "Borrowing session started (reserved)",
       borrowingId: borrowing.id,
+      request_id: borrowing.id,  // ✅ FIXED: Include request_id for consistency
       borrowing,
     });
   } catch (err) {
@@ -1936,10 +1937,15 @@ const getBorrowPhotos = async (req, res) => {
         [requestId]
       );
 
+      // ✅ Use dynamic URL construction based on request origin/host
+      const protocol = req.protocol || 'http';
+      const host = req.get('host') || `localhost:${process.env.PORT || 5000}`;
+      const baseUrl = `${protocol}://${host}`;
+
       // ✅ Transform relative paths to full URLs
       const photosWithUrls = photosResult.rows.map((photo) => ({
         ...photo,
-        photo_url: `http://localhost:8000${photo.photo_url}`,
+        photo_url: `${baseUrl}${photo.photo_url}`,
       }));
 
       res.json({
@@ -2107,7 +2113,7 @@ const uploadReturnPhoto = async (req, res) => {
     const result = await client.query(
       `INSERT INTO return_request_photos (borrowing_request_id, photo_url, photo_type, uploaded_by, storage_path, file_size, mime_type)
        VALUES ($1, $2, $3, $4, $5, $6, $7)
-       RETURNING id, photo_url, uploaded_at`,
+       RETURNING id, photo_url, uploaded_at, storage_path, file_size, mime_type`,
       [
         requestId,
         photoUrl,
@@ -2119,9 +2125,17 @@ const uploadReturnPhoto = async (req, res) => {
       ]
     );
 
+    // ✅ Use dynamic URL construction for the response
+    const protocol = req.protocol || 'http';
+    const host = req.get('host') || `localhost:${process.env.PORT || 5000}`;
+    const baseUrl = `${protocol}://${host}`;
+
     res.json({
       success: true,
-      photo: result.rows[0],
+      photo: {
+        ...result.rows[0],
+        photo_url: `${baseUrl}${result.rows[0].photo_url}`
+      },
       message: "Return photo uploaded successfully",
     });
   } catch (err) {
@@ -2142,20 +2156,28 @@ const getReturnPhotos = async (req, res) => {
   const client = await pool.connect();
   try {
     const result = await client.query(
-      `SELECT id, photo_url, photo_type, uploaded_by, uploaded_at, mime_type
+      `SELECT id, photo_url, photo_type, uploaded_by, uploaded_at, mime_type, storage_path, file_size
        FROM return_request_photos
        WHERE borrowing_request_id = $1
        ORDER BY uploaded_at DESC`,
       [requestId]
     );
 
-    // Add full URL for images to work properly
+    // ✅ Use dynamic URL construction based on request origin/host
+    const protocol = req.protocol || 'http';
+    const host = req.get('host') || `localhost:${process.env.PORT || 5000}`;
+    const baseUrl = `${protocol}://${host}`;
+
     const photosWithUrls = result.rows.map(photo => ({
       ...photo,
       // Ensure photo_url is a full URL path that the frontend can load
-      photo_url: photo.photo_url.startsWith('http') ? photo.photo_url : `http://localhost:5000${photo.photo_url}`,
+      photo_url: photo.photo_url.startsWith('http') ? photo.photo_url : `${baseUrl}${photo.photo_url}`,
+      // Ensure storage_path is available for fallback
+      storage_path: photo.storage_path,
+      // Include file_size for display
+      file_size: photo.file_size,
       // Add mimetype for image validation
-      mimetype: photo.mime_type || 'image/jpeg'
+      mime_type: photo.mime_type || 'image/jpeg'
     }));
 
     res.json({

@@ -17,6 +17,7 @@
 // Security: routes protect w/ requireStaffOrAdmin in reportRoutes.js.
 //
 const pool = require("../db");
+const { generatePlainReport } = require("../utils/reportGenerator");
 
 // Load pdfkit only if installed
 let PDFDocument;
@@ -533,6 +534,15 @@ async function exportMonthlyReport(req, res) {
     res.setHeader("Content-Type", "text/csv; charset=utf-8");
     res.setHeader("Content-Disposition", `attachment; filename="${fileBase}.csv"`);
     return res.send("\uFEFF" + csv); // Add BOM for Excel UTF-8
+  }
+
+  // Plain text export
+  if (format === "text") {
+    const plainText = generatePlainReport(summary, month, year, req.user?.name || "System Administrator");
+    
+    res.setHeader("Content-Type", "text/plain; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="${fileBase}.txt"`);
+    return res.send(plainText);
   }
 
   // PDF export

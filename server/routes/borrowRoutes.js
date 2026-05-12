@@ -2,7 +2,7 @@
 const express = require("express");
 const router = express.Router();
 
-const { ensureAuth } = require("../helpers/auth");
+const { ensureAuth, ensureStaff, ensureAdmin, ensureStaffOrAdmin } = require("../helpers/auth");
 
 const {
   addToCart,
@@ -54,11 +54,11 @@ router.post("/submit", submitBorrowRequest);
 // Alias used by frontend
 router.post("/submit-cart", submitBorrowRequest);
 
-router.get("/history/:userId", getBorrowHistory);
-router.delete("/history/:requestId", deleteFromHistory);
-router.get("/requests", getAllBorrowRequests);
-router.put("/requests/:id/approve", approveBorrowRequest);
-router.put("/requests/:id/decline", declineBorrowRequest);
+router.get("/history/:userId", ensureAuth, getBorrowHistory);
+router.delete("/history/:requestId", ensureAuth, deleteFromHistory);
+router.get("/requests", ensureStaffOrAdmin, getAllBorrowRequests);
+router.put("/requests/:id/approve", ensureStaffOrAdmin, approveBorrowRequest);
+router.put("/requests/:id/decline", ensureStaffOrAdmin, declineBorrowRequest);
 
 // -----------------------
 // 🔄 Return Items

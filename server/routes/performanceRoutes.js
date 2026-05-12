@@ -7,6 +7,12 @@ const requireRole = require('../middleware/requireRole');
 router.get('/recommendations/:borrowerId', perf.getBorrowerRecommendations);
 router.post('/recommendations/:recommendationId/viewed', perf.markRecommendationViewed);
 
+// ✅ NEW: Get ALL performances with assignment flag for borrower (MUST come BEFORE /:borrowerId)
+router.get('/borrower/:borrowerId/all', perf.getAllPerformancesForBorrower);
+
+// ✅ NEW: Get performances for a specific borrower
+router.get('/borrower/:borrowerId', perf.getBorrowerPerformances);
+
 // Public: list and view
 router.get('/', perf.getAllPerformances);
 router.get('/:id', perf.getPerformanceById);
