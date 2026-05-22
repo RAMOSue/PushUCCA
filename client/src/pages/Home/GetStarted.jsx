@@ -196,6 +196,31 @@ export default function GetStarted() {
 		return () => clearInterval(interval);
 	}, [activeDepartment]);
 
+	// ✅ FALLBACK SLIDESHOW DATA
+	const culturalNarratives = [
+		{
+			id: 1,
+			title: "The Sound of Tradition",
+			tagline: "Where Heritage Comes to Life",
+			subtitle: "Explore. Learn. Experience. Preserve Culture.",
+			imageUrl: "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=1200&h=400&fit=crop",
+		},
+		{
+			id: 2,
+			title: "Stories Woven in Costumes",
+			tagline: "Where Heritage Comes to Life",
+			subtitle: "Explore. Learn. Experience. Preserve Culture.",
+			imageUrl: "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=1200&h=400&fit=crop",
+		},
+		{
+			id: 3,
+			title: "Celebrations of Heritage",
+			tagline: "Where Heritage Comes to Life",
+			subtitle: "Explore. Learn. Experience. Preserve Culture.",
+			imageUrl: "https://images.unsplash.com/photo-1459749411175-04bf5292ceea?w=1200&h=400&fit=crop",
+		},
+	];
+
 	const exploreCultureCards = [
 		{
 			icon: "masks",

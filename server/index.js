@@ -47,9 +47,20 @@ const allowedOrigins = [
   "http://localhost:5174",
 ];
 
+// ✅ Add any Render frontend domains
+const origin = process.env.FRONTEND_URL;
+if (origin && origin.includes('onrender.com')) {
+  allowedOrigins.push(origin);
+}
+
 app.use((req, res, next) => {
   const origin = req.headers.origin;
-  if (allowedOrigins.includes(origin)) {
+  
+  // ✅ Allow any onrender.com domain for development flexibility
+  const isRenderDomain = origin && origin.includes('onrender.com');
+  const isAllowedOrigin = allowedOrigins.includes(origin);
+  
+  if (isRenderDomain || isAllowedOrigin) {
     res.header("Access-Control-Allow-Origin", origin);
   }
   res.header("Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,DELETE,OPTIONS");
