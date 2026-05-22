@@ -361,16 +361,16 @@ const googleCallback = async (req, res) => {
       { expiresIn: "7d" }
     );
 
-    // ✅ FIX: Set cookie with explicit path to ensure it's accessible to all routes
+    // ✅ Set cookie for server-side auth if needed
     res.cookie("token", token, {
       httpOnly: true,
-      secure: false, // Set to true only in production with HTTPS
+      secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
-      path: "/", // ✅ IMPORTANT: Ensure cookie is accessible to "/" and all subpaths
+      path: "/",
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
-    console.log(`🔐 [Google OAuth] Token cookie set for user: ${user.email}`);
+    console.log(`🔐 [Google OAuth] Token generated for user: ${user.email}`);
 
     // ✅ Step 4 also for Google login: trigger resend of pending notifications
     try {
@@ -385,8 +385,9 @@ const googleCallback = async (req, res) => {
       user.role === "staff" ? "/staff" :
       "/available-items";
 
-    const redirectURL = `${process.env.FRONTEND_URL || "http://localhost:5173"}${redirectPath}`;
-    console.log(`✅ [Google OAuth] Redirecting to: ${redirectURL}`);
+    // ✅ IMPORTANT: Pass token in URL so frontend can store it
+    const redirectURL = `${process.env.FRONTEND_URL || "http://localhost:5173"}${redirectPath}?token=${encodeURIComponent(token)}&user=${encodeURIComponent(JSON.stringify({id: user.id, email: user.email, name: user.name, role: user.role}))}`;
+    console.log(`✅ [Google OAuth] Redirecting to: ${redirectPath}`);
     
     res.redirect(redirectURL);
   } catch (error) {

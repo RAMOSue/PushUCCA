@@ -57,6 +57,36 @@ export function UserContextProvider({ children }) {
   // ✅ Session Persistence - recover session from localStorage on app load
   useEffect(() => {
     const recoverSession = async () => {
+      // ✅ FIRST: Check if we're coming back from Google OAuth with a token in URL
+      const params = new URLSearchParams(window.location.search);
+      const tokenFromURL = params.get("token");
+      const userFromURL = params.get("user");
+
+      if (tokenFromURL) {
+        console.log("🔑 [OAuth] Token received from Google OAuth callback");
+        // Store token in tokenManager so axios interceptor can use it
+        try {
+          const userData = userFromURL ? JSON.parse(decodeURIComponent(userFromURL)) : null;
+          tokenManager.addToken(userData?.id || 1, userData?.email || "", tokenFromURL, userData);
+          tokenManager.setActiveToken(userData?.id || 1);
+          
+          // Store user
+          setUser({
+            id: userData?.id,
+            email: userData?.email,
+            name: userData?.name,
+            role: userData?.role,
+          });
+          
+          // Remove token from URL for security
+          window.history.replaceState({}, document.title, window.location.pathname);
+          console.log("✅ [OAuth] Token stored, proceeding with authenticated session");
+          return; // Token is now set, proceed normally
+        } catch (err) {
+          console.error("❌ [OAuth] Failed to process OAuth token:", err);
+        }
+      }
+
       if (!INACTIVITY_CONFIG.PERSIST_SESSION) {
         return;
       }
