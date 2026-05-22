@@ -1,12 +1,20 @@
 const express = require('express');
 const path = require('path');
+const fs = require('fs');
 
 const app = express();
 const PORT = process.env.PORT || 5173;
 const distPath = path.join(__dirname, 'dist');
+const indexPath = path.join(distPath, 'index.html');
 
 console.log(`📁 Serving from: ${distPath}`);
 console.log(`🚀 Starting frontend server on port ${PORT}`);
+
+// Check if dist folder exists
+if (!fs.existsSync(distPath)) {
+  console.error(`❌ ERROR: dist folder not found at ${distPath}`);
+  console.error('Make sure to run: npm run build');
+}
 
 // Serve static files from dist directory with caching
 app.use(express.static(distPath, {
@@ -16,7 +24,7 @@ app.use(express.static(distPath, {
 
 // Health check
 app.get('/health', (req, res) => {
-  res.json({ status: 'OK' });
+  res.json({ status: 'OK', distExists: fs.existsSync(distPath) });
 });
 
 // SPA fallback: serve index.html for all non-API routes
@@ -27,10 +35,17 @@ app.get('*', (req, res) => {
   }
   
   console.log(`📄 Serving index.html for route: ${req.path}`);
-  res.sendFile(path.join(distPath, 'index.html'), (err) => {
+  
+  // Check if index.html exists
+  if (!fs.existsSync(indexPath)) {
+    console.error(`❌ ERROR: index.html not found at ${indexPath}`);
+    return res.status(500).json({ error: 'index.html not found - build may have failed' });
+  }
+  
+  res.sendFile(indexPath, (err) => {
     if (err) {
       console.error(`❌ Error serving index.html:`, err);
-      res.status(404).json({ error: 'Not found' });
+      res.status(500).json({ error: 'Failed to serve index.html' });
     }
   });
 });
@@ -43,5 +58,5 @@ app.use((err, req, res, next) => {
 
 app.listen(PORT, () => {
   console.log(`✅ Frontend server running on port ${PORT}`);
-  console.log(`📁 Serving files from: ${path.join(__dirname, 'dist')}`);
+  console.log(`✅ Ready to serve SPA from: ${distPath}`);
 });
