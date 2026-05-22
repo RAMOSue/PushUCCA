@@ -20,7 +20,7 @@ export default function Login() {
 
     try {
       const res = await axios.post(
-        "http://localhost:8000/api/auth/login",
+        `${import.meta.env.VITE_API_URL || "http://localhost:8000"}/api/auth/login`,
         { email, password },
         { withCredentials: true }
       );
@@ -87,7 +87,7 @@ export default function Login() {
 
         <div className="mt-4 text-center">
           <a
-            href="http://localhost:8000/api/auth/google"
+            href={`${import.meta.env.VITE_API_URL || "http://localhost:8000"}/api/auth/google`}
             className="inline-block px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
           >
             Login with Google

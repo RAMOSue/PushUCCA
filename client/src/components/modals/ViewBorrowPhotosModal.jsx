@@ -185,7 +185,7 @@ export default function ViewBorrowPhotosModal({
                   };
 
                   const photoUrl = getFullImageUrl(photo.photo_url);
-                    : `http://localhost:8000${photo.photo_url}`;
+                    : `${import.meta.env.VITE_API_URL || "http://localhost:8000"}${photo.photo_url}`;
 
                   return (
                     <div

@@ -31,7 +31,7 @@ export const useInactivityTimeout = () => {
    */
   const handleInactivityLogout = useCallback(async () => {
     try {
-      await fetch('http://localhost:8000/api/auth/logout', {
+      await fetch(`${import.meta.env.VITE_API_URL || "http://localhost:8000"}/api/auth/logout`, {
         method: 'POST',
         credentials: 'include',
       });

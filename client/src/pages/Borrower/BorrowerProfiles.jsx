@@ -52,7 +52,7 @@ export default function BorrowerProfiles() {
 
       const relativePath = url.replace(/^https?:\/\/[^/]+/, "");
       const encodedPath = encodeURIComponent(relativePath);
-      const backendUrl = `http://localhost:8000/api/profiles/download?path=${encodedPath}`;
+      const backendUrl = `${import.meta.env.VITE_API_URL || "http://localhost:8000"}/api/profiles/download?path=${encodedPath}`;
 
       const response = await fetch(backendUrl, {
         method: "GET",
