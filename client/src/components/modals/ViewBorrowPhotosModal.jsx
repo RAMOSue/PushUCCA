@@ -48,9 +48,15 @@ export default function ViewBorrowPhotosModal({
   // Download photo
   const handleDownload = async (photo) => {
     try {
-      const photoUrl = photo.photo_url?.startsWith('http')
-        ? photo.photo_url
-        : `http://localhost:8000${photo.photo_url}`;
+      // ✅ Construct full image URL using environment variable
+      const getFullImageUrl = (path) => {
+        if (!path) return "";
+        if (path.startsWith("http")) return path;
+        const apiBase = import.meta.env.VITE_API_URL || "http://localhost:8000";
+        return apiBase + (path.startsWith("/") ? path : "/" + path);
+      };
+
+      const photoUrl = getFullImageUrl(photo.photo_url);
 
       const response = await axios.get(photoUrl, { responseType: "blob" });
       const blob = new Blob([response.data], { type: "image/jpeg" });
@@ -151,11 +157,15 @@ export default function ViewBorrowPhotosModal({
                       </div>
                     </div>
                     <img
-                      src={
-                        selectedPhoto.photo_url?.startsWith("http")
-                          ? selectedPhoto.photo_url
-                          : `http://localhost:8000${selectedPhoto.photo_url}`
-                      }
+                      src={(() => {
+                        const getFullImageUrl = (path) => {
+                          if (!path) return "";
+                          if (path.startsWith("http")) return path;
+                          const apiBase = import.meta.env.VITE_API_URL || "http://localhost:8000";
+                          return apiBase + (path.startsWith("/") ? path : "/" + path);
+                        };
+                        return getFullImageUrl(selectedPhoto.photo_url);
+                      })()}
                       alt="Full view"
                       className="w-full h-auto rounded-lg"
                     />
@@ -166,8 +176,15 @@ export default function ViewBorrowPhotosModal({
               {/* Photo Grid */}
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                 {photos.map((photo) => {
-                  const photoUrl = photo.photo_url?.startsWith("http")
-                    ? photo.photo_url
+                  // ✅ Construct full image URL using environment variable
+                  const getFullImageUrl = (path) => {
+                    if (!path) return "";
+                    if (path.startsWith("http")) return path;
+                    const apiBase = import.meta.env.VITE_API_URL || "http://localhost:8000";
+                    return apiBase + (path.startsWith("/") ? path : "/" + path);
+                  };
+
+                  const photoUrl = getFullImageUrl(photo.photo_url);
                     : `http://localhost:8000${photo.photo_url}`;
 
                   return (

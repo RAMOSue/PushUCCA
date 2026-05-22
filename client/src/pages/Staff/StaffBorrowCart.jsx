@@ -439,7 +439,7 @@ export default function StaffBorrowCart() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-purple-50 to-white dark:from-[#1a1a1a] dark:to-[#171717] pb-24">
+    <div className="min-h-screen dark:bg-[#171717]">
       {/* Side Navigation Bar */}
       <SideNavbar role="staff" />
 
@@ -458,237 +458,245 @@ export default function StaffBorrowCart() {
         addToCart={addToCart}
       />
 
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 py-4 sm:py-8">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6 sm:mb-8">
+      {/* ========== Header Section ========== */}
+      <div className="px-6 md:px-8 lg:px-12 pt-8 pb-6 dark:bg-[#171717]">
+        <div className="flex items-start justify-between gap-6">
+          {/* Left Side - Title */}
           <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">Staff Borrowing Cart</h1>
-            <p className="text-sm sm:text-base text-gray-500 dark:text-gray-400 mt-1">Review items before submitting</p>
+            <h1 className="text-3xl md:text-4xl font-bold text-on-surface dark:text-white mb-2">Staff Borrowing Cart</h1>
+            <p className="text-on-surface-variant dark:text-gray-400 text-sm">Review items before submitting</p>
           </div>
-          <button
-            onClick={() => navigate(-1)}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white dark:bg-[#222] border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-[#2a2a2a] text-gray-700 dark:text-gray-300 font-medium transition-colors text-sm sm:text-base"
-          >
-            <ArrowLeft size={18} /> Back
-          </button>
+
+          {/* Right Side - Summary Pills */}
+          <div className="flex gap-3 flex-wrap items-center justify-end">
+            <div className="px-4 py-2 bg-surface-container-low dark:bg-[#222] rounded-full text-sm font-medium text-on-surface dark:text-white border border-outline-variant/20 dark:border-gray-700 whitespace-nowrap">
+              Items: <span className="font-bold text-black-600 dark:text-black-400">{consolidatedCart.length}</span>
+            </div>
+            <div className="px-4 py-2 bg-surface-container-low dark:bg-[#222] rounded-full text-sm font-medium text-on-surface dark:text-white border border-outline-variant/20 dark:border-gray-700 whitespace-nowrap">
+              Units: <span className="font-bold text-black-600 dark:text-black-400">{cart.length}</span>
+            </div>
+          </div>
         </div>
+      </div>
+
+      {/* ========== Main Content Area ========== */}
+      <div className="px-6 md:px-8 lg:px-12 space-y-4 dark:bg-[#171717]">
 
         {/* Content */}
         {cart.length === 0 ? (
-          <div className="bg-white dark:bg-[#1a1a1a] rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-8 sm:p-12 text-center">
-            <ShoppingBag className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
-            <p className="text-gray-500 dark:text-gray-400 text-base sm:text-lg mb-6">Your cart is empty</p>
+          <div className="bg-surface-container-low dark:bg-[#1a1a1a] rounded-2xl shadow-sm border border-outline-variant/10 dark:border-gray-700 p-8 sm:p-12 text-center">
+            <ShoppingBag className="w-12 h-12 text-on-surface-variant/30 dark:text-gray-600 mx-auto mb-4" />
+            <p className="text-on-surface-variant dark:text-gray-400 text-base sm:text-lg mb-6">Your cart is empty</p>
             <button
               onClick={() => navigate('/available-items')}
-              className="px-6 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium transition-colors text-sm sm:text-base"
+              className="px-2 py-1 bg-green-900 hover:bg-green-950 text-white rounded-lg font-medium transition-colors text-sm sm:text-base"
             >
               Continue to Borrow
             </button>
           </div>
         ) : (
-          <div className="grid gap-6">
+          <div className="grid gap-4">
             {/* Cart Items */}
-            <div className="bg-white dark:bg-[#1a1a1a] rounded-xl sm:rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+            <div className="bg-surface-container-low dark:bg-[#1a1a1a] rounded-xl sm:rounded-2xl shadow-sm border border-outline-variant/10 dark:border-gray-700 overflow-hidden">
               {/* Header */}
-              <div className="px-4 sm:px-6 py-4 sm:py-5 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-[#222]">
-                <p className="font-semibold text-gray-900 dark:text-white">
-                  Units ({cart.length}) • {consolidatedCart.length} Item{consolidatedCart.length !== 1 ? "s" : ""}
-                </p>
-              </div>
+              
 
               {/* Items List */}
-              <div className="divide-y divide-gray-100 dark:divide-gray-700">
-                {consolidatedCart.map((item, index) => (
-                  <div key={index} className="px-4 sm:px-6 py-4 sm:py-5 hover:bg-gray-50 dark:hover:bg-[#2a2a2a] transition-colors">
-                    {/* Item Header */}
-                    <div className="flex items-center justify-between gap-4 mb-4">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <p className="font-semibold text-gray-900 dark:text-white text-sm sm:text-base">{item.name}</p>
-                          {item.size && item.size !== "nosize" && (
-                            <span className="text-sm text-gray-500 dark:text-gray-400">({item.size})</span>
-                          )}
-                        </div>
-                        <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1 capitalize">
-                          {item.category}
-                        </p>
-                      </div>
-                      
-                      {/* Quantity Controls - Consolidated */}
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => handleDecreaseQuantity({
-                            name: item.name,
-                            category: item.category,
-                            size: item.size
-                          })}
-                          disabled={isUpdatingQuantity}
-                          className="p-1.5 text-gray-600 hover:bg-gray-200 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                          title="Decrease quantity"
-                        >
-                          <Minus size={16} />
-                        </button>
-                        <div className="w-12 flex items-center justify-center">
-                          <input
-                            type="number"
-                            min="1"
-                            value={item.count}
-                            onChange={(e) => {
-                              // Prevent updates while already updating
-                              if (isUpdatingQuantity) return;
-                              
-                              const newQty = parseInt(e.target.value) || 1;
-                              
-                              // Only update if value actually changed
-                              if (newQty !== item.count && newQty > 0) {
-                                handleQuantityChange({
-                                  name: item.name,
-                                  category: item.category,
-                                  size: item.size
-                                }, newQty);
-                              } else if (newQty <= 0) {
-                                // Reset to 1 if user tries to go below 1
-                                e.target.value = item.count;
-                              }
-                            }}
-                            onBlur={(e) => {
-                              // Ensure valid value on blur
-                              const val = parseInt(e.target.value) || 1;
-                              if (val !== item.count) {
-                                e.target.value = item.count;
-                              }
-                            }}
-                            disabled={isUpdatingQuantity}
-                            className="w-full text-center border border-gray-300 rounded px-2 py-1 text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
-                          />
-                        </div>
-                        <button
-                          onClick={() => handleIncreaseQuantity({
-                            name: item.name,
-                            category: item.category,
-                            size: item.size
-                          })}
-                          disabled={isUpdatingQuantity}
-                          className="p-1.5 text-gray-600 hover:bg-gray-200 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                          title="Increase quantity"
-                        >
-                          <Plus size={16} />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteItem({
-                            name: item.name,
-                            category: item.category,
-                            size: item.size
-                          })}
-                          disabled={isUpdatingQuantity}
-                          className="p-1.5 text-red-600 hover:bg-red-100 rounded-lg transition-colors ml-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                          title="Remove all units of this item"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Individual Units Display */}
-                    <div className="space-y-2 pl-0 sm:pl-4">
-                      <p className="text-xs text-gray-500 font-semibold uppercase mb-2">Units in cart ({item.count})</p>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-                        {item.units.map((unit, unitIdx) => {
-                          // ✅ CRITICAL: Use unit_number from database FIRST, fallback to generated format
-                          // unit_number is set from database when item is added to cart via BorrowingContext
-                          const displayUnitNumber = unit.unit_number || (() => {
-                            // Fallback for temporary units created via +/- buttons (rare case)
-                            let sizeAbbrv = '';
-                            if (item.size && item.size !== "nosize") {
-                              sizeAbbrv = item.size.charAt(0).toUpperCase();
-                            }
-                            // Generate format: "ItemName-S-1" or "ItemName-1" if no size
-                            const sequenceNum = unitIdx + 1;
-                            return sizeAbbrv ? `${item.name}-${sizeAbbrv}-${sequenceNum}` : `${item.name}-${sequenceNum}`;
-                          })();
-                          
-                          return (
-                            <div
-                              key={unitIdx}
-                              className="flex items-center justify-between bg-blue-50 border border-blue-200 rounded-lg p-2 sm:p-3"
-                            >
-                              <div className="flex-1 min-w-0">
-                                <p className="text-xs sm:text-sm font-semibold text-gray-900 truncate">
-                                  🏷️ {displayUnitNumber}
-                                </p>
-                                {item.size && item.size !== "nosize" && (
-                                  <p className="text-2xs text-gray-600">
-                                    Size: {item.size.charAt(0).toUpperCase()}
-                                  </p>
-                                )}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Summary Card */}
-            <div className="bg-white rounded-xl sm:rounded-2xl shadow-sm border border-gray-100 p-4 sm:p-6">
-              <div className="space-y-3 mb-6">
-                <div className="flex justify-between text-sm sm:text-base">
-                  <span className="text-gray-600">Total Units in Cart:</span>
-                  <span className="font-semibold text-gray-900">{cart.length}</span>
-                </div>
-                <div className="flex justify-between text-sm sm:text-base">
-                  <span className="text-gray-600">Unique Items:</span>
-                  <span className="font-semibold text-gray-900">{consolidatedCart.length}</span>
-                </div>
-                {requestId && (
-                  <div className="flex justify-between text-sm sm:text-base">
-                    <span className="text-gray-600">Request ID:</span>
-                    <span className="font-semibold text-gray-900">{requestId}</span>
-                  </div>
-                )}
-              </div>
-
-              {/* Info Message */}
-              <div className="p-4 bg-purple-50 border border-purple-200 rounded-lg mb-6">
-                <p className="text-xs sm:text-sm text-purple-900">
-                  <span className="font-semibold">ℹ️ Note:</span> Items will be reserved for your borrowing. You can then capture photos during the checkout process.
-                </p>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex flex-col-reverse sm:flex-row gap-3">
-                <button
-                  onClick={() => navigate('/staff/available-items')}
-                  className="flex items-center justify-center gap-2 px-4 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition-colors"
-                >
-                  <ArrowLeft size={18} />
-                  <span>Continue Adding Items</span>
-                </button>
-                <button
-                  onClick={handleSubmit}
-                  disabled={submitting || cart.length === 0}
-                  className="flex items-center justify-center gap-2 px-4 py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 text-white rounded-lg font-medium transition-colors"
-                >
-                  {submitting ? (
-                    <>
-                      <div className="animate-spin">⏳</div>
-                      <span>Submitting...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Calendar size={18} />
-                      <span>Submit Borrow Request</span>
-                    </>
-                  )}
-                </button>
-              </div>
-            </div>
+<div className="divide-y divide-outline-variant/10 dark:divide-gray-700">
+  {consolidatedCart.map((item, index) => (
+    <div
+      key={index}
+      className="px-3 sm:px-4 py-2 sm:py-3 hover:bg-surface-container-high dark:hover:bg-[#2a2a2a] transition-colors"
+    >
+      {/* Item Header */}
+      <div className="flex items-center justify-between gap-3 mb-2">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5">
+            <p className="font-medium text-on-surface dark:text-white text-xs sm:text-sm truncate">
+              {item.name}
+            </p>
+            {item.size && item.size !== "nosize" && (
+              <span className="text-xs text-on-surface-variant dark:text-gray-400">
+                ({item.size})
+              </span>
+            )}
           </div>
-        )}
+          <p className="text-[10px] sm:text-xs text-on-surface-variant dark:text-gray-400 mt-0.5 capitalize">
+            {item.category}
+          </p>
+        </div>
+
+        {/* Quantity Controls */}
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() =>
+              handleDecreaseQuantity({
+                name: item.name,
+                category: item.category,
+                size: item.size,
+              })
+            }
+            disabled={isUpdatingQuantity}
+            className="p-1 text-on-surface-variant dark:text-gray-400 hover:bg-surface-container-high dark:hover:bg-[#333] rounded-md transition-colors disabled:opacity-50"
+          >
+            <Minus size={14} />
+          </button>
+
+          <div className="w-10">
+            <input
+              type="number"
+              min="1"
+              value={item.count}
+              onChange={(e) => {
+                if (isUpdatingQuantity) return;
+
+                const newQty = parseInt(e.target.value) || 1;
+
+                if (newQty !== item.count && newQty > 0) {
+                  handleQuantityChange(
+                    {
+                      name: item.name,
+                      category: item.category,
+                      size: item.size,
+                    },
+                    newQty
+                  );
+                } else if (newQty <= 0) {
+                  e.target.value = item.count;
+                }
+              }}
+              onBlur={(e) => {
+                const val = parseInt(e.target.value) || 1;
+                if (val !== item.count) {
+                  e.target.value = item.count;
+                }
+              }}
+              disabled={isUpdatingQuantity}
+              className="w-full text-center border border-outline-variant/30 dark:border-gray-600 rounded px-1 py-0.5 text-xs font-medium bg-surface-container-low dark:bg-[#333] text-on-surface dark:text-white"
+            />
+          </div>
+
+          <button
+            onClick={() =>
+              handleIncreaseQuantity({
+                name: item.name,
+                category: item.category,
+                size: item.size,
+              })
+            }
+            disabled={isUpdatingQuantity}
+            className="p-1 text-on-surface-variant dark:text-gray-400 hover:bg-surface-container-high dark:hover:bg-[#333] rounded-md transition-colors disabled:opacity-50"
+          >
+            <Plus size={14} />
+          </button>
+
+          <button
+            onClick={() =>
+              handleDeleteItem({
+                name: item.name,
+                category: item.category,
+                size: item.size,
+              })
+            }
+            disabled={isUpdatingQuantity}
+            className="p-1 text-error dark:text-red-500 hover:bg-error/10 dark:hover:bg-red-900/20 rounded-md transition-colors ml-1 disabled:opacity-50"
+          >
+            <Trash2 size={14} />
+          </button>
+        </div>
       </div>
+
+      {/* Units */}
+      <div className="space-y-1">
+        <p className="text-[10px] text-on-surface-variant dark:text-gray-400 font-medium uppercase">
+          Units ({item.count})
+        </p>
+
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-1.5">
+          {item.units.map((unit, unitIdx) => {
+            const displayUnitNumber =
+              unit.unit_number ||
+              (() => {
+                let sizeAbbrv = "";
+                if (item.size && item.size !== "nosize") {
+                  sizeAbbrv = item.size.charAt(0).toUpperCase();
+                }
+                const sequenceNum = unitIdx + 1;
+                return sizeAbbrv
+                  ? `${item.name}-${sizeAbbrv}-${sequenceNum}`
+                  : `${item.name}-${sequenceNum}`;
+              })();
+
+            return (
+              <div
+                key={unitIdx}
+                className="flex items-center justify-between bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-md px-2 py-1"
+              >
+                <div className="flex-1 min-w-0">
+                  <p className="text-[10px] sm:text-xs font-medium text-on-surface dark:text-gray-100 truncate">
+                    🏷️ {displayUnitNumber}
+                  </p>
+                  {item.size && item.size !== "nosize" && (
+                    <p className="text-[9px] text-on-surface-variant dark:text-gray-400">
+                      Size: {item.size.charAt(0).toUpperCase()}
+                    </p>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  ))}
+</div>
+            </div>
+
+          {/* Compact Summary Bar */}
+<div className="flex items-center justify-between gap-3 px-3 py-2 bg-surface-container-low dark:bg-[#1a1a1a] border border-outline-variant/10 dark:border-gray-700 rounded-md">
+  
+  {/* Left: Summary */}
+  <div className="flex items-center gap-3 text-xs sm:text-sm text-on-surface dark:text-white">
+    <span>
+      Total: <b>{cart.length}</b>
+    </span>
+    <span className="text-on-surface-variant dark:text-gray-400">|</span>
+    <span>
+      Items: <b>{consolidatedCart.length}</b>
+    </span>
+    {requestId && (
+      <>
+        <span className="text-on-surface-variant dark:text-gray-400">|</span>
+        <span className="text-on-surface-variant dark:text-gray-400 truncate max-w-[100px]">
+          #{requestId}
+        </span>
+      </>
+    )}
+  </div>
+
+  {/* Right: Submit */}
+  <button
+    onClick={handleSubmit}
+    disabled={submitting || cart.length === 0}
+    className="flex items-center gap-1.5 px-3 py-1.5 bg-green-900 hover:bg-green-950 disabled:bg-on-surface-variant dark:disabled:bg-gray-600 text-white rounded-md text-xs sm:text-sm font-medium transition-colors"
+  >
+    {submitting ? (
+      <>
+        <div className="animate-spin text-xs">⏳</div>
+        <span>Submitting</span>
+      </>
+    ) : (
+      <>
+        <Calendar size={14} />
+        <span>Submit</span>
+      </>
+    )}
+  </button>
+
+</div>
+            </div>
+          )}
+        </div>
       </PageLayout>
     </div>
   );

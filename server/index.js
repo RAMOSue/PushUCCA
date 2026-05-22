@@ -41,8 +41,9 @@ pool
   });
 
 /* -------------------- CORS CONFIG -------------------- */
+// ✅ Use FRONTEND_URL from .env for production, fallback to localhost
 const allowedOrigins = [
-  process.env.CLIENT_URL || "http://localhost:5173",
+  process.env.FRONTEND_URL || "http://localhost:5173",
   "http://localhost:5174",
 ];
 
@@ -73,8 +74,9 @@ app.use(
     resave: false,
     saveUninitialized: false,
     cookie: {
-      secure: false, // ❗ Set to true if using HTTPS
+      secure: process.env.NODE_ENV === "production", // ✅ Use HTTPS in production
       httpOnly: true,
+      sameSite: "lax", // ✅ Allow cross-site requests for OAuth
       maxAge: 1000 * 60 * 60 * 24, // 1 day
     },
   })
@@ -164,6 +166,10 @@ app.use((err, req, res, next) => {
     error: err.message || "Internal Server Error",
   });
 });
+
+/* -------------------- Start Notification Scheduler -------------------- */
+startNotificationScheduler();
+console.log("🔔 Notification scheduler started");
 
 /* -------------------- Start Server -------------------- */
 const port = process.env.PORT || 5000;

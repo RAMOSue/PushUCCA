@@ -1,9 +1,9 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useContext, useEffect, useState, useRef } from "react";
 import { UserContext } from "../../../context/userContext";
-import { BorrowingContext } from "../../../context/borrowingContext";
-import { SidebarContext } from "../../../context/SidebarContext"; // ✅ Import sidebar context
-import { LoginModalContext } from "../../../context/LoginModalContext"; // ✅ Import login modal context
+import { BorrowingContext } from "../../../context/borrowingcontext";
+import { SidebarContext } from "../../context/SidebarContext";
+import { LoginModalContext } from "../../../context/LoginModalContext";
 import axios from "axios";
 import { Home, LogOut, Camera, Menu, BookOpen, ShoppingCart, Smartphone, ImageIcon, X, User, ChevronDown, Bell, Settings, History, Search } from 'lucide-react';
 import NotificationBadge from "../ui/NotificationBadge";
@@ -17,30 +17,64 @@ const MaterialIcon = ({ icon, className = "" }) => (
 export default function Navbar() {
   const { user, setUser, loading } = useContext(UserContext);
   const { cart } = useContext(BorrowingContext);
-  const { sidebarOpen, setSidebarOpen } = useContext(SidebarContext); // ✅ Get sidebar toggle
-  const { openLoginModal } = useContext(LoginModalContext); // ✅ Get openLoginModal from context
+  const { sidebarOpen, setSidebarOpen } = useContext(SidebarContext);
+  const { openLoginModal } = useContext(LoginModalContext);
   const location = useLocation();
   const navigate = useNavigate();
   const [showScannerModal, setShowScannerModal] = useState(false);
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
+  const [profileHovered, setProfileHovered] = useState(false);
   const [profilePic, setProfilePic] = useState(null);
   const [isScrolled, setIsScrolled] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const profileDropdownRef = useRef(null);
+  const searchDebounceRef = useRef(null);
 
-  // ✅ Close dropdown when clicking outside
+  // ✅ Real-time search with debounce (filter as user types)
+  useEffect(() => {
+    if (searchQuery.trim()) {
+      // Clear previous timeout
+      if (searchDebounceRef.current) {
+        clearTimeout(searchDebounceRef.current);
+      }
+
+      // Set new timeout for debounced search
+      searchDebounceRef.current = setTimeout(() => {
+        if (user?.role === "admin" || user?.role === "staff") {
+          const path = user?.role === "admin" ? "/admin/available-items" : "/staff/available-items";
+          navigate(`${path}?search=${encodeURIComponent(searchQuery)}`);
+        } else if (user?.role === "borrower") {
+          navigate(`/available-items?search=${encodeURIComponent(searchQuery)}`);
+        }
+      }, 300); // 300ms debounce
+    } else if (!searchQuery.trim() && location.pathname.includes("available-items")) {
+      // If search is cleared, remove the search parameter
+      navigate(location.pathname);
+    }
+
+    return () => {
+      if (searchDebounceRef.current) {
+        clearTimeout(searchDebounceRef.current);
+      }
+    };
+  }, [searchQuery, user, navigate, location.pathname]);
+
+  // ✅ Close dropdown when clicking outside (unless hovering)
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (profileDropdownRef.current && !profileDropdownRef.current.contains(event.target)) {
-        setProfileDropdownOpen(false);
+        // Only close if not hovering
+        if (!profileHovered) {
+          setProfileDropdownOpen(false);
+        }
       }
     };
 
-    if (profileDropdownOpen) {
+    if (profileDropdownOpen || profileHovered) {
       document.addEventListener("mousedown", handleClickOutside);
       return () => document.removeEventListener("mousedown", handleClickOutside);
     }
-  }, [profileDropdownOpen]);
+  }, [profileDropdownOpen, profileHovered]);
 
   // ✅ Detect scroll for dynamic z-index (borrower desktop navbar)
   useEffect(() => {
@@ -63,12 +97,12 @@ export default function Navbar() {
       };
       setupNotifications();
       
-      // Fetch profile picture for all roles (staff, admin, and borrower)
-      if (user?.role === "staff" || user?.role === "admin" || user?.role === "borrower") {
+      // ✅ FIX: Only fetch once UserContext has finished loading and user is confirmed
+      if (!loading && user?.role && (user?.role === "staff" || user?.role === "admin" || user?.role === "borrower")) {
         fetchProfilePicture();
       }
     }
-  }, [user]);
+  }, [user, loading]);
 
   const fetchProfilePicture = async () => {
     try {
@@ -135,14 +169,14 @@ export default function Navbar() {
   // Professional header for unauthenticated users (GetStarted page)
   if (!user) {
     return (
-      <header className="sticky top-0 bg-[#001800] dark:bg-[#171717] backdrop-blur-xl bg-opacity-95 dark:bg-opacity-95 z-40 border-b-4 border-[#FBBC38] dark:border-[#2a2a2a] shadow-[0_20px_50px_rgba(0,24,0,0.3)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.5)] h-16 transition-colors duration-300">
-        <div className="flex items-center justify-between px-6 py-0 w-full h-full max-w-full">
+      <header className="sticky top-0 bg-[#001800] dark:bg-[#171717] backdrop-blur-xl bg-opacity-95 dark:bg-opacity-95 z-40 border-b-4 border-[#FBBC38] dark:border-[#2a2a2a] shadow-[0_20px_50px_rgba(0,24,0,0.3)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.5)] h-14 sm:h-16 transition-colors duration-300">
+        <div className="flex items-center justify-between px-3 sm:px-4 md:px-6 lg:px-8 py-0 w-full h-full max-w-full gap-2 sm:gap-4 md:gap-6">
           {/* Leading: Logo */}
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-2 sm:gap-3 md:gap-6">
             <button className="text-[#92D6A2] dark:text-gray-300 hover:scale-95 duration-150 transition-all">
-              <MaterialIcon icon="menu" className="text-2xl" />
+              <MaterialIcon icon="menu" className="text-xl sm:text-2xl md:text-2xl" />
             </button>
-            <div className="text-xl font-black tracking-tighter text-[#C8EDBA] dark:text-white font-headline uppercase">
+            <div className="text-xs sm:text-sm md:text-xl lg:text-xl font-black tracking-tighter text-[#C8EDBA] dark:text-white font-headline uppercase truncate">
               Golden Padlers
             </div>
           </div>
@@ -150,7 +184,7 @@ export default function Navbar() {
           {/* Log In Button - Right aligned */}
           <button
             onClick={openLoginModal}
-            className="text-[#FBBC38] dark:text-blue-400 font-headline font-bold uppercase text-sm tracking-widest hover:text-[#92D6A2] dark:hover:text-blue-300 transition-all duration-300"
+            className="text-[#FBBC38] dark:text-blue-400 font-headline font-bold uppercase text-xs sm:text-sm md:text-sm lg:text-sm tracking-widest hover:text-[#92D6A2] dark:hover:text-blue-300 transition-all duration-300 whitespace-nowrap"
           >
             Log In
           </button>
@@ -165,12 +199,14 @@ export default function Navbar() {
       "/dashboard",
       "/available-items",
       "/borrow-cart",
+      "/performances",
       "/my-borrowed-items",
       "/borrow-history",
       "/settings",
       "/profile",
       "/scanner",
       "/scan",
+      "/notifications",
     ];
 
     const scannerRoutes = ["/scan", "/scanner"];
@@ -189,50 +225,67 @@ export default function Navbar() {
     if (isBorrowerRoute) {
       return (
         <>
-          {/* ✅ BORROWER HEADER - Same simple design as staff/admin */}
-          <header className="sticky top-0 bg-[#001800] dark:bg-[#171717] backdrop-blur-xl bg-opacity-95 dark:bg-opacity-95 z-40 border-b-4 border-[#FBBC38] dark:border-[#2a2a2a] shadow-[0_20px_50px_rgba(0,24,0,0.3)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.5)] h-16 transition-colors duration-300">
-            <div className="flex items-center justify-between px-6 py-0 w-full h-full max-w-full">
+          {/* ✅ BORROWER HEADER - Responsive colors: white on mobile, branded on desktop */}
+          <header className="sticky top-0 bg-white md:bg-[#001800] dark:md:bg-[#171717] backdrop-blur-xl bg-opacity-95 dark:bg-opacity-95 z-40 border-b-4 border-gray-200 md:border-[#FBBC38] dark:md:border-[#2a2a2a] shadow-[0_20px_50px_rgba(0,0,0,0.1)] md:shadow-[0_20px_50px_rgba(0,24,0,0.3)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.5)] h-16 transition-all duration-300 ease-in-out">
+            <div className="flex items-center justify-between px-3 sm:px-4 md:px-6 lg:px-8 py-0 w-full h-full max-w-full gap-3 sm:gap-4 md:gap-6 lg:gap-8">
               {/* Leading: Logo & Menu */}
-              <div className="flex items-center gap-6 h-full">
+              <div className="flex items-center gap-2 sm:gap-3 md:gap-4 lg:gap-6 h-full min-w-0">
                 <button 
                   onClick={() => setSidebarOpen(!sidebarOpen)}
-                  className="text-[#92D6A2] dark:text-gray-300 hover:scale-95 duration-150 transition-all flex items-center justify-center w-8 h-8"
+                  className="text-gray-600 md:text-[#92D6A2] dark:md:text-gray-300 hover:scale-95 duration-150 transition-all flex items-center justify-center w-6 sm:w-7 md:w-8 lg:w-8 h-6 sm:h-7 md:h-8 lg:h-8 flex-shrink-0"
+                  title="Toggle Navigation"
                 >
-                  <MaterialIcon icon="menu" className="text-2xl" />
+                  <MaterialIcon icon="menu" className="text-xl sm:text-2xl md:text-2xl lg:text-2xl" />
                 </button>
-                <div className="text-lg font-black tracking-tighter text-[#C8EDBA] dark:text-white font-headline uppercase line-clamp-1 leading-none">
-                  {user ? "Inventory System" : "Academic Conservator"}
+                <div className="text-xs sm:text-sm md:text-lg lg:text-lg font-black tracking-tighter text-gray-900 md:text-[#C8EDBA] dark:md:text-white font-headline uppercase line-clamp-1 leading-none truncate">
+                  {user ? "UCCA" : "Academic Conservator"}
                 </div>
+                  {/* Search Bar - Visible on all screens */}
+{user && (
+  <div className="relative flex items-center h-full ml-2 sm:ml-3 md:ml-6 lg:ml-8 flex-1 max-w-xs">
+    
+    <MaterialIcon
+      icon="search"
+      className="absolute left-3 text-gray-500 opacity-70 text-base md:text-lg"
+    />
+
+    <input
+      className="bg-white border border-gray-300 rounded-lg pl-9 md:pl-10 pr-7 md:pr-8 h-8 md:h-9 text-xs md:text-sm focus:ring-1 focus:ring-[#FBBC38] dark:focus:ring-blue-400 text-gray-800 placeholder-gray-400 w-full transition-all duration-200 ease-in-out leading-none"
+      placeholder="Search items..."
+      type="text"
+      value={searchQuery}
+      onChange={(e) => setSearchQuery(e.target.value)}
+    />
+
+    {searchQuery && (
+      <button
+        onClick={() => setSearchQuery('')}
+        className="absolute right-2 text-gray-500 hover:text-[#FBBC38] dark:hover:text-blue-400 transition-colors"
+        title="Clear search"
+      >
+        <X className="w-4 h-4" />
+      </button>
+    )}
+                  </div>
+                )}
               </div>
 
               {/* Trailing: Actions */}
-              <div className="flex items-center gap-6 ml-auto h-full">
-                {/* Search Bar (Desktop) */}
-                {user && (
-                  <div className="relative hidden md:flex items-center h-full">
-                    <MaterialIcon icon="search" className="absolute left-3 text-[#C8EDBA] dark:text-gray-400 opacity-60 text-lg" />
-                    <input
-                      className="bg-[#13300E] dark:bg-[#2a2a2a] border-none rounded-lg pl-10 pr-4 h-9 text-sm focus:ring-1 focus:ring-[#FBBC38] dark:focus:ring-blue-400 text-[#C8EDBA] dark:text-white placeholder-gray-500 dark:placeholder-gray-400 w-48 transition-all leading-none"
-                      placeholder="Search items..."
-                      type="text"
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                    />
-                  </div>
-                )}
+              <div className="flex items-center gap-2 sm:gap-3 md:gap-4 lg:gap-6 ml-auto h-full">
+              
 
                 {/* Borrower Cart Button (Desktop) */}
                 {user?.role === "borrower" && (
                   <Link
                     to="/borrow-cart"
-                    className="relative h-full flex items-center justify-center hover:opacity-80 transition-opacity duration-300"
+                    className="relative h-full flex items-center justify-center hover:opacity-80 transition-opacity duration-300 ease-in-out flex-shrink-0"
                     title="Borrow Cart"
                   >
                     <div className="flex items-center justify-center relative">
-                      <ShoppingCart className="w-6 h-6 text-[#92D6A2] dark:text-blue-400 hover:text-[#FBBC38] dark:hover:text-yellow-400 transition-colors duration-300" />
+                      <ShoppingCart className="w-5 sm:w-5 md:w-6 lg:w-6 h-5 sm:h-5 md:h-6 lg:h-6 text-gray-600 md:text-[#92D6A2] dark:md:text-blue-400 hover:text-gray-900 md:hover:text-[#FBBC38] dark:md:hover:text-yellow-400 transition-colors duration-300 ease-in-out" />
                       {/* Cart badge */}
                       {cart && cart.length > 0 && (
-                        <span className="absolute -top-2 -right-2 bg-red-500 dark:bg-red-600 text-white text-xs font-bold w-5 h-5 rounded-full flex items-center justify-center">
+                        <span className="absolute -top-2 -right-2 bg-red-500 dark:bg-red-600 text-white text-[10px] sm:text-[10px] md:text-xs font-bold w-4 sm:w-4 md:w-5 h-4 sm:h-4 md:h-5 rounded-full flex items-center justify-center">
                           {cart.length}
                         </span>
                       )}
@@ -249,44 +302,69 @@ export default function Navbar() {
 
                 {/* Profile Section with Dropdown */}
                 {user && (
-                  <div className="relative" ref={profileDropdownRef}>
+                  <div 
+                    className="relative" 
+                    ref={profileDropdownRef}
+                    onMouseEnter={() => setProfileHovered(true)}
+                    onMouseLeave={() => setProfileHovered(false)}
+                  >
                     <button
-                      onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
-                      className="w-10 h-10 rounded-full bg-[#13300E] dark:bg-[#2a2a2a] flex items-center justify-center overflow-hidden border border-[#42493E]/20 dark:border-[#3a3a3a] flex-shrink-0 hover:border-[#FBBC38]/50 dark:hover:border-blue-400/50 transition-colors"
-                      title="Profile menu"
-                    >
-                      {profilePic ? (
-                        <img
-                          alt={user?.name}
-                          className="w-full h-full object-cover"
-                          src={profilePic}
-                        />
-                      ) : (
-                        <MaterialIcon icon="account_circle" className="text-[#92D6A2] dark:text-blue-400 text-2xl" />
-                      )}
-                    </button>
+  onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
+  className="hidden md:flex w-8 sm:w-9 md:w-10 lg:w-10 h-8 sm:h-9 md:h-10 lg:h-10 rounded-full bg-[#13300E] dark:bg-[#2a2a2a] items-center justify-center overflow-hidden border border-[#42493E]/20 dark:border-[#3a3a3a] flex-shrink-0 hover:border-[#FBBC38]/50 dark:hover:border-blue-500/50 transition-colors duration-200 ease-in-out"
+  title="Profile menu"
+>
+  {profilePic ? (
+    <img
+      alt={user?.name}
+      className="w-full h-full object-cover"
+      src={profilePic}
+    />
+  ) : (
+    <MaterialIcon
+      icon="account_circle"
+      className="text-[#92D6A2] dark:text-blue-400 text-xl sm:text-2xl md:text-2xl lg:text-2xl"
+    />
+  )}
+</button>
 
                     {/* Dropdown Menu - Uses fixed positioning to overlay everything */}
-                    {profileDropdownOpen && (
-                      <div className="fixed right-6 top-20 bg-white dark:bg-[#1f1f1f] rounded-lg shadow-2xl dark:shadow-[0_10px_30px_rgba(0,0,0,0.5)] border border-gray-200 dark:border-[#2a2a2a] w-48 overflow-visible z-[9999] transition-colors duration-300">
+                    {(profileDropdownOpen || profileHovered) && (
+                      <div 
+                        className="fixed right-3 sm:right-4 md:right-6 lg:right-8 top-20 bg-white dark:bg-[#1f1f1f] rounded-lg shadow-2xl dark:shadow-[0_10px_30px_rgba(0,0,0,0.5)] border border-gray-200 dark:border-[#2a2a2a] w-44 sm:w-48 md:w-48 lg:w-48 overflow-visible z-[9999] transition-all duration-200 ease-in-out"
+                        onMouseEnter={() => setProfileHovered(true)}
+                        onMouseLeave={() => setProfileHovered(false)}
+                      >
                         <button
                           onClick={() => {
                             handleViewProfile();
                             setProfileDropdownOpen(false);
+                            setProfileHovered(false);
                           }}
-                          className="w-full px-4 py-2.5 text-left text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#2a2a2a] flex items-center gap-2 transition-colors border-b border-gray-100 dark:border-[#2a2a2a]"
+                          className="w-full px-3 sm:px-4 md:px-4 lg:px-4 py-2 sm:py-2.5 md:py-2.5 lg:py-2.5 text-left text-xs sm:text-sm md:text-sm lg:text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#2a2a2a] flex items-center gap-2 transition-colors duration-200 ease-in-out border-b border-gray-100 dark:border-[#2a2a2a]"
                         >
-                          <User className="w-4 h-4" />
+                          <User className="w-4 h-4 flex-shrink-0" />
                           View Profile
+                        </button>
+                        <button
+                          onClick={() => {
+                            navigate("/settings");
+                            setProfileDropdownOpen(false);
+                            setProfileHovered(false);
+                          }}
+                          className="w-full px-3 sm:px-4 md:px-4 lg:px-4 py-2 sm:py-2.5 md:py-2.5 lg:py-2.5 text-left text-xs sm:text-sm md:text-sm lg:text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#2a2a2a] flex items-center gap-2 transition-colors duration-200 ease-in-out border-b border-gray-100 dark:border-[#2a2a2a]"
+                        >
+                          <Settings className="w-4 h-4 flex-shrink-0" />
+                          Settings
                         </button>
                         <button
                           onClick={() => {
                             handleLogout();
                             setProfileDropdownOpen(false);
+                            setProfileHovered(false);
                           }}
-                          className="w-full px-4 py-2.5 text-left text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2 transition-colors"
+                          className="w-full px-3 sm:px-4 md:px-4 lg:px-4 py-2 sm:py-2.5 md:py-2.5 lg:py-2.5 text-left text-xs sm:text-sm md:text-sm lg:text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2 transition-colors duration-200 ease-in-out"
                         >
-                          <LogOut className="w-4 h-4" />
+                          <LogOut className="w-4 h-4 flex-shrink-0" />
                           Logout
                         </button>
                       </div>
@@ -466,34 +544,44 @@ export default function Navbar() {
 
   // Updated header with reference design (green/gold theme)
   return (
-    <header className="sticky top-0 bg-[#001800] dark:bg-[#171717] backdrop-blur-xl bg-opacity-95 dark:bg-opacity-95 z-40 border-b-4 border-[#FBBC38] dark:border-[#2a2a2a] shadow-[0_20px_50px_rgba(0,24,0,0.3)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.5)] h-16 transition-colors duration-300">
-      <div className="flex items-center justify-between px-6 py-0 w-full h-full max-w-full">
+    <header className="sticky top-0 bg-[#001800] dark:bg-[#171717] backdrop-blur-xl bg-opacity-95 dark:bg-opacity-95 z-40 border-b-4 border-[#FBBC38] dark:border-[#2a2a2a] shadow-[0_20px_50px_rgba(0,24,0,0.3)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.5)] h-16 transition-all duration-300 ease-in-out">
+      <div className="flex items-center justify-between px-3 sm:px-4 md:px-6 lg:px-8 py-0 w-full h-full max-w-full gap-3 sm:gap-4 md:gap-6 lg:gap-8">
         {/* Leading: Logo & Menu */}
-        <div className="flex items-center gap-6 h-full">
+        <div className="flex items-center gap-2 sm:gap-3 md:gap-4 lg:gap-6 h-full min-w-0">
           <button 
             onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="text-[#92D6A2] hover:scale-95 duration-150 transition-all flex items-center justify-center w-8 h-8"
+            className="text-[#92D6A2] dark:text-gray-300 hover:scale-95 duration-150 transition-all flex items-center justify-center w-6 sm:w-7 md:w-8 lg:w-8 h-6 sm:h-7 md:h-8 lg:h-8 flex-shrink-0"
+            title="Toggle Navigation"
           >
-            <MaterialIcon icon="menu" className="text-2xl" />
+            <MaterialIcon icon="menu" className="text-xl sm:text-2xl md:text-2xl lg:text-2xl" />
           </button>
-          <div className="text-lg font-black tracking-tighter text-[#C8EDBA] font-headline uppercase line-clamp-1 leading-none">
-            {user ? "Inventory System" : "Academic Conservator"}
+          <div className="text-xs sm:text-sm md:text-lg lg:text-lg font-black tracking-tighter text-[#C8EDBA] dark:text-white font-headline uppercase line-clamp-1 leading-none truncate">
+            {user ? "UCCA" : "Academic Conservator"}
           </div>
         </div>
 
         {/* Trailing: Actions */}
-        <div className="flex items-center gap-6 ml-auto h-full">
-          {/* Search Bar (Desktop) */}
+        <div className="flex items-center gap-2 sm:gap-3 md:gap-4 lg:gap-6 ml-auto h-full">
+          {/* Search Bar - Visible on all screens */}
           {user && (
-            <div className="relative hidden md:flex items-center h-full">
-              <MaterialIcon icon="search" className="absolute left-3 text-[#C8EDBA] opacity-60 text-lg" />
+            <div className="relative flex items-center h-full flex-1 max-w-xs">
+              <MaterialIcon icon="search" className="absolute left-3 text-[#C8EDBA] dark:text-gray-400 opacity-60 text-base md:text-lg" />
               <input
-                className="bg-[#13300E] border-none rounded-lg pl-10 pr-4 h-9 text-sm focus:ring-1 focus:ring-[#FBBC38] text-[#C8EDBA] w-48 transition-all leading-none"
+                className="bg-[#13300E] dark:bg-[#2a2a2a] border-none rounded-lg pl-9 md:pl-10 pr-7 md:pr-8 h-8 md:h-9 text-xs md:text-sm focus:ring-1 focus:ring-[#FBBC38] dark:focus:ring-blue-400 text-[#C8EDBA] dark:text-white placeholder-gray-500 dark:placeholder-gray-400 w-full transition-all duration-200 ease-in-out leading-none"
                 placeholder="Search items..."
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2 text-[#C8EDBA] dark:text-gray-400 hover:text-[#FBBC38] dark:hover:text-blue-400 transition-colors"
+                  title="Clear search"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
             </div>
           )}
 
@@ -501,14 +589,14 @@ export default function Navbar() {
           {user && (user?.role === "staff" || user?.role === "admin") && (
             <Link
               to="/staff-borrow-cart"
-              className="relative h-full flex items-center justify-center hover:opacity-80 transition-opacity duration-300"
+              className="relative h-full flex items-center justify-center hover:opacity-80 transition-opacity duration-300 ease-in-out flex-shrink-0"
               title="Staff Borrowing Cart"
             >
               <div className="flex items-center justify-center relative">
-                <ShoppingCart className="w-6 h-6 text-[#92D6A2] hover:text-[#FBBC38] transition-colors duration-300" />
+                <ShoppingCart className="w-5 sm:w-5 md:w-6 lg:w-6 h-5 sm:h-5 md:h-6 lg:h-6 text-[#92D6A2] dark:text-blue-400 hover:text-[#FBBC38] dark:hover:text-yellow-400 transition-colors duration-300 ease-in-out" />
                 {/* Cart badge */}
                 {cart && cart.length > 0 && (
-                  <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold w-5 h-5 rounded-full flex items-center justify-center">
+                  <span className="absolute -top-2 -right-2 bg-red-500 dark:bg-red-600 text-white text-[10px] sm:text-[10px] md:text-xs font-bold w-4 sm:w-4 md:w-5 h-4 sm:h-4 md:h-5 rounded-full flex items-center justify-center">
                     {cart.length}
                   </span>
                 )}
@@ -520,7 +608,7 @@ export default function Navbar() {
           {!user && (
             <button
               onClick={openLoginModal}
-              className="text-[#FBBC38] font-headline font-bold uppercase text-sm tracking-widest hover:text-[#92D6A2] transition-all duration-300 leading-tight line-clamp-1"
+              className="text-[#FBBC38] font-headline font-bold uppercase text-xs sm:text-sm md:text-sm lg:text-sm tracking-widest hover:text-[#92D6A2] transition-all duration-300 ease-in-out leading-tight line-clamp-1"
             >
               Get Started
             </button>
@@ -533,46 +621,68 @@ export default function Navbar() {
             </div>
           )}
 
-          {/* Profile Section with Dropdown */}
+          {/* Profile Section with Dropdown - HIDDEN ON MOBILE FOR BORROWERS */}
           {user && (
-            <div className="relative" ref={profileDropdownRef}>
-              <button
-                onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
-                className="w-10 h-10 rounded-full bg-[#13300E] flex items-center justify-center overflow-hidden border border-[#42493E]/20 flex-shrink-0 hover:border-[#FBBC38]/50 transition-colors"
-                title="Profile menu"
-              >
-                {profilePic ? (
-                  <img
-                    alt={user?.name}
-                    className="w-full h-full object-cover"
-                    src={profilePic}
-                  />
-                ) : (
-                  <MaterialIcon icon="account_circle" className="text-[#92D6A2] text-2xl" />
-                )}
-              </button>
+            <div 
+              className={`relative ${user?.role === "borrower" ? "hidden md:block" : ""}`}
+              ref={profileDropdownRef}
+              onMouseEnter={() => setProfileHovered(true)}
+              onMouseLeave={() => setProfileHovered(false)}
+            >
+                <button
+                  onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
+                  className="w-8 sm:w-9 md:w-10 lg:w-10 h-8 sm:h-9 md:h-10 lg:h-10 rounded-full bg-[#13300E] dark:bg-[#2a2a2a] flex items-center justify-center overflow-hidden border border-[#42493E]/20 dark:border-[#3a3a3a] flex-shrink-0 hover:border-[#FBBC38]/50 dark:hover:border-blue-500/50 transition-colors duration-200 ease-in-out"
+                  title="Profile menu"
+                >
+                  {profilePic ? (
+                    <img
+                      alt={user?.name}
+                      className="w-full h-full object-cover"
+                      src={profilePic}
+                    />
+                  ) : (
+                    <MaterialIcon icon="account_circle" className="text-[#92D6A2] dark:text-blue-400 text-xl sm:text-2xl md:text-2xl lg:text-2xl" />
+                  )}
+                </button>
 
               {/* Dropdown Menu - Uses fixed positioning to overlay everything */}
-              {profileDropdownOpen && (
-                <div className="fixed right-6 top-20 bg-white dark:bg-[#1f1f1f] rounded-lg shadow-2xl dark:shadow-[0_10px_30px_rgba(0,0,0,0.5)] border border-gray-200 dark:border-[#2a2a2a] w-48 overflow-visible z-[9999] transition-colors duration-300">
+              {(profileDropdownOpen || profileHovered) && (
+                <div 
+                  className="fixed right-3 sm:right-4 md:right-6 lg:right-8 top-20 bg-white dark:bg-[#1f1f1f] rounded-lg shadow-2xl dark:shadow-[0_10px_30px_rgba(0,0,0,0.5)] border border-gray-200 dark:border-[#2a2a2a] w-44 sm:w-48 md:w-48 lg:w-48 overflow-visible z-[9999] transition-all duration-200 ease-in-out"
+                  onMouseEnter={() => setProfileHovered(true)}
+                  onMouseLeave={() => setProfileHovered(false)}
+                >
                   <button
                     onClick={() => {
                       handleViewProfile();
                       setProfileDropdownOpen(false);
+                      setProfileHovered(false);
                     }}
-                    className="w-full px-4 py-2.5 text-left text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#2a2a2a] flex items-center gap-2 transition-colors border-b border-gray-100 dark:border-[#2a2a2a]"
+                    className="w-full px-3 sm:px-4 md:px-4 lg:px-4 py-2 sm:py-2.5 md:py-2.5 lg:py-2.5 text-left text-xs sm:text-sm md:text-sm lg:text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#2a2a2a] flex items-center gap-2 transition-colors duration-200 ease-in-out border-b border-gray-100 dark:border-[#2a2a2a]"
                   >
-                    <User className="w-4 h-4" />
+                    <User className="w-4 h-4 flex-shrink-0" />
                     View Profile
+                  </button>
+                  <button
+                    onClick={() => {
+                      navigate("/settings");
+                      setProfileDropdownOpen(false);
+                      setProfileHovered(false);
+                    }}
+                    className="w-full px-3 sm:px-4 md:px-4 lg:px-4 py-2 sm:py-2.5 md:py-2.5 lg:py-2.5 text-left text-xs sm:text-sm md:text-sm lg:text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#2a2a2a] flex items-center gap-2 transition-colors duration-200 ease-in-out border-b border-gray-100 dark:border-[#2a2a2a]"
+                  >
+                    <Settings className="w-4 h-4 flex-shrink-0" />
+                    Settings
                   </button>
                   <button
                     onClick={() => {
                       handleLogout();
                       setProfileDropdownOpen(false);
+                      setProfileHovered(false);
                     }}
-                    className="w-full px-4 py-2.5 text-left text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2 transition-colors"
+                    className="w-full px-3 sm:px-4 md:px-4 lg:px-4 py-2 sm:py-2.5 md:py-2.5 lg:py-2.5 text-left text-xs sm:text-sm md:text-sm lg:text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2 transition-colors duration-200 ease-in-out"
                   >
-                    <LogOut className="w-4 h-4" />
+                    <LogOut className="w-4 h-4 flex-shrink-0" />
                     Logout
                   </button>
                 </div>

@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, Package, Music, X, ChevronRight } from 'lucide-react';
+import { Search, Package, Music, X, ChevronRight, Star } from 'lucide-react';
 import axios from 'axios';
 import PageLayout from '../../components/layout/PageLayout.jsx';
 import AddToCartModal from '../../components/modals/AddToCartModal.jsx';
@@ -21,6 +21,8 @@ export default function AvailableItems() {
   const [selectedUnits, setSelectedUnits] = useState([]);
   const [unitSearchQuery, setUnitSearchQuery] = useState("");
   const [activeSizeFilter, setActiveSizeFilter] = useState(null);
+  const [recommendedItemIds, setRecommendedItemIds] = useState(new Set());
+  const [recommendations, setRecommendations] = useState([]);
 
   const { user, loading } = useContext(UserContext);
   const { addToCart, refreshAvailableItems, cart } = useContext(BorrowingContext);
@@ -29,32 +31,38 @@ export default function AvailableItems() {
 
   useEffect(() => {
     if (!loading && user) {
-      // Redirect staff/admin away from borrower route to their staff route
       if ((user.role === 'admin' || user.role === 'staff') && location.pathname === '/available-items') {
         navigate('/staff/available-items', { replace: true });
         return;
       }
-      // Redirect borrowers away from staff route to borrower route
       if (user.role === 'borrower' && location.pathname.startsWith('/staff/available-items')) {
         navigate('/available-items', { replace: true });
         return;
       }
-      // Redirect invalid roles to login
       if (user.role !== 'admin' && user.role !== 'staff' && user.role !== 'borrower') {
         navigate('/login');
       }
     }
   }, [loading, user, navigate, location.pathname]);
 
-  // Fetch recommendations for borrower
   const fetchRecommendations = async () => {
     try {
-      if (!user?.id) return; // Skip if user not loaded
-      await axios.get(`/api/performances/recommendations/${user.id}`, { 
+      if (!user?.id) return;
+      const { data } = await axios.get(`/api/performances/recommendations/${user.id}`, { 
         withCredentials: true 
       });
+      
+      // Filter out past performances dynamically
+      const now = new Date();
+      const activeRecommendations = data.filter(rec => {
+        const performanceDate = new Date(rec.start_time);
+        return performanceDate >= now; // Only show today and upcoming
+      });
+      
+      setRecommendations(activeRecommendations);
+      const itemIds = new Set(activeRecommendations.map(rec => rec.inventory_item_id));
+      setRecommendedItemIds(itemIds);
     } catch (error) {
-      // Silently fail - recommendations are optional
       if (error.response?.status !== 404) {
         console.error('Error fetching recommendations:', error);
       }
@@ -65,7 +73,6 @@ export default function AvailableItems() {
     try {
       const { data } = await axios.get('/api/inventory/');
       setItems(data);
-      // Only fetch recommendations if user is loaded and is a borrower
       if (user?.id && user?.role === 'borrower') {
         fetchRecommendations();
       }
@@ -77,11 +84,21 @@ export default function AvailableItems() {
   };
 
   useEffect(() => {
-    // Only fetch items when user is loaded
     if (!loading) {
       fetchItems();
     }
   }, [loading, user?.id, user?.role, refreshAvailableItems]);
+
+  // Read search query from URL parameters
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const searchParam = params.get('search');
+    if (searchParam) {
+      setSearchQuery(searchParam);
+      // Clean up URL
+      window.history.replaceState({}, document.title, location.pathname);
+    }
+  }, [location.search]);
 
   const openModal = (item) => {
     setSelectedItem(item);
@@ -96,28 +113,51 @@ export default function AvailableItems() {
     setActiveSizeFilter(null);
   };
 
+  const getItemRecommendation = (itemId) => {
+    return recommendations.find(rec => rec.inventory_item_id === itemId);
+  };
+
+  // Check if performance is past, today, or upcoming
+  const getPerformanceStatus = (startTime) => {
+    if (!startTime) return null;
+    
+    const now = new Date();
+    const performanceDate = new Date(startTime);
+    
+    // Get just the dates (ignoring time)
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const perfDate = new Date(performanceDate.getFullYear(), performanceDate.getMonth(), performanceDate.getDate());
+    
+    // Check if performance is in the past
+    if (perfDate < today) {
+      return 'past';
+    }
+    
+    // Check if performance is today
+    if (perfDate.getTime() === today.getTime()) {
+      return 'today';
+    }
+    
+    return 'upcoming';
+  };
+
   const handleAddToCart = async (item) => {
-    // Unified flow: Works for all authenticated users (staff, admin, borrower)
-    // Requires selectedUnits to be set from modal selection
     if (selectedUnits.length === 0) {
-      // Fallback for borrowers clicking Borrow button directly (auto-select first unit)
       const selectableUnits = item.units?.filter(u => u.status === 'available') || [];
       if (selectableUnits.length === 0) {
-        alert('No units available');
+        toast.error('No units available for this item');
         return;
       }
-      // Auto-select first available unit
       setSelectedUnits([selectableUnits[0]]);
-      return; // Exit - user should confirm in modal
+      return;
     }
 
-    // Process all selected units with proper error handling and no duplicate toasts
     let successCount = 0;
     let failureCount = 0;
     const addedUnitNumbers = [];
     const failedUnits = [];
+    const failureReasons = [];
 
-    // ✅ Add units sequentially with server-side deduplication to prevent race conditions
     for (const unit of selectedUnits) {
       try {
         const result = await addToCart({
@@ -129,34 +169,75 @@ export default function AvailableItems() {
           garment_type: item.garment_type,
           size: unit.size || "nosize",
           status: 'available',
-          unit_number: unit.unit_number // ✅ Include unit_number for tracking
-        }, { suppressToast: true }); // ✅ Suppress individual toasts during bulk add
+          unit_number: unit.unit_number
+        }, { suppressToast: true });
 
         if (result?.success) {
           successCount++;
           addedUnitNumbers.push(unit.unit_number || unit.id.substring(0, 8));
         } else {
           failureCount++;
-          failedUnits.push(unit.unit_number || unit.id.substring(0, 8));
+          const unitDisplay = unit.unit_number || unit.id.substring(0, 8);
+          failedUnits.push(unitDisplay);
+          
+          // Log detailed failure reasons for debugging
+          if (result?.failedItems && result.failedItems.length > 0) {
+            result.failedItems.forEach(f => {
+              failureReasons.push(`${unitDisplay}: ${f.error}`);
+            });
+          } else {
+            failureReasons.push(`${unitDisplay}: ${result?.error || "Unknown error"}`);
+          }
+          
+          console.warn(`⚠️ Unit ${unitDisplay} failed to add:`, result);
         }
       } catch (err) {
-        console.error(`Failed to add unit ${unit.unit_number}:`, err);
+        console.error(`❌ Exception adding unit ${unit.unit_number}:`, err);
         failureCount++;
         failedUnits.push(unit.unit_number || unit.id.substring(0, 8));
+        failureReasons.push(`${unit.unit_number}: ${err.message}`);
       }
     }
 
-    // Show consolidated notification
+    // Log detailed summary
+    console.log(`📊 Add to cart summary:`, {
+      itemName: item.name,
+      total: selectedUnits.length,
+      succeeded: successCount,
+      failed: failureCount,
+      failureReasons,
+    });
+
     if (successCount > 0) {
+      // Show success modal with optional failed items info
       const displayName = selectedUnits.length > 1 
-        ? `${item.name}\n${addedUnitNumbers.map(n => `✓ Unit ${n}`).join('\n')}${failureCount > 0 ? `\n\n⚠️ Failed: ${failedUnits.join(', ')}` : ''}`
+        ? `${item.name}\n${addedUnitNumbers.map(n => `✓ Unit ${n}`).join('\n')}${failureCount > 0 ? `\n\n⚠️ Failed (${failureCount}): ${failedUnits.join(', ')}\n\n💡 Try refreshing items to get latest availability` : ''}`
         : item.name;
       setAddedItemName(displayName);
       setShowAddToCartModal(true);
       closeModal();
+      
+      // Show toast with summary
+      if (failureCount > 0) {
+        toast.warning(`Added ${successCount}/${selectedUnits.length}. ${failureCount} unit(s) unavailable (may have been reserved).`, {
+          duration: 4000,
+        });
+      }
     } else {
-      // All failed
-      alert(`Failed to add units: ${failedUnits.join(', ')}`);
+      // All units failed - show detailed error and offer refresh
+      console.error("❌ All units failed to add:", { failureReasons });
+      
+      const failureMessage = failureReasons.length > 0
+        ? `Units unavailable:\n\n${failureReasons.join('\n')}\n\nTry refreshing items to get latest availability.`
+        : `Failed to add units: ${failedUnits.join(', ')}\n\nThese items may have been reserved by another user. Try refreshing.`;
+      
+      toast.error(failureMessage, { duration: 5000 });
+      
+      // Auto-offer to refresh inventory (debounced)
+      setTimeout(() => {
+        toast.loading("Refreshing inventory...", { duration: 1000 });
+        fetchItems(); // Refresh items to get latest availability
+      }, 1500);
     }
   };
 
@@ -186,27 +267,27 @@ export default function AvailableItems() {
 
     return (
       <PageLayout>
-        <div className="min-h-screen bg-surface dark:bg-[#171717] transition-colors duration-300">
-          {/* Header - Unified Styling */}
-          <div className="px-6 md:px-8 lg:px-12 pt-8 pb-6">
-            <h1 className="text-3xl md:text-4xl font-bold text-on-surface dark:text-white mb-2">
+        <div className="min-h-screen bg-surface dark:bg-[#171717] transition-colors duration-300 scroll-smooth">
+          {/* Header - Mobile Optimized */}
+          <div className="px-3 sm:px-6 md:px-8 lg:px-12 pt-4 sm:pt-8 pb-3 sm:pb-6">
+            <h1 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold text-on-surface dark:text-white mb-1 sm:mb-2">
               Available Items
             </h1>
-            <p className="text-on-surface-variant dark:text-gray-400 text-sm">
+            <p className="text-xs sm:text-sm text-on-surface-variant dark:text-gray-400">
               Take what you need and preserve the spirit.
             </p>
           </div>
 
-          <div className="px-6 md:px-8 lg:px-12 space-y-4">
-            {/* Search - Unified Style */}
-            <div className="flex items-center gap-3 bg-surface-container-low dark:bg-[#222] rounded-lg px-4 py-3 border border-transparent dark:border-gray-700 hover:border-primary/20 dark:hover:border-blue-400/30 focus-within:ring-2 focus-within:ring-primary dark:focus-within:ring-blue-400 focus-within:border-transparent dark:focus-within:border-transparent transition shadow-sm">
-              <Search className="w-5 text-on-surface-variant dark:text-gray-400 flex-shrink-0" />
+          <div className="px-3 sm:px-6 md:px-8 lg:px-12 space-y-3 sm:space-y-4">
+            {/* Search - Mobile Optimized */}
+            <div className="flex items-center gap-2 sm:gap-3 bg-surface-container-low dark:bg-[#222] rounded-lg px-3 sm:px-4 py-2 sm:py-3 border border-transparent dark:border-gray-700 hover:border-primary/20 dark:hover:border-blue-400/30 focus-within:ring-2 focus-within:ring-primary dark:focus-within:ring-blue-400 focus-within:border-transparent transition shadow-sm">
+              <Search className="w-4 sm:w-5 text-on-surface-variant dark:text-gray-400 flex-shrink-0" />
               <input
                 type="text"
                 placeholder="Search items..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="flex-1 bg-transparent focus:outline-none text-sm text-on-surface dark:text-white dark:placeholder-gray-500"
+                className="flex-1 bg-transparent focus:outline-none text-xs sm:text-sm text-on-surface dark:text-white dark:placeholder-gray-500"
               />
               {searchQuery && (
                 <button
@@ -218,14 +299,13 @@ export default function AvailableItems() {
               )}
             </div>
 
-            {/* Filters - Unified Layout */}
-            <div className="flex gap-2 flex-wrap items-center">
-              {/* Group Chips */}
+            {/* Filters - Mobile Optimized */}
+            <div className="flex gap-2 flex-wrap items-center overflow-x-auto pb-1">
               {GROUP_TABS.map((grp) => (
                 <button
                   key={grp}
                   onClick={() => setSelectedGroup(grp)}
-                  className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                  className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-medium transition-all flex-shrink-0 ${
                     selectedGroup === grp
                       ? 'bg-primary text-on-primary shadow-sm'
                       : 'bg-surface-container-low text-on-surface border border-outline-variant/30 hover:bg-surface-container-high'
@@ -235,12 +315,11 @@ export default function AvailableItems() {
                 </button>
               ))}
 
-              {/* Category Select */}
-              <div className="ml-auto">
+              <div className="ml-auto flex-shrink-0">
                 <select
                   value={selectedCategory || 'all'}
                   onChange={(e) => setSelectedCategory(e.target.value === 'all' ? null : e.target.value)}
-                  className="px-4 py-2 bg-surface-container-low dark:bg-[#222] border border-outline-variant/30 dark:border-gray-700 rounded-lg text-sm font-medium text-on-surface dark:text-white dark:placeholder-gray-400 focus:ring-2 focus:ring-primary dark:focus:ring-blue-400 focus:border-transparent"
+                  className="px-2 sm:px-4 py-1.5 sm:py-2 bg-surface-container-low dark:bg-[#222] border border-outline-variant/30 dark:border-gray-700 rounded-lg text-xs sm:text-sm font-medium text-on-surface dark:text-white dark:placeholder-gray-400 focus:ring-2 focus:ring-primary dark:focus:ring-blue-400 focus:border-transparent"
                 >
                   <option value="all">All</option>
                   <option value="costume">Costume</option>
@@ -250,16 +329,16 @@ export default function AvailableItems() {
               </div>
             </div>
 
-            {/* Items Grid - Unified Breakpoints */}
+            {/* Items Grid - Mobile Optimized */}
             {filteredItems.length === 0 ? (
-              <div className="py-16 text-center">
-                <Package className="w-12 h-12 text-on-surface-variant/30 dark:text-gray-500/30 mx-auto mb-4" />
-                <p className="text-on-surface-variant dark:text-gray-400">
+              <div className="py-8 sm:py-16 text-center">
+                <Package className="w-8 sm:w-12 h-8 sm:h-12 text-on-surface-variant/30 dark:text-gray-500/30 mx-auto mb-2 sm:mb-4" />
+                <p className="text-xs sm:text-sm text-on-surface-variant dark:text-gray-400">
                   {searchQuery ? "No items match your search" : "No items found"}
                 </p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 pb-8">
+              <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-3 md:gap-4 pb-6 sm:pb-8">
                 {filteredItems.map((item) => {
                   const isAvailable = item.units?.some(u => u.status === 'available');
                   const availCount = item.units?.filter(u => u.status === 'available').length || 0;
@@ -271,9 +350,9 @@ export default function AvailableItems() {
                       onClick={() => openModal(item)}
                       className="group cursor-pointer"
                     >
-                      <div className="bg-surface-container-low dark:bg-[#1a1a1a] rounded-xl overflow-hidden border border-transparent hover:border-primary/20 dark:border-gray-700 dark:hover:border-blue-500/50 transition-all shadow-sm hover:shadow-md dark:hover:shadow-lg dark:hover:shadow-black/40 h-full flex flex-col">
+                      <div className="bg-surface-container-low dark:bg-[#1a1a1a] rounded-lg sm:rounded-xl overflow-hidden border border-transparent hover:border-primary/20 dark:border-gray-700 dark:hover:border-blue-500/50 transition-all shadow-sm hover:shadow-md dark:hover:shadow-lg dark:hover:shadow-black/40 h-full flex flex-col">
                         {/* Image */}
-                        <div className="relative h-48 bg-surface-container-high dark:bg-[#222] overflow-hidden">
+                        <div className="relative h-24 sm:h-32 md:h-48 bg-surface-container-high dark:bg-[#222] overflow-hidden">
                           {item.image_url ? (
                             <img
                               src={item.image_url?.startsWith('http') ? item.image_url : `http://localhost:8000${item.image_url}`}
@@ -283,30 +362,30 @@ export default function AvailableItems() {
                           ) : (
                             <div className="w-full h-full flex items-center justify-center">
                               {(item.category || '').toLowerCase() === 'instrument' ? (
-                                <Music className="w-10 h-10 text-on-surface-variant/30 dark:text-gray-500/30" />
+                                <Music className="w-6 sm:w-10 h-6 sm:h-10 text-on-surface-variant/30 dark:text-gray-500/30" />
                               ) : (
-                                <Package className="w-10 h-10 text-on-surface-variant/30 dark:text-gray-500/30" />
+                                <Package className="w-6 sm:w-10 h-6 sm:h-10 text-on-surface-variant/30 dark:text-gray-500/30" />
                               )}
                             </div>
                           )}
                         </div>
 
                         {/* Content */}
-                        <div className="p-4 flex-grow flex flex-col justify-between">
+                        <div className="p-2 sm:p-3 md:p-4 flex-grow flex flex-col justify-between">
                           <div>
-                            <p className="text-xs text-on-surface-variant dark:text-gray-400 uppercase tracking-wide mb-1">
+                            <p className="text-[10px] sm:text-xs text-on-surface-variant dark:text-gray-400 uppercase tracking-wide mb-0.5 sm:mb-1">
                               {item.category || 'Item'}
                             </p>
-                            <h3 className="text-sm font-bold text-on-surface dark:text-white line-clamp-2 mb-2">
+                            <h3 className="text-xs sm:text-sm font-bold text-on-surface dark:text-white line-clamp-2 mb-1 sm:mb-2">
                               {item.name}
                             </h3>
                           </div>
 
                           <div className="flex items-center justify-between">
-                            <p className={`text-xs font-medium ${isAvailable ? 'text-primary dark:text-blue-400' : 'text-on-surface-variant dark:text-gray-400'}`}>
-                              {availCount} available
+                            <p className={`text-[9px] sm:text-xs font-medium ${isAvailable ? 'text-primary dark:text-blue-400' : 'text-on-surface-variant dark:text-gray-400'}`}>
+                              {availCount} avail
                             </p>
-                            <ChevronRight className="w-4 h-4 text-primary dark:text-blue-400 opacity-0 group-hover:opacity-100 transition" />
+                            <ChevronRight className="w-3 sm:w-4 h-3 sm:h-4 text-primary dark:text-blue-400 opacity-0 group-hover:opacity-100 transition" />
                           </div>
                         </div>
                       </div>
@@ -318,7 +397,7 @@ export default function AvailableItems() {
           </div>
         </div>
 
-        {/* ============ DRAWER MODAL - Unified for All Roles ============ */}
+        {/* DRAWER MODAL - Mobile Optimized */}
         <AnimatePresence>
           {selectedItem && (
             <motion.div
@@ -338,66 +417,76 @@ export default function AvailableItems() {
                   ease: [0.25, 0.46, 0.45, 0.94],
                   exit: { duration: 0.15, ease: "easeIn" }
                 }}
-                className="fixed top-0 right-0 h-full w-full md:w-[500px] bg-white dark:bg-[#171717] shadow-2xl dark:shadow-black/40 flex flex-col z-50 rounded-l-3xl md:rounded-l-3xl rounded-r-none"
+                className="fixed top-0 right-0 h-full w-full sm:w-[90%] md:w-[500px] bg-white dark:bg-[#171717] shadow-2xl dark:shadow-black/40 flex flex-col z-50 rounded-l-2xl sm:rounded-l-3xl rounded-r-none overflow-hidden"
                 onClick={(e) => e.stopPropagation()}
               >
-                {/* HEADER - Horizontal Layout */}
-                <div className="border-b border-gray-200 dark:border-gray-800 p-4 md:p-6 max-h-[25%]" style={{ overflow: 'hidden' }}>
-                  {/* Close Button */}
-                  <div className="flex justify-between items-start mb-4">
+                {/* HEADER - Mobile Optimized */}
+                <div className="border-b border-gray-200 dark:border-gray-800 p-3 sm:p-4 md:p-6 max-h-[25%]" style={{ overflow: 'hidden' }}>
+                  <div className="flex justify-between items-start mb-2 sm:mb-4">
                     <div />
                     <button
                       onClick={closeModal}
-                      className="p-2 hover:bg-gray-100 dark:hover:bg-white/10 rounded-lg transition"
+                      className="p-1.5 sm:p-2 hover:bg-gray-100 dark:hover:bg-white/10 rounded-lg transition"
                     >
-                      <X className="w-6 h-6 text-gray-600 dark:text-gray-300" />
+                      <X className="w-5 sm:w-6 h-5 sm:h-6 text-gray-600 dark:text-gray-300" />
                     </button>
                   </div>
 
-                  {/* Header Content - Image + Info */}
-                  <div className="flex gap-6">
-                    {/* Image - Small Thumbnail */}
-                    <div className="w-24 h-24 flex-shrink-0">
+                  <div className="flex gap-3 sm:gap-6">
+                    <div className="w-16 sm:w-20 md:w-24 h-16 sm:h-20 md:h-24 flex-shrink-0">
                       {selectedItem.image_url ? (
                         <img
                           src={selectedItem.image_url?.startsWith('http') ? selectedItem.image_url : `http://localhost:8000${selectedItem.image_url}`}
                           alt={selectedItem.name}
-                          className="w-full h-full object-cover rounded-xl"
+                          className="w-full h-full object-cover rounded-lg sm:rounded-xl"
                         />
                       ) : (
-                        <div className="w-full h-full bg-gray-200 dark:bg-gray-800 rounded-xl flex items-center justify-center">
-                          <Package className="w-8 h-8 text-gray-400 dark:text-gray-600" />
+                        <div className="w-full h-full bg-gray-200 dark:bg-gray-800 rounded-lg sm:rounded-xl flex items-center justify-center">
+                          <Package className="w-6 sm:w-8 h-6 sm:h-8 text-gray-400 dark:text-gray-600" />
                         </div>
                       )}
                     </div>
 
-                    {/* Details - Text */}
-                    <div className="flex-1">
-                      <p className="text-[10px] uppercase tracking-widest text-on-surface-variant dark:text-gray-400 font-bold mb-1">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[8px] sm:text-[10px] uppercase tracking-widest text-on-surface-variant dark:text-gray-400 font-bold mb-0.5 sm:mb-1">
                         {selectedItem.category || 'Item'}
                       </p>
-                      <h2 className="text-sm font-bold text-on-surface dark:text-white mb-2 line-clamp-2">
+                      <h2 className="text-xs sm:text-sm font-bold text-on-surface dark:text-white mb-1 sm:mb-2 line-clamp-2">
                         {selectedItem.name}
                       </h2>
+                      
+                      {/* Recommendation Badge with Event Title */}
+                      {recommendedItemIds.has(selectedItem.id) && (
+                        <div className="bg-amber-100 dark:bg-amber-900/40 border border-amber-300 dark:border-amber-700 rounded px-2 py-1 mb-2 flex items-center gap-1">
+                          <Star className="w-3 h-3 fill-amber-500 text-amber-500 flex-shrink-0" />
+                          <div className="min-w-0">
+                            {getItemRecommendation(selectedItem.id) && (
+                              <p className="text-[8px] sm:text-[9px] font-bold text-amber-800 dark:text-amber-200 line-clamp-1">
+                                {getItemRecommendation(selectedItem.id).performance_title}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                      
                       <div className="flex items-center gap-2">
-                        <div className={`w-2 h-2 rounded-full ${
+                        <div className={`w-2 h-2 rounded-full flex-shrink-0 ${
                           (selectedItem.units?.filter(u => u.status === 'available').length || 0) > 0
                             ? 'bg-green-500'
                             : 'bg-red-500'
                         }`}></div>
-                        <p className={`text-[10px] font-medium ${
+                        <p className={`text-[8px] sm:text-[10px] font-medium ${
                           (selectedItem.units?.filter(u => u.status === 'available').length || 0) > 0
                             ? 'text-green-600 dark:text-green-400'
                             : 'text-red-600 dark:text-red-400'
                         }`}>
-                          {selectedItem.units?.filter(u => u.status === 'available').length || 0} units available
+                          {selectedItem.units?.filter(u => u.status === 'available').length || 0} units
                         </p>
                       </div>
                     </div>
 
-                    {/* RIGHT: Selection Summary */}
-                    <div className="w-40 flex-shrink-0 overflow-hidden flex flex-col">
-                      {/* Header - Always Visible */}
+                    {/* Selection Summary - Hidden on Mobile */}
+                    <div className="hidden md:flex w-32 flex-shrink-0 overflow-hidden flex-col">
                       <div className="flex justify-between border-b border-gray-200 dark:border-gray-700 pb-1 text-[8px] font-bold text-on-surface dark:text-gray-300 uppercase tracking-widest">
                         <span>UNIT</span>
                         <span>SIZE</span>
@@ -409,7 +498,6 @@ export default function AvailableItems() {
                         </div>
                       ) : (
                         <div className="space-y-1 overflow-y-auto flex-1" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-                          <style>{`.staff-selection::-webkit-scrollbar { display: none; }`}</style>
                           {selectedUnits.map((unit, idx) => (
                             <div key={unit.id} className="flex justify-between items-center text-[9px] border-b border-gray-100 dark:border-gray-800 py-1 hover:bg-gray-50 dark:hover:bg-white/5 group">
                               <span className="truncate flex-1 font-semibold text-on-surface dark:text-white">
@@ -435,29 +523,27 @@ export default function AvailableItems() {
                   </div>
                 </div>
 
-                {/* STICKY TOTAL ROW */}
-                <div className="sticky top-0 bg-white dark:bg-[#171717] px-4 md:px-6 pt-2 pb-0.5 flex">
+                {/* STICKY TOTAL ROW - Hidden on Mobile */}
+                <div className="hidden md:flex sticky top-0 bg-white dark:bg-[#171717] px-4 md:px-6 pt-2 pb-0.5">
                   <div className="flex-1" />
-                  <div className="w-40 flex-shrink-0 flex justify-between font-bold text-[9px] text-on-surface dark:text-white uppercase tracking-widest">
+                  <div className="w-32 flex-shrink-0 flex justify-between font-bold text-[9px] text-on-surface dark:text-white uppercase tracking-widest">
                     <span>TOTAL</span>
                     <span className="text-primary dark:text-blue-400">{selectedUnits.length}</span>
                   </div>
                 </div>
 
-                  {/* STICKY SEARCH + FILTERS */}
-                <div className="bg-white dark:bg-[#171717] border-b border-gray-200 dark:border-gray-800 p-4 md:p-6 space-y-4 overflow-y-auto max-h-80">
-                  {/* Search Input */}
+                {/* STICKY SEARCH + FILTERS */}
+                <div className="bg-white dark:bg-[#171717] border-b border-gray-200 dark:border-gray-800 p-3 sm:p-4 md:p-6 space-y-2 sm:space-y-4 overflow-y-auto max-h-80">
                   <input
                     type="text"
-                    placeholder="Search by unit number..."
+                    placeholder="Search by unit..."
                     value={unitSearchQuery}
                     onChange={(e) => setUnitSearchQuery(e.target.value)}
-                    className="w-full px-4 py-2 bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent transition"
+                    className="w-full px-3 sm:px-4 py-2 bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg text-xs sm:text-sm text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent transition"
                   />
 
-                  {/* Size Filter Tabs */}
                   {selectedItem.units && selectedItem.units.length > 0 && (
-                    <div className="flex gap-6 text-sm font-medium">
+                    <div className="flex gap-2 sm:gap-6 text-xs sm:text-sm font-medium overflow-x-auto pb-1">
                       {['small', 'medium', 'large'].map(size => {
                         const count = selectedItem.units.filter(u => {
                           const uSize = (u.size || '').toLowerCase();
@@ -470,7 +556,7 @@ export default function AvailableItems() {
                           <motion.button
                             key={size}
                             onClick={() => setActiveSizeFilter(isActive ? null : size)}
-                            className={`pb-2 px-1 relative transition-all ${
+                            className={`pb-2 px-1 relative transition-all flex-shrink-0 ${
                               isActive
                                 ? 'text-blue-600 dark:text-blue-400'
                                 : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white'
@@ -486,17 +572,16 @@ export default function AvailableItems() {
                     </div>
                   )}
 
-                  {/* Select Units Header */}
                   <div className="flex items-center justify-between">
-                    <p className="text-sm font-bold text-gray-900 dark:text-white">
+                    <p className="text-xs sm:text-sm font-bold text-gray-900 dark:text-white">
                       Select Units ({selectedUnits.length})
                     </p>
                     {selectedUnits.length > 0 && (user?.role === 'staff' || user?.role === 'admin') && (
                       <button
                         onClick={() => setSelectedUnits([])}
-                        className="text-xs px-2 py-1 rounded bg-red-500/20 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-500/30 dark:hover:bg-red-900/40 transition"
+                        className="text-[9px] sm:text-xs px-2 py-1 rounded bg-red-500/20 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-500/30 dark:hover:bg-red-900/40 transition"
                       >
-                        Clear All
+                        Clear
                       </button>
                     )}
                   </div>
@@ -504,8 +589,8 @@ export default function AvailableItems() {
 
                 {/* SCROLLABLE UNIT SELECTION */}
                 {selectedItem.units && selectedItem.units.length > 0 && (
-                  <div className="flex-1 overflow-y-auto px-4 md:px-6 py-4">
-                    <div className="space-y-3">
+                  <div className="flex-1 overflow-y-auto px-3 sm:px-4 md:px-6 py-3 sm:py-4">
+                    <div className="space-y-2 sm:space-y-3">
                       {selectedItem.units
                         .filter(u => u.status === 'available')
                         .filter(u => {
@@ -519,10 +604,8 @@ export default function AvailableItems() {
                           
                           const handleUnitClick = () => {
                             if (isSelected) {
-                              // Remove from selection
                               setSelectedUnits(selectedUnits.filter(u => u.id !== unit.id));
                             } else {
-                              // Add to selection - multi-select for everyone
                               setSelectedUnits(prev => [...prev, unit]);
                             }
                           };
@@ -533,7 +616,7 @@ export default function AvailableItems() {
                               whileHover={{ scale: 1.02 }}
                               whileTap={{ scale: 0.98 }}
                               onClick={handleUnitClick}
-                              className={`w-full py-1.5 px-3 rounded-lg border-2 font-medium text-[10px] transition-all text-center ${
+                              className={`w-full py-2 sm:py-2.5 px-2 sm:px-3 rounded-lg border-2 font-medium text-[9px] sm:text-[10px] transition-all text-center ${
                                 isSelected
                                   ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-500 dark:border-blue-400 text-blue-600 dark:text-blue-300 shadow-lg shadow-blue-500/30 dark:shadow-blue-400/20'
                                   : 'bg-gray-50 dark:bg-gray-800 border-gray-300 dark:border-gray-700 text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700'
@@ -541,7 +624,7 @@ export default function AvailableItems() {
                             >
                               {unit.unit_number ? `#${unit.unit_number}` : `Unit ${unit.id.substring(0, 8)}`}
                               {unit.size && (
-                                <span className="text-[9px] ml-2 opacity-70">
+                                <span className="text-[8px] ml-2 opacity-70">
                                   {unit.size.charAt(0).toUpperCase() + unit.size.slice(1)}
                                 </span>
                               )}
@@ -550,15 +633,14 @@ export default function AvailableItems() {
                         })}
                     </div>
 
-                    {/* Empty State */}
                     {selectedItem.units.filter(u => u.status === 'available').filter(u => {
                       if (!activeSizeFilter) return true;
                       const uSize = (u.size || '').toLowerCase();
                       return uSize === activeSizeFilter;
                     }).filter(u => !unitSearchQuery || (u.unit_number || '').toLowerCase().includes(unitSearchQuery.toLowerCase())).length === 0 && (
-                      <div className="text-center py-12">
-                        <p className="text-gray-500 dark:text-gray-400">
-                          👉 No units match your search
+                      <div className="text-center py-8 sm:py-12">
+                        <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">
+                          👉 No units match
                         </p>
                       </div>
                     )}
@@ -566,31 +648,30 @@ export default function AvailableItems() {
                 )}
 
                 {/* STICKY BOTTOM ACTION BAR */}
-                <div className="sticky bottom-0 border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-[#171717] p-4 md:p-6 space-y-3">
+                <div className="sticky bottom-0 border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-[#171717] p-3 sm:p-4 md:p-6 space-y-2 sm:space-y-3">
                   {selectedUnits.length === 0 && (
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                      👉 Select one or more units
+                    <p className="text-[9px] sm:text-xs text-gray-500 dark:text-gray-400">
+                      👉 Select units
                     </p>
                   )}
 
-                  {/* Buttons */}
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-2 gap-2 sm:gap-3">
                     <button
                       onClick={closeModal}
-                      className="px-3 py-1.5 rounded-lg border border-gray-300 dark:border-gray-700 text-on-surface dark:text-white font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition text-[10px]"
+                      className="px-2 sm:px-3 py-2 sm:py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 text-on-surface dark:text-white font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition text-[9px] sm:text-[10px]"
                     >
                       Cancel
                     </button>
                     <button
                       onClick={() => handleAddToCart(selectedItem)}
                       disabled={selectedUnits.length === 0}
-                      className={`px-3 py-1.5 rounded-lg font-bold text-white transition-all text-[10px] ${
+                      className={`px-2 sm:px-3 py-2 sm:py-2.5 rounded-lg font-bold text-white transition-all text-[9px] sm:text-[10px] ${
                         selectedUnits.length === 0
                           ? 'bg-gray-300 dark:bg-gray-700 cursor-not-allowed opacity-60'
                           : 'bg-blue-600 dark:bg-blue-600 hover:bg-blue-700 dark:hover:bg-blue-700 active:scale-95'
                       }`}
                     >
-                      {selectedUnits.length > 0 ? (user?.role === 'borrower' ? 'Add to Cart' : `Add (${selectedUnits.length})`) : 'Select'}
+                      {selectedUnits.length > 0 ? (user?.role === 'borrower' ? 'Add' : `Add (${selectedUnits.length})`) : 'Select'}
                     </button>
                   </div>
                 </div>
@@ -609,30 +690,30 @@ export default function AvailableItems() {
     );
   }
   
-  // ============ BORROWER VIEW - Unified with Staff/Admin ============
+  // ============ BORROWER VIEW ============
   return (
     <PageLayout>
-      <div className="min-h-screen bg-surface dark:bg-[#171717] transition-colors duration-300">
-        {/* Header - Unified Styling */}
-        <div className="px-6 md:px-8 lg:px-12 pt-8 pb-6">
-          <h1 className="text-3xl md:text-4xl font-bold text-on-surface dark:text-white mb-2">
+      <div className="min-h-screen bg-surface dark:bg-[#171717] transition-colors duration-300 scroll-smooth">
+        {/* Header - Mobile Optimized */}
+        <div className="px-3 sm:px-6 md:px-8 lg:px-12 pt-4 sm:pt-8 pb-3 sm:pb-6">
+          <h1 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold text-on-surface dark:text-white mb-1 sm:mb-2">
             Find what you need
           </h1>
-          <p className="text-on-surface-variant dark:text-gray-400 text-sm">
+          <p className="text-xs sm:text-sm text-on-surface-variant dark:text-gray-400">
             Browse and borrow items easily
           </p>
         </div>
 
-        <div className="px-6 md:px-8 lg:px-12 space-y-4 pb-8">
-          {/* Search - Unified Style */}
-          <div className="flex items-center gap-3 bg-surface-container-low dark:bg-[#222] rounded-lg px-4 py-3 border border-transparent dark:border-gray-700 hover:border-primary/20 dark:hover:border-blue-400/30 focus-within:ring-2 focus-within:ring-primary dark:focus-within:ring-blue-400 focus-within:border-transparent dark:focus-within:border-transparent transition shadow-sm">
-            <Search className="w-5 text-on-surface-variant dark:text-gray-400 flex-shrink-0" />
+        <div className="px-3 sm:px-6 md:px-8 lg:px-12 space-y-3 sm:space-y-4 pb-6 sm:pb-8">
+          {/* Search - Mobile Optimized */}
+          <div className="flex items-center gap-2 sm:gap-3 bg-surface-container-low dark:bg-[#222] rounded-lg px-3 sm:px-4 py-2 sm:py-3 border border-transparent dark:border-gray-700 hover:border-primary/20 dark:hover:border-blue-400/30 focus-within:ring-2 focus-within:ring-primary dark:focus-within:ring-blue-400 focus-within:border-transparent transition shadow-sm">
+            <Search className="w-4 sm:w-5 text-on-surface-variant dark:text-gray-400 flex-shrink-0" />
             <input
               type="text"
-              placeholder="Search costumes, instruments..."
+              placeholder="Search..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="flex-1 bg-transparent focus:outline-none text-sm text-on-surface dark:text-white dark:placeholder-gray-500"
+              className="flex-1 bg-transparent focus:outline-none text-xs sm:text-sm text-on-surface dark:text-white dark:placeholder-gray-500"
             />
             {searchQuery && (
               <button
@@ -644,13 +725,13 @@ export default function AvailableItems() {
             )}
           </div>
 
-          {/* Filters - Unified Layout (Simpler for Borrowers) */}
-          <div className="flex gap-2 flex-wrap items-center">
+          {/* Filters - Mobile Optimized */}
+          <div className="flex gap-2 flex-wrap items-center overflow-x-auto pb-1">
             {["costume", "instrument", "accessories"].map(cat => (
               <button
                 key={cat}
                 onClick={() => setSelectedCategory(selectedCategory === cat ? null : cat)}
-                className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-medium transition-all flex-shrink-0 ${
                   selectedCategory === cat
                     ? 'bg-primary dark:bg-blue-600 text-on-primary dark:text-white shadow-sm'
                     : 'bg-surface-container-low dark:bg-[#222] text-on-surface dark:text-white border border-outline-variant/30 dark:border-gray-700 hover:bg-surface-container-high dark:hover:bg-[#252525]'
@@ -661,7 +742,7 @@ export default function AvailableItems() {
             ))}
           </div>
 
-          {/* Items Grid - Unified Breakpoints */}
+          {/* Items Grid - Mobile Optimized */}
           {(() => {
             let filtered = items;
             if (selectedCategory) {
@@ -675,18 +756,30 @@ export default function AvailableItems() {
               );
             }
 
+            if (user?.role === 'borrower' && recommendedItemIds.size > 0) {
+              filtered = filtered.sort((a, b) => {
+                const aIsRecommended = recommendedItemIds.has(a.id);
+                const bIsRecommended = recommendedItemIds.has(b.id);
+                if (aIsRecommended && !bIsRecommended) return -1;
+                if (!aIsRecommended && bIsRecommended) return 1;
+                return 0;
+              });
+            }
+
             return filtered.length === 0 ? (
-              <div className="py-16 text-center">
-                <Package className="w-12 h-12 text-on-surface-variant/30 dark:text-gray-500/30 mx-auto mb-4" />
-                <p className="text-on-surface-variant dark:text-gray-400">
-                  {searchQuery ? "No items match your search" : "Try adjusting filters"}
+              <div className="py-8 sm:py-16 text-center">
+                <Package className="w-8 sm:w-12 h-8 sm:h-12 text-on-surface-variant/30 dark:text-gray-500/30 mx-auto mb-2 sm:mb-4" />
+                <p className="text-xs sm:text-sm text-on-surface-variant dark:text-gray-400">
+                  {searchQuery ? "No items found" : "Try different filters"}
                 </p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-3 md:gap-4">
                 {filtered.map((item) => {
                   const isAvailable = item.units?.some(u => u.status === 'available');
                   const availCount = item.units?.filter(u => u.status === 'available').length || 0;
+                  const isRecommended = recommendedItemIds.has(item.id);
+                  const recommendation = getItemRecommendation(item.id);
 
                   return (
                     <motion.div
@@ -695,9 +788,23 @@ export default function AvailableItems() {
                       onClick={() => openModal(item)}
                       className="group cursor-pointer"
                     >
-                      <div className="bg-surface-container-low dark:bg-[#1a1a1a] rounded-xl overflow-hidden border border-transparent hover:border-primary/20 dark:border-gray-700 dark:hover:border-blue-500/50 transition-all shadow-sm hover:shadow-md dark:hover:shadow-lg dark:hover:shadow-black/40 h-full flex flex-col">
+                      <div className={`rounded-lg sm:rounded-xl overflow-hidden border transition-all shadow-sm hover:shadow-md dark:hover:shadow-lg dark:hover:shadow-black/40 h-full flex flex-col ${
+                        isRecommended 
+                          ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-300 dark:border-amber-700/50 hover:border-amber-400 dark:hover:border-amber-700'
+                          : 'bg-surface-container-low dark:bg-[#1a1a1a] border-transparent hover:border-primary/20 dark:border-gray-700 dark:hover:border-blue-500/50'
+                      }`}>
                         {/* Image */}
-                        <div className="relative h-48 bg-surface-container-high dark:bg-[#222] overflow-hidden">
+                        <div className="relative h-24 sm:h-32 md:h-48 bg-surface-container-high dark:bg-[#222] overflow-hidden">
+                          {/* Recommendation Badge with Event Title */}
+                          {isRecommended && (
+                            <div className="absolute top-1 sm:top-2 left-1 sm:left-2 bg-amber-400 dark:bg-amber-500 text-amber-900 dark:text-white px-2 py-0.5 sm:py-1 rounded text-[8px] sm:text-xs font-bold flex items-center gap-0.5 shadow-md z-20 max-w-[calc(100%-8px)]">
+                              <Star className="w-2.5 sm:w-3.5 h-2.5 sm:h-3.5 fill-current flex-shrink-0" />
+                              <span className="line-clamp-1">
+                                {recommendation?.performance_title || 'Recommended'}
+                              </span>
+                            </div>
+                          )}
+                          
                           {item.image_url ? (
                             <img
                               src={item.image_url?.startsWith('http') ? item.image_url : `http://localhost:8000${item.image_url}`}
@@ -707,22 +814,22 @@ export default function AvailableItems() {
                           ) : (
                             <div className="w-full h-full flex items-center justify-center">
                               {(item.category || '').toLowerCase() === 'instrument' ? (
-                                <Music className="w-10 h-10 text-on-surface-variant/30 dark:text-gray-500/30" />
+                                <Music className="w-6 sm:w-10 h-6 sm:h-10 text-on-surface-variant/30 dark:text-gray-500/30" />
                               ) : (
-                                <Package className="w-10 h-10 text-on-surface-variant/30 dark:text-gray-500/30" />
+                                <Package className="w-6 sm:w-10 h-6 sm:h-10 text-on-surface-variant/30 dark:text-gray-500/30" />
                               )}
                             </div>
                           )}
                         </div>
 
                         {/* Content */}
-                        <div className="p-4 flex-grow flex flex-col justify-between">
+                        <div className="p-2 sm:p-3 md:p-4 flex-grow flex flex-col justify-between">
                           <div>
-                            <h3 className="text-sm font-bold text-on-surface dark:text-white line-clamp-2 mb-1">
+                            <h3 className="text-xs sm:text-sm font-bold text-on-surface dark:text-white line-clamp-2 mb-1">
                               {item.name}
                             </h3>
-                            <p className={`text-xs font-medium ${isAvailable ? 'text-primary dark:text-blue-400' : 'text-error/70 dark:text-red-400/70'}`}>
-                              {isAvailable ? `${availCount} available` : 'All borrowed'}
+                            <p className={`text-[9px] sm:text-xs font-medium ${isAvailable ? 'text-primary dark:text-blue-400' : 'text-error/70 dark:text-red-400/70'}`}>
+                              {isAvailable ? `${availCount} avail` : 'All borrowed'}
                             </p>
                           </div>
                         </div>
@@ -736,7 +843,7 @@ export default function AvailableItems() {
         </div>
       </div>
 
-      {/* RIGHT-SIDE DRAWER MODAL - Unified for All Roles */}
+      {/* RIGHT-SIDE DRAWER MODAL - Mobile Optimized */}
       <AnimatePresence>
         {selectedItem && (
           <motion.div
@@ -756,60 +863,99 @@ export default function AvailableItems() {
                 ease: [0.25, 0.46, 0.45, 0.94],
                 exit: { duration: 0.15, ease: "easeIn" }
               }}
-              className="fixed top-0 right-0 h-full w-full md:w-[500px] bg-white dark:bg-[#171717] shadow-2xl dark:shadow-black/40 flex flex-col z-50 rounded-l-3xl md:rounded-l-3xl rounded-r-none"
+              className="fixed top-0 right-0 h-full w-full sm:w-[90%] md:w-[500px] bg-white dark:bg-[#171717] shadow-2xl dark:shadow-black/40 flex flex-col z-50 rounded-l-2xl sm:rounded-l-3xl rounded-r-none overflow-hidden"
               onClick={(e) => e.stopPropagation()}
             >
-              {/* HEADER - Two Column Layout */}
-              <div className="border-b border-gray-200 dark:border-gray-800 p-4 md:p-6 max-h-[20%]" style={{ overflow: 'hidden' }}>
-                
+              {/* HEADER - Mobile Optimized */}
+              <div className="border-b border-gray-200 dark:border-gray-800 p-3 sm:p-4 md:p-6 max-h-[25%]" style={{ overflow: 'hidden' }}>
+                <div className="flex justify-between items-start mb-2 sm:mb-4">
+                  <div />
+                  <button
+                    onClick={closeModal}
+                    className="p-1.5 sm:p-2 hover:bg-gray-100 dark:hover:bg-white/10 rounded-lg transition"
+                  >
+                    <X className="w-5 sm:w-6 h-5 sm:h-6 text-gray-600 dark:text-gray-300" />
+                  </button>
+                </div>
 
-                {/* Header Content - Image + Info */}
-                <div className="flex">
-                  {/* LEFT: Item Details with Image */}
-                  <div className="flex gap-4 flex-1">
-                    {/* Image - Small Thumbnail */}
-                    <div className="w-24 h-24 flex-shrink-0">
-                      {selectedItem.image_url ? (
-                        <img
-                          src={selectedItem.image_url?.startsWith('http') ? selectedItem.image_url : `http://localhost:8000${selectedItem.image_url}`}
-                          alt={selectedItem.name}
-                          className="w-full h-full object-cover rounded-xl"
-                        />
-                      ) : (
-                        <div className="w-full h-full bg-gray-200 dark:bg-gray-800 rounded-xl flex items-center justify-center">
-                          <Package className="w-8 h-8 text-gray-400 dark:text-gray-600" />
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Details - Text */}
-                    <div className="flex-1">
-                      <p className="text-[10px] uppercase tracking-widest text-on-surface-variant dark:text-gray-400 font-bold mb-1">
-                        {selectedItem.category || 'Item'}
-                      </p>
-                      <h2 className="text-sm font-bold text-on-surface dark:text-white mb-2 line-clamp-2">
-                        {selectedItem.name}
-                      </h2>
-                      <div className="flex items-center gap-2">
-                        <div className={`w-2 h-2 rounded-full ${
-                          (selectedItem.units?.filter(u => u.status === 'available').length || 0) > 0
-                            ? 'bg-green-500'
-                            : 'bg-red-500'
-                        }`}></div>
-                        <p className={`text-[10px] font-medium ${
-                          (selectedItem.units?.filter(u => u.status === 'available').length || 0) > 0
-                            ? 'text-green-600 dark:text-green-400'
-                            : 'text-red-600 dark:text-red-400'
-                        }`}>
-                          {selectedItem.units?.filter(u => u.status === 'available').length || 0} units available
-                        </p>
+                <div className="flex gap-3 sm:gap-4">
+                  <div className="w-16 sm:w-20 md:w-24 h-16 sm:h-20 md:h-24 flex-shrink-0">
+                    {selectedItem.image_url ? (
+                      <img
+                        src={selectedItem.image_url?.startsWith('http') ? selectedItem.image_url : `http://localhost:8000${selectedItem.image_url}`}
+                        alt={selectedItem.name}
+                        className="w-full h-full object-cover rounded-lg sm:rounded-xl"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-gray-200 dark:bg-gray-800 rounded-lg sm:rounded-xl flex items-center justify-center">
+                        <Package className="w-6 sm:w-8 h-6 sm:h-8 text-gray-400 dark:text-gray-600" />
                       </div>
+                    )}
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[8px] sm:text-[10px] uppercase tracking-widest text-on-surface-variant dark:text-gray-400 font-bold mb-0.5 sm:mb-1">
+                      {selectedItem.category || 'Item'}
+                    </p>
+                    <h2 className="text-xs sm:text-sm font-bold text-on-surface dark:text-white mb-1 sm:mb-2 line-clamp-2">
+                      {selectedItem.name}
+                    </h2>
+                    
+                    {/* Recommendation Badge with Event Title - Hidden if past, Red if today, Amber if upcoming */}
+                    {recommendedItemIds.has(selectedItem.id) && (() => {
+                      const rec = getItemRecommendation(selectedItem.id);
+                      if (!rec) return null;
+                      
+                      const status = getPerformanceStatus(rec.start_time);
+                      
+                      // Don't show star if performance is past
+                      if (status === 'past') return null;
+                      
+                      // Show star in red if performance is today
+                      if (status === 'today') {
+                        return (
+                          <div className="bg-red-100 dark:bg-red-900/40 border border-red-300 dark:border-red-700 rounded px-2 py-1 mb-2 flex items-center gap-1">
+                            <Star className="w-3 h-3 fill-red-500 text-red-500 flex-shrink-0" />
+                            <div className="min-w-0">
+                              <p className="text-[8px] sm:text-[9px] font-bold text-red-800 dark:text-red-200 line-clamp-1">
+                                {rec.performance_title}
+                              </p>
+                            </div>
+                          </div>
+                        );
+                      }
+                      
+                      // Show star in amber for upcoming performances
+                      return (
+                        <div className="bg-amber-100 dark:bg-amber-900/40 border border-amber-300 dark:border-amber-700 rounded px-2 py-1 mb-2 flex items-center gap-1">
+                          <Star className="w-3 h-3 fill-amber-500 text-amber-500 flex-shrink-0" />
+                          <div className="min-w-0">
+                            <p className="text-[8px] sm:text-[9px] font-bold text-amber-800 dark:text-amber-200 line-clamp-1">
+                              {rec.performance_title}
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })()}
+
+                    <div className="flex items-center gap-2">
+                      <div className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                        (selectedItem.units?.filter(u => u.status === 'available').length || 0) > 0
+                          ? 'bg-green-500'
+                          : 'bg-red-500'
+                      }`}></div>
+                      <p className={`text-[8px] sm:text-[10px] font-medium ${
+                        (selectedItem.units?.filter(u => u.status === 'available').length || 0) > 0
+                          ? 'text-green-600 dark:text-green-400'
+                          : 'text-red-600 dark:text-red-400'
+                      }`}>
+                        {selectedItem.units?.filter(u => u.status === 'available').length || 0} units
+                      </p>
                     </div>
                   </div>
 
-                  {/* RIGHT: Selection Summary */}
-                  <div className="w-40 flex-shrink-0 overflow-hidden flex flex-col">
-                    {/* Header - Always Visible */}
+                  {/* Selection Summary - Hidden on Mobile */}
+                  <div className="hidden md:flex w-32 flex-shrink-0 overflow-hidden flex-col">
                     <div className="flex justify-between border-b border-gray-200 dark:border-gray-700 pb-1 text-[8px] font-bold text-on-surface dark:text-gray-300 uppercase tracking-widest">
                       <span>UNIT</span>
                       <span>SIZE</span>
@@ -821,7 +967,6 @@ export default function AvailableItems() {
                       </div>
                     ) : (
                       <div className="space-y-1 overflow-y-auto flex-1" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-                        <style>{`.borrower-selection::-webkit-scrollbar { display: none; }`}</style>
                         {selectedUnits.map((unit, idx) => (
                           <div key={unit.id} className="flex justify-between items-center text-[9px] border-b border-gray-100 dark:border-gray-800 py-1 hover:bg-gray-50 dark:hover:bg-white/5 group">
                             <span className="truncate flex-1 font-semibold text-on-surface dark:text-white">
@@ -849,29 +994,27 @@ export default function AvailableItems() {
                 </div>
               </div>
 
-              {/* STICKY TOTAL ROW */}
-              <div className="sticky top-0 bg-white dark:bg-[#171717] px-4 md:px-6 pt-2 pb-0.5 flex">
+              {/* STICKY TOTAL ROW - Hidden on Mobile */}
+              <div className="hidden md:flex sticky top-0 bg-white dark:bg-[#171717] px-4 md:px-6 pt-2 pb-0.5">
                 <div className="flex-1" />
-                <div className="w-40 flex-shrink-0 flex justify-between font-bold text-[9px] text-on-surface dark:text-white uppercase tracking-widest">
-                  <span>TOTsAL</span>
+                <div className="w-32 flex-shrink-0 flex justify-between font-bold text-[9px] text-on-surface dark:text-white uppercase tracking-widest">
+                  <span>TOTAL</span>
                   <span className="text-primary dark:text-blue-400">{selectedUnits.length}</span>
                 </div>
               </div>
 
               {/* STICKY SEARCH + FILTERS */}
-              <div className="bg-white dark:bg-[#171717] border-b border-gray-200 dark:border-gray-800 px-4 pt-0 pb-2 md:px-6 md:pt-1 md:pb-0 space-y-1.5 overflow-y-auto max-h-80">
-                {/* Search Input */}
+              <div className="bg-white dark:bg-[#171717] border-b border-gray-200 dark:border-gray-800 px-3 sm:px-4 md:px-6 pt-3 sm:pt-4 md:pt-0 pb-2 md:pb-0 space-y-2 sm:space-y-4 overflow-y-auto max-h-80">
                 <input
                   type="text"
-                  placeholder="Search by unit number..."
+                  placeholder="Search units..."
                   value={unitSearchQuery}
                   onChange={(e) => setUnitSearchQuery(e.target.value)}
-                  className="w-full px-4 py-2 bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent transition"
+                  className="w-full px-3 sm:px-4 py-2 bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg text-xs sm:text-sm text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent transition"
                 />
 
-                {/* Size Filter Tabs */}
                 {selectedItem.units && selectedItem.units.length > 0 && (
-                  <div className="flex gap-6 text-[10px] font-medium uppercase tracking-widest">
+                  <div className="flex gap-2 sm:gap-6 text-[9px] sm:text-sm font-medium uppercase tracking-widest overflow-x-auto pb-1">
                     {['small', 'medium', 'large'].map(size => {
                       const count = selectedItem.units.filter(u => {
                         const uSize = (u.size || '').toLowerCase();
@@ -884,7 +1027,7 @@ export default function AvailableItems() {
                         <motion.button
                           key={size}
                           onClick={() => setActiveSizeFilter(isActive ? null : size)}
-                          className={`pb-2 px-1 relative transition-all ${
+                          className={`pb-2 px-1 relative transition-all flex-shrink-0 ${
                             isActive
                               ? 'text-blue-600 dark:text-blue-400 font-bold'
                               : 'text-on-surface-variant dark:text-gray-400 hover:text-on-surface dark:hover:text-white'
@@ -899,14 +1042,12 @@ export default function AvailableItems() {
                     })}
                   </div>
                 )}
-
-               
               </div>
 
               {/* SCROLLABLE UNIT SELECTION */}
               {selectedItem.units && selectedItem.units.length > 0 && (
-                <div className="flex-1 overflow-y-auto px-4 md:px-6 py-4">
-                  <div className="space-y-3">
+                <div className="flex-1 overflow-y-auto px-3 sm:px-4 md:px-6 py-3 sm:py-4">
+                  <div className="space-y-2 sm:space-y-3">
                     {selectedItem.units
                       .filter(u => u.status === 'available')
                       .filter(u => {
@@ -920,10 +1061,8 @@ export default function AvailableItems() {
                         
                         const handleUnitClick = () => {
                           if (isSelected) {
-                            // Remove from selection
                             setSelectedUnits(selectedUnits.filter(u => u.id !== unit.id));
                           } else {
-                            // Add to selection - multi-select for everyone
                             setSelectedUnits(prev => [...prev, unit]);
                           }
                         };
@@ -934,7 +1073,7 @@ export default function AvailableItems() {
                             whileHover={{ scale: 1.02 }}
                             whileTap={{ scale: 0.98 }}
                             onClick={handleUnitClick}
-                            className={`w-full py-1.5 px-3 rounded-lg border-2 font-medium text-[10px] transition-all text-center uppercase tracking-wide ${
+                            className={`w-full py-2 sm:py-2.5 px-2 sm:px-3 rounded-lg border-2 font-medium text-[9px] sm:text-[10px] transition-all text-center uppercase tracking-wide ${
                               isSelected
                                 ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-500 dark:border-blue-400 text-blue-600 dark:text-blue-300 shadow-lg shadow-blue-500/30 dark:shadow-blue-400/20'
                                 : 'bg-gray-50 dark:bg-gray-800 border-gray-300 dark:border-gray-700 text-on-surface dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700'
@@ -942,7 +1081,7 @@ export default function AvailableItems() {
                           >
                             {unit.unit_number ? `#${unit.unit_number}` : `Unit ${unit.id.substring(0, 8)}`}
                             {unit.size && (
-                              <span className="text-[9px] ml-2 opacity-70">
+                              <span className="text-[8px] ml-2 opacity-70">
                                 {unit.size.charAt(0).toUpperCase() + unit.size.slice(1)}
                               </span>
                             )}
@@ -951,15 +1090,14 @@ export default function AvailableItems() {
                       })}
                   </div>
 
-                  {/* Empty State */}
                   {selectedItem.units.filter(u => u.status === 'available').filter(u => {
                     if (!activeSizeFilter) return true;
                     const uSize = (u.size || '').toLowerCase();
                     return uSize === activeSizeFilter;
                   }).filter(u => !unitSearchQuery || (u.unit_number || '').toLowerCase().includes(unitSearchQuery.toLowerCase())).length === 0 && (
-                    <div className="text-center py-12">
-                      <p className="text-[10px] text-on-surface-variant dark:text-gray-400">
-                        👉 No units match your search
+                    <div className="text-center py-8 sm:py-12">
+                      <p className="text-[9px] sm:text-xs text-on-surface-variant dark:text-gray-400">
+                        👉 No units match
                       </p>
                     </div>
                   )}
@@ -967,31 +1105,30 @@ export default function AvailableItems() {
               )}
 
               {/* STICKY BOTTOM ACTION BAR */}
-              <div className="sticky bottom-0 border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-[#171717] p-4 md:p-6 space-y-3">
+              <div className="sticky bottom-0 border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-[#171717] p-3 sm:p-4 md:p-6 space-y-2 sm:space-y-3">
                 {selectedUnits.length === 0 && (
-                  <p className="text-[10px] text-on-surface-variant dark:text-gray-400">
-                    👉 Select one or more units
+                  <p className="text-[9px] sm:text-xs text-on-surface-variant dark:text-gray-400">
+                    👉 Select units
                   </p>
                 )}
 
-                {/* Buttons */}
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-2 gap-2 sm:gap-3">
                   <button
                     onClick={closeModal}
-                    className="px-3 py-1.5 rounded-lg border border-gray-300 dark:border-gray-700 text-on-surface dark:text-white font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition text-[10px]"
+                    className="px-2 sm:px-3 py-2 sm:py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 text-on-surface dark:text-white font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition text-[9px] sm:text-[10px]"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={() => handleAddToCart(selectedItem)}
                     disabled={selectedUnits.length === 0}
-                    className={`px-3 py-1.5 rounded-lg font-bold text-white transition-all text-[10px] ${
+                    className={`px-2 sm:px-3 py-2 sm:py-2.5 rounded-lg font-bold text-white transition-all text-[9px] sm:text-[10px] ${
                       selectedUnits.length === 0
                         ? 'bg-gray-300 dark:bg-gray-700 cursor-not-allowed opacity-60'
                         : 'bg-blue-600 dark:bg-blue-600 hover:bg-blue-700 dark:hover:bg-blue-700 active:scale-95'
                     }`}
                   >
-                    {selectedUnits.length > 0 ? (user?.role === 'borrower' ? 'Add to Cart' : `Add (${selectedUnits.length})`) : 'Select'}
+                    {selectedUnits.length > 0 ? (user?.role === 'borrower' ? 'Add' : `Add (${selectedUnits.length})`) : 'Select'}
                   </button>
                 </div>
               </div>

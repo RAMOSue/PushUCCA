@@ -1,9 +1,7 @@
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { useEffect, useState } from "react";
 import { deleteUnitById } from "@/services/inventoryService";
 import { toast } from "sonner";
-import { Download, Printer, Trash2, CheckSquare, Square, Search, X } from "lucide-react";
+import { Download, Printer, Trash2, CheckSquare, Square, Search, X, ChevronLeft } from "lucide-react";
 
 export default function UnitModal({ isOpen, onClose, selectedItem, onUnitDeleted }) {
   const [units, setUnits] = useState(selectedItem?.units || []);
@@ -352,215 +350,231 @@ export default function UnitModal({ isOpen, onClose, selectedItem, onUnitDeleted
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl">
-        <button className="sr-only" autoFocus tabIndex={0}>
-          Focus trap anchor
-        </button>
+    <>
+      {/* Overlay */}
+      {isOpen && (
+        <div
+          className="fixed inset-0 bg-black/20 dark:bg-black/40 z-30 transition-opacity duration-300 animate-in fade-in"
+          onClick={onClose}
+        />
+      )}
 
-        <DialogHeader>
-          <DialogTitle className="text-2xl font-bold text-slate-900">
-            {selectedItem?.name || "Inventory Units"}
-          </DialogTitle>
-        </DialogHeader>
-
-        {/* Summary Info */}
-        <div className="bg-gradient-to-r from-blue-50 to-slate-50 rounded-lg p-4 border border-slate-200 mb-4">
-          <div className="flex items-center justify-between mb-3">
+      {/* Right Side Panel */}
+      {isOpen && (
+        <div className="fixed right-0 top-0 h-screen w-[500px] bg-surface-container-lowest dark:bg-[#1a1a1a] border-l border-outline-variant/20 dark:border-gray-700 shadow-[-10px_0_30px_rgba(0,0,0,0.1)] dark:shadow-[-10px_0_30px_rgba(0,0,0,0.4)] z-40 overflow-hidden flex flex-col transition-all duration-300 ease-out animate-in slide-in-from-right-full">
+          {/* Header */}
+          <div className="px-8 py-6 border-b border-outline-variant/20 dark:border-gray-700 flex items-center justify-between flex-shrink-0">
             <div>
-              <p className="text-sm font-medium text-slate-600">Total Units</p>
-              <p className="text-lg font-semibold text-slate-900 mt-1">{units.length} unit{units.length !== 1 ? "s" : ""}</p>
+              <h2 className="text-2xl font-bold text-on-surface dark:text-white">
+                {selectedItem?.name || "Inventory Units"}
+              </h2>
+              <p className="text-xs text-on-surface-variant dark:text-gray-400 mt-1 uppercase tracking-wide font-medium">{units.length} unit{units.length !== 1 ? "s" : ""}</p>
             </div>
-            {hasSizes && (
-              <div className="text-right">
-                <p className="text-sm font-medium text-slate-600">Breakdown</p>
-                <p className="text-sm text-slate-700 mt-1">
-                  {Object.entries(
-                    units.reduce((acc, unit) => {
-                      acc[unit.size] = (acc[unit.size] || 0) + 1;
-                      return acc;
-                    }, {})
-                  )
-                    .map(([size, count]) => `${count} ${size}`)
-                    .join(" • ")}
-                </p>
-              </div>
-            )}
+            <button
+              onClick={onClose}
+              className="p-2 hover:bg-surface-container-high dark:hover:bg-[#222] rounded transition-colors"
+              title="Close"
+            >
+              <ChevronLeft className="w-5 h-5 text-on-surface dark:text-white" />
+            </button>
           </div>
 
-          {selectedUnits.size > 0 && (
-            <div className="border-t border-slate-300 pt-3 text-sm">
-              <p className="text-slate-600">
-                <span className="font-semibold text-slate-900">{selectedUnits.size}</span> selected
-              </p>
-            </div>
-          )}
-        </div>
+          {/* Scrollable Content */}
+          <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+            {/* Summary Info */}
+            <div className="bg-primary/10 dark:bg-blue-900/30 rounded-lg p-4 border border-primary/20 dark:border-blue-900/50">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-medium text-on-surface-variant dark:text-gray-400 uppercase">Total Units</p>
+                  <p className="text-lg font-semibold text-on-surface dark:text-white mt-1">{units.length}</p>
+                </div>
+                {hasSizes && (
+                  <div className="text-right text-xs">
+                    <p className="font-medium text-on-surface-variant dark:text-gray-400 uppercase">Breakdown</p>
+                    <p className="text-sm text-on-surface dark:text-white mt-1">
+                      {Object.entries(
+                        units.reduce((acc, unit) => {
+                          acc[unit.size] = (acc[unit.size] || 0) + 1;
+                          return acc;
+                        }, {})
+                      )
+                        .map(([size, count]) => `${count} ${size}`)
+                        .join(" • ")}
+                    </p>
+                  </div>
+                )}
+              </div>
 
-        {/* Filter & Search & Actions */}
-        <div className="space-y-3 mb-4">
-          {/* Search Bar */}
-          <div className="relative">
-            <div className="flex items-center gap-2 bg-white border border-slate-300 rounded-lg px-3 py-2 hover:border-blue-400 focus-within:ring-2 focus-within:ring-blue-500">
-              <Search className="w-4 h-4 text-slate-400" />
+              {selectedUnits.size > 0 && (
+                <div className="border-t border-primary/30 dark:border-blue-900/50 pt-3 mt-3 text-xs">
+                  <p className="text-on-surface dark:text-white">
+                    <span className="font-semibold">{selectedUnits.size}</span> selected
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Search Bar */}
+            <div className="flex items-center gap-2 bg-surface-container-low dark:bg-[#222] rounded-lg px-3 py-2.5 border border-outline-variant/20 dark:border-gray-700 hover:border-primary/20 dark:hover:border-blue-600 focus-within:ring-2 focus-within:ring-primary transition">
+              <Search className="w-4 h-4 text-on-surface-variant dark:text-gray-500 flex-shrink-0" />
               <input
                 type="text"
-                placeholder='Search unit names (e.g., "Suyam S - 1")'
+                placeholder="Search units..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="flex-1 text-sm outline-none bg-transparent"
+                className="flex-1 bg-transparent focus:outline-none text-sm text-on-surface dark:text-white dark:placeholder-gray-500"
               />
               {searchQuery && (
                 <button
                   onClick={() => setSearchQuery("")}
-                  className="p-1 hover:bg-slate-100 rounded transition-colors"
+                  className="p-1 hover:bg-surface-container-high dark:hover:bg-[#333] rounded transition-colors"
                   title="Clear search"
                 >
-                  <X className="w-4 h-4 text-slate-400" />
+                  <X className="w-4 h-4 text-on-surface-variant dark:text-gray-500" />
                 </button>
               )}
             </div>
-          </div>
 
-          {/* Size Filter and Actions */}
-          <div className="flex items-center justify-between gap-3 flex-wrap">
-            <div className="flex items-center gap-2">
-              <label className="text-sm font-medium text-slate-700">Filter by Size:</label>
-              <select
-                value={filterSize}
-                onChange={(e) => setFilterSize(e.target.value)}
-                className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm bg-white hover:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="all">All Sizes</option>
-                {uniqueSizes.map((size) => (
-                  <option key={size} value={size}>
-                    {size}
-                  </option>
-                ))}
-              </select>
-            </div>
+            {/* Two Column Control Section */}
+            <div className="grid grid-cols-2 gap-3">
+              {/* LEFT: Actions */}
+              <div className="space-y-2">
+                {selectedUnits.size > 0 && (
+                  <div className="flex gap-1.5">
+                    <button
+                      onClick={deselectAll}
+                      className="flex-1 px-2 py-2 rounded text-xs font-medium border border-outline-variant/20 dark:border-gray-700 text-on-surface dark:text-white hover:bg-surface-container-high dark:hover:bg-[#222] transition"
+                      title="Deselect All"
+                    >
+                      Deselect
+                    </button>
+                    <button
+                      onClick={handleBatchDownload}
+                      className="p-2 rounded bg-primary/10 dark:bg-blue-900/30 text-primary dark:text-blue-400 hover:bg-primary/20 dark:hover:bg-blue-900/50 transition"
+                      title={`Download ${selectedUnits.size} QR code${selectedUnits.size > 1 ? "s" : ""}`}
+                    >
+                      <Download className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={handlePrintSelected}
+                      className="p-2 rounded bg-green-600/20 dark:bg-green-900/30 text-green-700 dark:text-green-400 hover:bg-green-600/30 dark:hover:bg-green-900/50 transition"
+                      title={`Print ${selectedUnits.size} QR code${selectedUnits.size > 1 ? "s" : ""}`}
+                    >
+                      <Printer className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
 
-            <div className="flex items-center gap-2">
-              {selectedUnits.size > 0 && (
-                <>
+                {selectedUnits.size !== filteredUnits.length && (
                   <button
-                    onClick={deselectAll}
-                    className="px-3 py-1.5 rounded-lg text-xs font-medium border border-slate-300 text-slate-700 hover:bg-slate-100 transition-colors"
+                    onClick={selectAllFiltered}
+                    className="w-full px-2 py-2 rounded text-xs font-medium border border-primary/30 dark:border-blue-900/50 text-primary dark:text-blue-400 bg-primary/10 dark:bg-blue-900/20 hover:bg-primary/20 dark:hover:bg-blue-900/40 transition"
                   >
-                    Deselect All
+                    Select All ({filteredUnits.length})
                   </button>
-                  <button
-                    onClick={handleBatchDownload}
-                    className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 text-xs font-medium transition-colors"
-                  >
-                    <Download className="w-3.5 h-3.5" />
-                    Download {selectedUnits.size}
-                  </button>
-                  <button
-                    onClick={handlePrintSelected}
-                    className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-green-600 text-white hover:bg-green-700 text-xs font-medium transition-colors"
-                  >
-                    <Printer className="w-3.5 h-3.5" />
-                    Print {selectedUnits.size}
-                  </button>
-                </>
-              )}
-              {selectedUnits.size !== filteredUnits.length && (
-                <button
-                  onClick={selectAllFiltered}
-                  className="px-3 py-1.5 rounded-lg text-xs font-medium border border-blue-300 text-blue-700 bg-blue-50 hover:bg-blue-100 transition-colors"
+                )}
+              </div>
+
+              {/* RIGHT: Filter */}
+              <div className="flex items-start gap-2">
+                <label className="text-xs font-semibold text-on-surface dark:text-white uppercase whitespace-nowrap pt-2">Filter:</label>
+                <select
+                  value={filterSize}
+                  onChange={(e) => setFilterSize(e.target.value)}
+                  className="flex-1 bg-surface-container-low dark:bg-[#222] border border-outline-variant/20 dark:border-gray-700 rounded-lg px-2 py-2 text-xs text-on-surface dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
                 >
-                  Select All
-                </button>
+                  <option value="all">All Sizes</option>
+                  {uniqueSizes.map((size) => (
+                    <option key={size} value={size}>
+                      {size}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Units Grid */}
+            <div className="grid grid-cols-2 gap-3">
+              {filteredUnits.length === 0 ? (
+                <div className="col-span-2 flex items-center justify-center py-12">
+                  <p className="text-xs text-on-surface-variant dark:text-gray-400">No units found</p>
+                </div>
+              ) : (
+                filteredUnits.map((unit) => {
+                  const displayLabel = unit.unit_number || `Unit-${unit.id.slice(0, 8)}`;
+                  const isSelected = selectedUnits.has(unit.id);
+
+                  return (
+                    <div
+                      key={unit.id}
+                      className={`border rounded-lg overflow-hidden bg-surface-container-high dark:bg-[#222] transition-all ${
+                        isSelected 
+                          ? "border-primary/50 dark:border-blue-600/50 ring-2 ring-primary/20 dark:ring-blue-600/20" 
+                          : "border-outline-variant/20 dark:border-gray-700 hover:border-outline-variant/40 dark:hover:border-gray-600"
+                      }`}
+                    >
+                      {/* Header with Checkbox */}
+                      <div className="px-3 py-2.5 border-b border-outline-variant/20 dark:border-gray-700 flex items-center justify-between bg-surface-container-low dark:bg-[#1a1a1a]">
+                        <p className="text-xs font-semibold text-on-surface dark:text-white truncate">{displayLabel}</p>
+                        <button
+                          onClick={() => toggleUnitSelection(unit.id)}
+                          className="p-1 hover:bg-surface-container-high dark:hover:bg-[#333] rounded transition-colors flex-shrink-0"
+                          title={isSelected ? "Deselect" : "Select"}
+                        >
+                          {isSelected ? (
+                            <CheckSquare className="w-4 h-4 text-primary dark:text-blue-400" />
+                          ) : (
+                            <Square className="w-4 h-4 text-on-surface-variant dark:text-gray-600" />
+                          )}
+                        </button>
+                      </div>
+
+                      {/* QR Code Display */}
+                      <div className="p-3 flex flex-col items-center space-y-2">
+                        <img
+                          src={unit.qr_code_url}
+                          alt={`QR Code - ${displayLabel}`}
+                          width={100}
+                          height={100}
+                          className="border border-outline-variant/20 dark:border-gray-700 rounded-lg bg-surface-container-lowest dark:bg-[#0a0a0a]"
+                          onError={(e) => {
+                            e.target.src = "/placeholder.png";
+                          }}
+                        />
+                        {unit.size && unit.size !== "nosize" && (
+                          <span className="text-[9px] text-on-surface-variant dark:text-gray-400 uppercase font-medium px-2 py-0.5 bg-surface-container-lowest dark:bg-[#0a0a0a] rounded">
+                            {unit.size}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Actions */}
+                      <div className="px-3 py-2 border-t border-outline-variant/20 dark:border-gray-700 flex gap-1.5 justify-center">
+                        <button
+                          onClick={() =>
+                            handleDownload(unit.qr_code_url, selectedItem.name, filteredUnits.indexOf(unit), unit.size)
+                          }
+                          className="p-2 rounded bg-primary/10 dark:bg-blue-900/30 text-primary dark:text-blue-400 hover:bg-primary/20 dark:hover:bg-blue-900/50 transition"
+                          title="Download"
+                        >
+                          <Download className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(unit.id)}
+                          className="p-2 rounded bg-error/10 dark:bg-red-900/30 text-error dark:text-red-400 hover:bg-error/20 dark:hover:bg-red-900/50 transition"
+                          title="Delete"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })
               )}
             </div>
           </div>
         </div>
-
-        <ScrollArea className="max-h-[60vh]">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 p-4">
-            {filteredUnits.map((unit) => {
-              // ✅ CRITICAL: ALWAYS use unit_number from database - NO dynamic generation
-              // Each UUID has exactly ONE unit_number that persists in the database
-              // Format: "ItemName-Size-Number" (e.g., "Suyam-S-1")
-              const displayLabel = unit.unit_number || `Unit-${unit.id.slice(0, 8)}`;
-              const isSelected = selectedUnits.has(unit.id);
-
-              return (
-                <div
-                  key={unit.id}
-                  className={`border-2 rounded-lg bg-white overflow-hidden flex flex-col transition-all ${
-                    isSelected 
-                      ? "border-blue-500 shadow-lg ring-2 ring-blue-200" 
-                      : "border-slate-200 hover:shadow-md"
-                  }`}
-                >
-                  {/* Header with Checkbox */}
-                  <div className="bg-gradient-to-r from-blue-50 to-slate-50 px-4 py-3 border-b border-slate-200 flex items-center justify-between">
-                    <p className="text-sm font-semibold text-slate-900 truncate">{displayLabel}</p>
-                    <button
-                      onClick={() => toggleUnitSelection(unit.id)}
-                      className="p-1 hover:bg-blue-100 rounded transition-colors flex-shrink-0"
-                      title={isSelected ? "Deselect" : "Select"}
-                    >
-                      {isSelected ? (
-                        <CheckSquare className="w-5 h-5 text-blue-600" />
-                      ) : (
-                        <Square className="w-5 h-5 text-slate-400" />
-                      )}
-                    </button>
-                  </div>
-
-                  {/* QR Code Section */}
-                  <div className="p-4 flex flex-col items-center">
-                    {/* QR Label - Sticky to this UUID - Database-bound label */}
-                    <p className="text-base md:text-lg font-bold text-slate-900 mb-3 text-center">
-                      🏷️ {displayLabel}
-                    </p>
-                      
-                      {/* QR Code Image */}
-                      <img
-                        src={unit.qr_code_url}
-                        alt={`QR Code - ${displayLabel}`}
-                        width={120}
-                        height={120}
-                        className="border-2 border-slate-200 rounded-lg bg-white"
-                        onError={(e) => {
-                          e.target.src = "/placeholder.png";
-                        }}
-                      />
-                    </div>
-
-                    {/* Actions */}
-                    <div className="px-4 py-3 border-t border-slate-200 flex gap-2 justify-center flex-wrap">
-                      <button
-                        onClick={() =>
-                          handleDownload(unit.qr_code_url, selectedItem.name, unit.id, unit.size)
-                        }
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-100 text-blue-700 hover:bg-blue-200 text-xs font-medium transition-colors"
-                      >
-                        <Download className="w-3.5 h-3.5" />
-                        Download
-                      </button>
-                      <button
-                        onClick={() => handleDelete(unit.id)}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-100 text-red-700 hover:bg-red-200 text-xs font-medium transition-colors"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                        Delete
-                      </button>
-                    </div>
-                  </div>
-                );
-            })}
-          </div>
-          {filteredUnits.length === 0 && (
-            <div className="flex items-center justify-center h-40">
-              <p className="text-slate-500 text-sm">No units found with selected size</p>
-            </div>
-          )}
-        </ScrollArea>
-      </DialogContent>
-    </Dialog>
+      )}
+    </>
   );
 }

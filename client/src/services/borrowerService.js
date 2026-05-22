@@ -323,6 +323,44 @@ export const updateBorrowerSettings = async (settings) => {
   return updateUserSettings(settings);
 };
 
+// ============================================================================
+// 📊 ACTIVITY & LOGS
+// ============================================================================
+
+/**
+ * Get user's activity logs
+ * @returns {Promise<Array>} Array of activity log records
+ */
+export const getActivityLogs = async () => {
+  const res = await axios.get("/api/user/activity-logs", {
+    withCredentials: true,
+  });
+  return res.data;
+};
+
+/**
+ * Get user's login history
+ * @returns {Promise<Array>} Array of login history records
+ */
+export const getLoginHistory = async () => {
+  const res = await axios.get("/api/user/login-history", {
+    withCredentials: true,
+  });
+  return res.data;
+};
+
+/**
+ * Download activity logs as CSV
+ * @returns {Promise<string>} CSV data
+ */
+export const downloadActivityLogsCSV = async () => {
+  const res = await axios.get("/api/user/activity-logs/download", {
+    withCredentials: true,
+    responseType: "text",
+  });
+  return res.data;
+};
+
 export default {
   // Cart Management
   saveToCart,
@@ -361,4 +399,9 @@ export default {
   resetUserSettings,
   getBorrowerSettings,
   updateBorrowerSettings,
+
+  // Activity & Logs
+  getActivityLogs,
+  getLoginHistory,
+  downloadActivityLogsCSV,
 };

@@ -92,18 +92,22 @@ export default function Login() {
 
     setLoading_(true);
     try {
+      console.log(`⏳ [Login] Attempting login for email: ${data.email}`);
+      // ✅ Use axios which is configured with VITE_API_URL from environment
       const res = await axios.post(
-        "http://localhost:8000/api/auth/login",
+        "/api/auth/login",
         { email: data.email.toLowerCase().trim(), password: data.password },
         { withCredentials: true }
       );
 
       if (res.data.error) {
         setLoginAttempts(prev => prev + 1);
+        console.error(`❌ [Login] Error: ${res.data.error}`);
         toast.error(res.data.error);
       } else {
         // ✅ SECURITY: Reset attempts on successful login
         setLoginAttempts(0);
+        console.log(`✅ [Login] Login successful for: ${res.data.user?.email}`);
         toast.success("✅ Login successful!");
         const loggedInUser = res.data.user;
 
@@ -135,7 +139,7 @@ export default function Login() {
       }
     } catch (error) {
       setLoginAttempts(prev => prev + 1);
-      console.error("Login error:", error.message);
+      console.error("❌ [Login] Catch error:", error.message);
       
       const errorMsg = error.response?.data?.error || "Login failed. Please try again.";
       toast.error(errorMsg);
@@ -312,7 +316,7 @@ export default function Login() {
 
                 {/* Google Login */}
                 <a
-                  href="http://localhost:8000/api/auth/google"
+                  href={`${import.meta.env.VITE_API_URL || "http://localhost:8000"}/api/auth/google`}
                   className="w-full px-6 py-3 bg-white/10 hover:bg-white/20 border border-white/30 text-white font-semibold rounded-lg transition-all duration-300 flex items-center justify-center gap-2 text-sm"
                 >
                   <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">

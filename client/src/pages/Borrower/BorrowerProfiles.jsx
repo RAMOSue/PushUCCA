@@ -1,7 +1,6 @@
 import { useEffect, useState, useContext } from "react";
 import axios from "axios";
 import toast from "react-hot-toast";
-import { motion, AnimatePresence } from "framer-motion";
 import { Users, User, Mail, BadgeCheck, Download, Printer, FileText, X, ChevronLeft, ChevronRight, Camera, Search, Building } from "lucide-react";
 import { UserContext } from "../../../context/userContext";
 import PageLayout from "../../components/layout/PageLayout";
@@ -9,11 +8,11 @@ import PageLayout from "../../components/layout/PageLayout";
 export default function BorrowerProfiles() {
   const { user } = useContext(UserContext);
   const [profiles, setProfiles] = useState([]);
-  const [selected, setSelected] = useState(null);
-  const [imagePreview, setImagePreview] = useState(null);
-  const [currentIdSide, setCurrentIdSide] = useState("front");
-  const [currentImageType, setCurrentImageType] = useState("");
+  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  const [expandedProfiles, setExpandedProfiles] = useState({});
+  const [selectedDivision, setSelectedDivision] = useState("ALL");
+  const [selectedStatus, setSelectedStatus] = useState("ALL");
 
   useEffect(() => {
     const fetchProfiles = async () => {
@@ -22,12 +21,27 @@ export default function BorrowerProfiles() {
           withCredentials: true,
         });
         setProfiles(data);
+        setLoading(false);
       } catch (err) {
         console.error("Error fetching profiles:", err);
+        setLoading(false);
       }
     };
     fetchProfiles();
   }, []);
+
+  if (loading) {
+    return (
+      <PageLayout>
+        <div className="bg-surface dark:bg-[#171717] min-h-screen flex items-center justify-center px-4">
+          <div className="text-center">
+            <Users className="w-12 h-12 text-primary dark:text-blue-400 mx-auto mb-3 animate-pulse" />
+            <p className="text-on-surface-variant dark:text-gray-400 text-sm">Loading profiles...</p>
+          </div>
+        </div>
+      </PageLayout>
+    );
+  }
 
   if (!user) return <p className="text-center mt-6 text-gray-600">Loading user info...</p>;
 
@@ -90,34 +104,65 @@ export default function BorrowerProfiles() {
   const profilesWithPictures = profiles.filter(p => p.profile_pic_url).length;
   const profilesComplete = profiles.filter(p => p.profile_pic_url && p.id_front_url && p.birth_certificate_url).length;
 
-  // Filter profiles based on search query
-  const filteredProfiles = profiles.filter(p =>
-    p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    p.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (p.department_name && p.department_name.toLowerCase().includes(searchQuery.toLowerCase()))
-  );
+  // Filter profiles based on search query and division
+  const filteredProfiles = profiles.filter(p => {
+    const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (p.email && p.email.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (p.department_name && p.department_name.toLowerCase().includes(searchQuery.toLowerCase()));
+    const matchesDivision = selectedDivision === "ALL" || p.department_name === selectedDivision;
+    return matchesSearch && matchesDivision;
+  });
+
+  // Organize into sections by completion status
+  const getCompletionStatus = (profile) => {
+    const hasPhoto = !!profile.profile_pic_url;
+    const hasIDFront = !!profile.id_front_url;
+    const hasBirthCert = !!profile.birth_certificate_url;
+    const completed = hasPhoto && hasIDFront && hasBirthCert;
+
+    if (completed) return "COMPLETE";
+    if (hasPhoto && hasIDFront) return "MISSING_DOCS";
+    if (hasPhoto) return "PARTIAL";
+    return "NO_PHOTO";
+  };
+
+  // Filter by status
+  const getStatusCounts = () => {
+    return {
+      COMPLETE: filteredProfiles.filter(p => getCompletionStatus(p) === "COMPLETE").length,
+      MISSING_DOCS: filteredProfiles.filter(p => getCompletionStatus(p) === "MISSING_DOCS").length,
+      PARTIAL: filteredProfiles.filter(p => getCompletionStatus(p) === "PARTIAL").length,
+      NO_PHOTO: filteredProfiles.filter(p => getCompletionStatus(p) === "NO_PHOTO").length,
+    };
+  };
+  
+  const statusCounts = getStatusCounts();
+  
+  const statusFilteredProfiles = selectedStatus === "ALL" 
+    ? filteredProfiles 
+    : filteredProfiles.filter(p => getCompletionStatus(p) === selectedStatus);
 
   return (
     <PageLayout>
       <div className="dark:bg-[#171717]">
         {/* ========== Header Section ========== */}
         <div className="px-6 md:px-8 lg:px-12 pt-8 pb-6 dark:bg-[#171717]">
-          <div className="flex items-start justify-between gap-6">
+          <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
             {/* Left Side - Title */}
             <div>
               <h1 className="text-3xl md:text-4xl font-bold text-on-surface dark:text-white mb-2">Borrower Profiles</h1>
-              <p className="text-on-surface-variant dark:text-gray-400 text-sm">Manage and review borrower documentation and profiles</p>
+              <p className="text-on-surface-variant dark:text-gray-400 text-sm">Manage and review borrower documentation</p>
             </div>
 
             {/* Right Side - Summary Pills */}
-            <div className="flex gap-3 flex-wrap items-center justify-end">
-              <div className="px-4 py-2 bg-surface-container-low dark:bg-[#222] rounded-full text-sm font-medium text-on-surface dark:text-white border border-outline-variant/20 dark:border-gray-700 whitespace-nowrap">
+            <div className="flex gap-2 flex-wrap justify-end">
+              <div className="px-3 py-1.5 bg-surface-container-low dark:bg-[#222] rounded-full text-xs font-medium text-on-surface dark:text-white border border-outline-variant/20 dark:border-gray-700 whitespace-nowrap">
                 Total: <span className="font-bold text-primary dark:text-blue-400">{totalBorrowers}</span>
               </div>
-              <div className="px-4 py-2 bg-surface-container-low dark:bg-[#222] rounded-full text-sm font-medium text-on-surface dark:text-white border border-outline-variant/20 dark:border-gray-700 whitespace-nowrap">
+              <div className="px-3 py-1.5 bg-surface-container-low dark:bg-[#222] rounded-full text-xs font-medium text-on-surface dark:text-white border border-outline-variant/20 dark:border-gray-700 whitespace-nowrap">
                 With Photos: <span className="font-bold text-primary dark:text-blue-400">{profilesWithPictures}</span>
               </div>
-              <div className="px-4 py-2 bg-surface-container-low dark:bg-[#222] rounded-full text-sm font-medium text-on-surface dark:text-white border border-outline-variant/20 dark:border-gray-700 whitespace-nowrap">
+              <div className="px-3 py-1.5 bg-surface-container-low dark:bg-[#222] rounded-full text-xs font-medium text-on-surface dark:text-white border border-outline-variant/20 dark:border-gray-700 whitespace-nowrap">
                 Complete: <span className="font-bold text-primary dark:text-blue-400">{profilesComplete}</span>
               </div>
             </div>
@@ -125,409 +170,314 @@ export default function BorrowerProfiles() {
         </div>
 
         {/* ========== Main Content Area ========== */}
-        <div className="px-6 md:px-8 lg:px-12 space-y-6 dark:bg-[#171717]">
-          {/* Full Width Search Bar */}
-          <div className="flex items-center gap-3 bg-surface-container-low dark:bg-[#222] rounded-lg px-4 py-3 border border-transparent dark:border-gray-700 hover:border-primary/20 dark:hover:border-gray-600 focus-within:ring-2 focus-within:ring-primary focus-within:border-transparent transition shadow-sm dark:shadow-black/40">
-            <Search className="w-5 text-on-surface-variant dark:text-gray-400 flex-shrink-0" />
-            <input
-              type="text"
-              placeholder="Search by name, email, or division..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="flex-1 bg-transparent focus:outline-none text-sm text-on-surface dark:text-white dark:placeholder-gray-500"
-            />
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery("")}
-                className="px-2 text-on-surface-variant dark:text-gray-400 hover:text-on-surface dark:hover:text-white transition"
-              >
-                ✕
-              </button>
-            )}
-          </div>
-
-          {/* Borrower Cards Grid */}
-          {filteredProfiles.length === 0 ? (
-            <div className="py-16 text-center">
-              <Users className="w-12 h-12 text-on-surface-variant/30 dark:text-gray-600 mx-auto mb-4" />
-              <p className="text-on-surface-variant dark:text-gray-400 text-sm">{searchQuery ? "No matching profiles" : "No borrower profiles found"}</p>
-              <p className="text-on-surface-variant dark:text-gray-500 text-xs mt-2">{searchQuery ? "Try a different search" : "Get started by creating profiles"}</p>
-            </div>
-          ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredProfiles.map((borrower) => (
-              <motion.div
-                key={borrower.id}
-                whileHover={{ shadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1)" }}
-                className="bg-surface-container-low dark:bg-[#222] rounded-xl border border-transparent dark:border-gray-700 hover:border-primary/20 dark:hover:border-gray-600 transition-all shadow-sm hover:shadow-md dark:shadow-black/40 dark:hover:shadow-black/60 overflow-hidden cursor-pointer h-full flex flex-col"
-                onClick={() => {
-                  setSelected(borrower);
-                  setCurrentIdSide("front");
-                }}
-              >
-                {/* Profile Picture Section */}
-                <div className="relative h-40 bg-primary/10 dark:bg-blue-900/20 overflow-hidden group">
-                  {borrower.profile_pic_url ? (
-                    <img
-                      src={borrower.profile_pic_url}
-                      alt={borrower.name}
-                      className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center">
-                      <User className="w-12 h-12 text-on-surface-variant/30 dark:text-gray-600" />
-                    </div>
-                  )}
-                  {borrower.profile_pic_url && (
-                    <div className="absolute top-2 right-2 bg-primary dark:bg-blue-600 text-on-primary dark:text-white px-2 py-1 rounded-full text-xs font-semibold flex items-center gap-1">
-                      <BadgeCheck className="w-3 h-3" />
-                      Photo
-                    </div>
-                  )}
-                </div>
-
-                {/* Card Content */}
-                <div className="p-4 flex-grow flex flex-col">
-                  {/* Name */}
-                  <h3 className="text-sm font-semibold text-on-surface dark:text-white truncate">{borrower.name}</h3>
-
-                  {/* Email */}
-                  <div className="flex items-center gap-2 mt-2 mb-3">
-                    <Mail className="w-3 h-3 text-on-surface-variant dark:text-gray-400" />
-                    <p className="text-xs text-on-surface-variant dark:text-gray-400 truncate">{borrower.email}</p>
-                  </div>
-
-                  {/* Division/Department Badge */}
-                  {borrower.department_name && (
-                    <div className="flex items-center gap-2 mb-3">
-                      <Building className="w-3 h-3 text-primary dark:text-blue-400" />
-                      <p className="text-xs text-primary dark:text-blue-400 font-medium truncate">{borrower.department_name}</p>
-                    </div>
-                  )}
-
-                  {/* Role Badge */}
-                  <div className="mb-3">
-                    <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold ${
-                      borrower.role === 'admin' ? 'bg-error/15 dark:bg-red-900/30 text-error dark:text-red-400' :
-                      borrower.role === 'staff' ? 'bg-primary/15 dark:bg-blue-900/30 text-primary dark:text-blue-400' :
-                      'bg-surface-container-high dark:bg-[#2a2a2a] text-on-surface dark:text-white'
-                    }`}>
-                      {borrower.role.charAt(0).toUpperCase() + borrower.role.slice(1)}
-                    </span>
-                  </div>
-
-                  {/* Documents Status */}
-                  <div className="space-y-1.5 mb-4 flex-grow text-xs">
-                    <div className="flex items-center gap-2">
-                      <div className={`w-1.5 h-1.5 rounded-full ${borrower.profile_pic_url ? 'bg-primary dark:bg-blue-400' : 'bg-outline-variant/40 dark:bg-gray-600'}`}></div>
-                      <span className={borrower.profile_pic_url ? 'text-on-surface dark:text-white' : 'text-on-surface-variant dark:text-gray-400'}>Profile Photo</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className={`w-1.5 h-1.5 rounded-full ${borrower.birth_certificate_url ? 'bg-primary dark:bg-blue-400' : 'bg-outline-variant/40 dark:bg-gray-600'}`}></div>
-                      <span className={borrower.birth_certificate_url ? 'text-on-surface dark:text-white' : 'text-on-surface-variant dark:text-gray-400'}>Birth Certificate</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className={`w-1.5 h-1.5 rounded-full ${borrower.id_front_url ? 'bg-primary dark:bg-blue-400' : 'bg-outline-variant/40 dark:bg-gray-600'}`}></div>
-                      <span className={borrower.id_front_url ? 'text-on-surface dark:text-white' : 'text-on-surface-variant dark:text-gray-400'}>ID Documents</span>
-                    </div>
-                  </div>
-
-                  {/* View Button */}
+        <div className="px-6 md:px-8 lg:px-12">
+          <div className="max-w-5xl mx-auto space-y-4">
+            {/* Sticky Search Bar */}
+            <div className="sticky top-0 z-10 bg-surface dark:bg-[#171717] py-3">
+              <div className="flex items-center gap-3 bg-surface-container-low dark:bg-[#222] rounded-lg px-3 py-2.5 border border-transparent dark:border-gray-700 hover:border-primary/20 dark:hover:border-blue-400/30 focus-within:ring-2 focus-within:ring-primary dark:focus-within:ring-blue-400 focus-within:border-transparent dark:focus-within:border-transparent transition shadow-sm">
+                <Search className="w-4 h-4 text-on-surface-variant dark:text-gray-400 flex-shrink-0" />
+                <input
+                  type="text"
+                  placeholder="Search by name, email, or department..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="flex-1 bg-transparent focus:outline-none text-xs text-on-surface dark:text-white dark:placeholder-gray-500"
+                />
+                {searchQuery && (
                   <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSelected(borrower);
-                      setCurrentIdSide("front");
-                    }}
-                    className="w-full px-3 py-2 bg-primary dark:bg-blue-600 text-on-primary dark:text-white rounded-lg font-medium hover:bg-primary-container dark:hover:bg-blue-700 transition text-xs"
+                    onClick={() => setSearchQuery("")}
+                    className="px-1.5 text-on-surface-variant dark:text-gray-400 hover:text-on-surface dark:hover:text-white transition"
                   >
-                    View Details
+                    ✕
                   </button>
-                </div>
-              </motion.div>
-            ))}
-          </div>
-        )}
-        </div>
-
-        {/* ============================
-            MODAL: PROFILE DETAILS (ENHANCED)
-        ============================ */}
-        <AnimatePresence>
-          {selected && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 px-3 py-6"
-              onClick={() => setSelected(null)}
-            >
-              <motion.div
-                initial={{ scale: 0.95, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white dark:bg-[#222] rounded-xl shadow-2xl dark:shadow-black/60 w-full max-w-3xl max-h-[90vh] overflow-y-auto"
-              onClick={(e) => e.stopPropagation()}
-            >
-              {/* Header */}
-              <div className="bg-primary dark:bg-blue-600 p-6 flex items-center justify-between sticky top-0 z-10">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-full bg-on-primary/10 dark:bg-white/10 flex items-center justify-center">
-                    {selected.profile_pic_url ? (
-                      <img src={selected.profile_pic_url} alt={selected.name} className="w-full h-full rounded-full object-cover" />
-                    ) : (
-                      <User className="w-6 h-6 text-on-primary dark:text-white" />
-                    )}
-                  </div>
-                  <div>
-                    <h3 className="text-xl font-bold text-on-primary dark:text-white">{selected.name}</h3>
-                    <p className="text-on-primary/80 dark:text-white/70 text-sm">{selected.role.toUpperCase()}</p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setSelected(null)}
-                  className="text-on-primary dark:text-white hover:bg-on-primary/10 dark:hover:bg-white/10 p-2 rounded-lg transition"
-                >
-                  <X className="w-6 h-6" />
-                </button>
+                )}
               </div>
+            </div>
 
-              {/* Content */}
-              <div className="p-6 space-y-6 dark:bg-[#222]">
-                  {/* Basic Info */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="bg-surface-container-low dark:bg-[#2a2a2a] rounded-lg p-4 border border-outline-variant/20 dark:border-gray-700">
-                      <p className="text-xs text-on-surface-variant dark:text-gray-400 font-semibold uppercase mb-2">Email</p>
-                      <p className="text-sm text-on-surface dark:text-white flex items-center gap-2">
-                        <Mail className="w-4 h-4 text-primary dark:text-blue-400" />
-                        {selected.email}
-                      </p>
-                    </div>
-                    <div className="bg-surface-container-low dark:bg-[#2a2a2a] rounded-lg p-4 border border-outline-variant/20 dark:border-gray-700">
-                      <p className="text-xs text-on-surface-variant dark:text-gray-400 font-semibold uppercase mb-2">Role</p>
-                      <p className="text-sm text-on-surface dark:text-white font-semibold">{selected.role.toUpperCase()}</p>
-                    </div>
-                    {selected.department_name && (
-                      <div className="bg-surface-container-low dark:bg-[#2a2a2a] rounded-lg p-4 border border-outline-variant/20 dark:border-gray-700">
-                        <p className="text-xs text-on-surface-variant dark:text-gray-400 font-semibold uppercase mb-2">Division</p>
-                        <p className="text-sm text-on-surface dark:text-white flex items-center gap-2">
-                          <Building className="w-4 h-4 text-primary dark:text-blue-400" />
-                          {selected.department_name}
-                        </p>
-                      </div>
-                    )}
-                    {selected.phone && (
-                      <div className="bg-surface-container-low dark:bg-[#2a2a2a] rounded-lg p-4 border border-outline-variant/20 dark:border-gray-700">
-                        <p className="text-xs text-on-surface-variant dark:text-gray-400 font-semibold uppercase mb-2">Phone</p>
-                        <p className="text-sm text-on-surface dark:text-white">{selected.phone}</p>
-                      </div>
-                    )}
-                  </div>
+            {/* Status Filter Buttons */}
+            <div className="flex gap-2 items-center flex-wrap">
+              {[
+                { key: "ALL", label: "All", color: "text-gray-600 dark:text-gray-400" },
+                { key: "COMPLETE", label: "✅ Complete", color: "text-green-600 dark:text-green-400", count: statusCounts.COMPLETE },
+                { key: "MISSING_DOCS", label: "🟡 Missing Documents", color: "text-yellow-600 dark:text-yellow-400", count: statusCounts.MISSING_DOCS },
+                { key: "PARTIAL", label: "🟠 Partial", color: "text-orange-600 dark:text-orange-400", count: statusCounts.PARTIAL },
+                { key: "NO_PHOTO", label: "⚪ No Photo", color: "text-gray-600 dark:text-gray-400", count: statusCounts.NO_PHOTO },
+              ].map((status) => (
+                <button
+                  key={status.key}
+                  onClick={() => setSelectedStatus(status.key)}
+                  className={`text-xs px-3 py-1.5 rounded-full font-medium transition ${
+                    selectedStatus === status.key
+                      ? "bg-primary dark:bg-blue-600 text-on-primary dark:text-white"
+                      : "bg-surface-container-low dark:bg-[#222] text-on-surface dark:text-white border border-outline-variant/20 dark:border-gray-700 hover:border-primary/30 dark:hover:border-blue-400/30"
+                  }`}
+                >
+                  {status.label} {status.count !== undefined && `(${status.count})`}
+                </button>
+              ))}
+            </div>
 
-                  {/* Documents Section */}
-                  <div className="space-y-4">
-                    <h4 className="font-semibold text-on-surface dark:text-white text-lg">Submitted Documents</h4>
+            {/* Division Filter */}
+            {profiles.length > 0 && (
+              <div className="flex gap-2 items-center flex-wrap">
+                
+                
+                {[...new Set(profiles.filter(p => p.role !== 'admin').map(p => p.department_name).filter(Boolean))].sort().map((division) => (
+                  <button
+                    key={division}
+                    onClick={() => setSelectedDivision(division)}
+                    className={`text-xs px-3 py-1.5 rounded-full font-medium transition ${
+                      selectedDivision === division
+                        ? "bg-primary dark:bg-blue-600 text-on-primary dark:text-white"
+                        : "bg-surface-container-low dark:bg-[#222] text-on-surface dark:text-white border border-outline-variant/20 dark:border-gray-700 hover:border-primary/30 dark:hover:border-blue-400/30"
+                    }`}
+                  >
+                    {division}
+                  </button>
+                ))}
+              </div>
+            )}
 
-                    {/* Profile Picture */}
-                    {selected.profile_pic_url && (
-                      <div className="border border-outline-variant/20 dark:border-gray-700 rounded-lg p-4 bg-surface-container-lowest/30 dark:bg-[#1a1a1a]/50">
-                        <div className="flex items-center justify-between mb-3">
-                          <div className="flex items-center gap-2">
-                            <Camera className="w-5 h-5 text-primary dark:text-blue-400" />
-                            <span className="font-semibold text-on-surface dark:text-white">Profile Photo (1x1)</span>
-                            <BadgeCheck className="w-4 h-4 text-primary dark:text-blue-400" />
-                          </div>
+            {/* Content */}
+            {statusFilteredProfiles.length === 0 ? (
+              <div className="py-16 text-center">
+                <Users className="w-12 h-12 text-on-surface-variant/30 dark:text-gray-600 mx-auto mb-4" />
+                <p className="text-on-surface-variant dark:text-gray-400 text-sm">{searchQuery ? "No matching profiles" : "No borrower profiles found"}</p>
+              </div>
+            ) : (
+              <div className="space-y-2 pb-10">
+                {statusFilteredProfiles.map((borrower) => {
+                  const isExpanded = expandedProfiles[borrower.id];
+                  const hasPhoto = !!borrower.profile_pic_url;
+                  const hasIDFront = !!borrower.id_front_url;
+                  const hasBirthCert = !!borrower.birth_certificate_url;
+
+                  return (
+                    <div
+                      key={borrower.id}
+                      className="bg-surface-container-low dark:bg-[#1a1a1a] rounded-lg border border-outline-variant/20 dark:border-gray-700 shadow-sm hover:shadow-md dark:hover:shadow-black/40 overflow-hidden transition-all duration-200"
+                    >
+                      {/* Row Header - Clickable */}
+                      <button
+                        onClick={() => setExpandedProfiles({
+                          ...expandedProfiles,
+                          [borrower.id]: !isExpanded
+                        })}
+                        className="w-full px-3 py-2 flex items-center gap-2 hover:bg-surface-container-high dark:hover:bg-[#222] transition-colors text-left"
+                      >
+                        {/* Profile Picture Thumbnail */}
+                        <div className="flex-shrink-0 w-10 h-10 rounded-full overflow-hidden border border-primary/30 dark:border-blue-500/30 bg-surface-container-high dark:bg-[#222]">
+                          {borrower.profile_pic_url ? (
+                            <img
+                              src={borrower.profile_pic_url}
+                              alt={borrower.name}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-on-surface-variant dark:text-gray-400">
+                              <User className="w-5 h-5" />
+                            </div>
+                          )}
                         </div>
-                        <img
-                          src={selected.profile_pic_url}
-                          alt="Profile"
-                          className="w-32 h-32 rounded-lg border-2 border-outline-variant/20 dark:border-gray-700 object-cover cursor-pointer hover:border-primary/50 dark:hover:border-blue-600 transition"
-                          onClick={() => {
-                            setImagePreview(selected.profile_pic_url);
-                            setCurrentImageType("1x1");
-                          }}
-                        />
-                      </div>
-                    )}
 
-                    {/* Birth Certificate */}
-                    {selected.birth_certificate_url && (
-                      <div className="border border-outline-variant/20 dark:border-gray-700 rounded-lg p-4 bg-surface-container-lowest/30 dark:bg-[#1a1a1a]/50">
-                        <div className="flex items-center justify-between mb-3">
-                          <div className="flex items-center gap-2">
-                            <FileText className="w-5 h-5 text-primary dark:text-blue-400" />
-                            <span className="font-semibold text-on-surface dark:text-white">Birth Certificate</span>
-                            <BadgeCheck className="w-4 h-4 text-primary dark:text-blue-400" />
+                        {/* Profile Info - Two Lines */}
+                        <div className="flex-1 min-w-0">
+                          {/* Line 1: Name + Status Badges */}
+                          <div className="flex items-center justify-between gap-2 mb-0.5">
+                            <p className="text-xs font-semibold truncate text-on-surface dark:text-white">{borrower.name}</p>
+                            <div className="flex gap-1 flex-shrink-0">
+                              {hasPhoto && <span className="text-[9px] px-1.5 py-0.5 rounded bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 font-medium">Photo</span>}
+                              {hasIDFront && <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 font-medium">ID</span>}
+                              {hasBirthCert && <span className="text-[9px] px-1.5 py-0.5 rounded bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 font-medium">Cert</span>}
+                            </div>
                           </div>
-                        </div>
-                        <img
-                          src={selected.birth_certificate_url}
-                          alt="Birth Certificate"
-                          className="w-48 h-auto rounded-lg border-2 border-outline-variant/20 dark:border-gray-700 object-cover cursor-pointer hover:border-primary/50 dark:hover:border-blue-600 transition"
-                          onClick={() => {
-                            setImagePreview(selected.birth_certificate_url);
-                            setCurrentImageType("BirthCertificate");
-                          }}
-                        />
-                      </div>
-                    )}
 
-                    {/* Class Schedule */}
-                    {selected.class_schedule_url && (
-                      <div className="border border-outline-variant/20 dark:border-gray-700 rounded-lg p-4 bg-surface-container-lowest/30 dark:bg-[#1a1a1a]/50">
-                        <div className="flex items-center justify-between mb-3">
-                          <div className="flex items-center gap-2">
-                            <FileText className="w-5 h-5 text-warning dark:text-orange-400" />
-                            <span className="font-semibold text-on-surface dark:text-white">Class Schedule</span>
-                            <BadgeCheck className="w-4 h-4 text-primary dark:text-blue-400" />
-                          </div>
-                        </div>
-                        <img
-                          src={selected.class_schedule_url}
-                          alt="Class Schedule"
-                          className="w-48 h-auto rounded-lg border-2 border-outline-variant/20 dark:border-gray-700 object-cover cursor-pointer hover:border-primary/50 dark:hover:border-blue-600 transition"
-                          onClick={() => {
-                            setImagePreview(selected.class_schedule_url);
-                            setCurrentImageType("ClassSchedule");
-                          }}
-                        />
-                      </div>
-                    )}
-
-                    {/* ID Documents */}
-                    {(selected.id_front_url || selected.id_back_url) && (
-                      <div className="border border-outline-variant/20 dark:border-gray-700 rounded-lg p-4 bg-surface-container-lowest/30 dark:bg-[#1a1a1a]/50">
-                        <div className="flex items-center justify-between mb-3">
-                          <div className="flex items-center gap-2">
-                            <FileText className="w-5 h-5 text-primary dark:text-blue-400" />
-                            <span className="font-semibold text-on-surface dark:text-white">ID Documents</span>
-                            {selected.id_front_url && selected.id_back_url && (
-                              <BadgeCheck className="w-4 h-4 text-primary dark:text-blue-400" />
+                          {/* Line 2: Role + Department */}
+                          <div className="flex items-center gap-2 text-[10px] text-on-surface-variant dark:text-gray-400">
+                            {borrower.role && (
+                              <>
+                                <span className="font-medium text-on-surface dark:text-white">{borrower.role.toUpperCase()}</span>
+                                <span>•</span>
+                              </>
+                            )}
+                            {borrower.department_name && (
+                              <span className="truncate">{borrower.department_name}</span>
                             )}
                           </div>
                         </div>
 
-                        {/* ID Navigation Tabs */}
-                        <div className="flex gap-2 mb-4">
-                          {selected.id_front_url && (
-                            <button
-                              onClick={() => setCurrentIdSide("front")}
-                              className={`flex-1 px-4 py-2 rounded-lg font-medium transition ${
-                                currentIdSide === "front"
-                                  ? "bg-primary dark:bg-blue-600 text-on-primary dark:text-white"
-                                  : "bg-surface-container-low dark:bg-[#2a2a2a] text-on-surface dark:text-white border border-outline-variant/20 dark:border-gray-700 hover:bg-surface-container-high dark:hover:bg-[#333]"
-                              }`}
-                            >
-                              <ChevronLeft className="w-4 h-4 inline mr-1" />
-                              Front
-                            </button>
-                          )}
-                          {selected.id_back_url && (
-                            <button
-                              onClick={() => setCurrentIdSide("back")}
-                              className={`flex-1 px-4 py-2 rounded-lg font-medium transition ${
-                                currentIdSide === "back"
-                                  ? "bg-primary dark:bg-blue-600 text-on-primary dark:text-white"
-                                  : "bg-surface-container-low dark:bg-[#2a2a2a] text-on-surface dark:text-white border border-outline-variant/20 dark:border-gray-700 hover:bg-surface-container-high dark:hover:bg-[#333]"
-                              }`}
-                            >
-                              Back
-                              <ChevronRight className="w-4 h-4 inline ml-1" />
-                            </button>
-                          )}
-                        </div>
-
-                        {/* ID Image */}
-                        <img
-                          src={
-                            currentIdSide === "front"
-                              ? selected.id_front_url
-                              : selected.id_back_url
-                          }
-                          alt="ID"
-                          className="w-64 h-auto rounded-lg border-2 border-outline-variant/20 dark:border-gray-700 object-cover cursor-pointer hover:border-primary/50 dark:hover:border-blue-600 transition"
-                          onClick={() => {
-                            setImagePreview(
-                              currentIdSide === "front"
-                                ? selected.id_front_url
-                                : selected.id_back_url
-                            );
-                            setCurrentImageType(
-                              currentIdSide === "front" ? "ID_Front" : "ID_Back"
-                            );
-                          }}
+                        {/* Expand Chevron */}
+                        <ChevronRight
+                          className={`w-4 h-4 text-on-surface-variant dark:text-gray-500 flex-shrink-0 transition-transform ${isExpanded ? 'rotate-90' : ''}`}
                         />
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </motion.div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+                      </button>
 
-        {/* ============================
-            MODAL: IMAGE PREVIEW (ENHANCED)
-        ============================ */}
-        <AnimatePresence>
-          {imagePreview && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 bg-black/90 dark:bg-black/95 flex flex-col items-center justify-center z-50 px-2 py-4"
-              onClick={() => setImagePreview(null)}
-            >
-              <button
-                className="absolute top-4 right-6 text-white dark:text-gray-300 hover:text-gray-400 dark:hover:text-gray-200 transition"
-                onClick={() => setImagePreview(null)}
-              >
-                <X className="w-8 h-8" />
-              </button>
+                      {/* Expanded Details */}
+                      {isExpanded && (
+                        <div className="border-t border-outline-variant/20 dark:border-gray-700 px-3 py-3 bg-surface-container-lowest/50 dark:bg-[#1a1a1a]/50 text-xs space-y-3">
+                          {/* Personal Info */}
+                          <div className="space-y-2">
+                            <p className="text-[10px] text-on-surface-variant dark:text-gray-500 uppercase font-medium">Personal Info</p>
+                            {borrower.phone && (
+                              <p className="text-sm text-on-surface dark:text-white">📞 <span className="font-medium">{borrower.phone}</span></p>
+                            )}
+                          </div>
 
-              <motion.img
-                initial={{ scale: 0.9, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                src={imagePreview}
-                alt="Preview"
-                className="max-w-[95%] sm:max-w-[90%] max-h-[70vh] rounded-lg shadow-2xl dark:shadow-black/80 object-contain"
-                onClick={(e) => e.stopPropagation()}
-              />
+                          {/* Documents Section */}
+                          <div className="space-y-2">
+                            <p className="text-[10px] text-on-surface-variant dark:text-gray-500 uppercase font-medium">Documents</p>
+                            
+                            <div className="grid grid-cols-4 gap-2">
+                              {/* Class Schedule */}
+                              <div className="bg-surface-container-high dark:bg-[#2a2a2a] rounded-lg p-2 border border-outline-variant/20 dark:border-gray-700">
+                                <div className="flex items-center justify-between gap-1 mb-2">
+                                  <p className="text-xs font-medium text-on-surface dark:text-white">Schedule</p>
+                                  <span className={`text-[9px] px-1.5 py-0.5 rounded font-medium ${
+                                    borrower.class_schedule_url
+                                      ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400' 
+                                      : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-400'
+                                  }`}>
+                                    {borrower.class_schedule_url ? '✓' : '✕'}
+                                  </span>
+                                </div>
+                                {borrower.class_schedule_url && (
+                                  <div className="space-y-1">
+                                    <img src={borrower.class_schedule_url} alt="Class Schedule" className="w-full h-16 rounded object-cover border border-outline-variant/30 dark:border-gray-600" />
+                                    <div className="flex gap-0.5">
+                                      <button
+                                        onClick={() => handleDownload(borrower.class_schedule_url, borrower.name, "Class-Schedule")}
+                                        className="flex-1 p-1 bg-primary/10 dark:bg-blue-900/30 text-primary dark:text-blue-400 rounded hover:bg-primary/20 dark:hover:bg-blue-900/50 transition"
+                                        title="Download"
+                                      >
+                                        <Download className="w-3 h-3" />
+                                      </button>
+                                      <button
+                                        onClick={() => handlePrint(borrower.class_schedule_url)}
+                                        className="flex-1 p-1 bg-primary/10 dark:bg-blue-900/30 text-primary dark:text-blue-400 rounded hover:bg-primary/20 dark:hover:bg-blue-900/50 transition"
+                                        title="Print"
+                                      >
+                                        <Printer className="w-3 h-3" />
+                                      </button>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
 
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="flex flex-col sm:flex-row gap-3 mt-6"
-              >
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleDownload(imagePreview, selected?.name, currentImageType);
-                  }}
-                  className="px-6 py-3 bg-primary dark:bg-blue-600 text-on-primary dark:text-white rounded-lg hover:bg-primary-container dark:hover:bg-blue-700 transition font-medium flex items-center gap-2"
-                >
-                  <Download className="w-5 h-5" />
-                  Download
-                </button>
+                              {/* ID Front */}
+                              <div className="bg-surface-container-high dark:bg-[#2a2a2a] rounded-lg p-2 border border-outline-variant/20 dark:border-gray-700">
+                                <div className="flex items-center justify-between gap-1 mb-2">
+                                  <p className="text-xs font-medium text-on-surface dark:text-white">ID Front</p>
+                                  <span className={`text-[9px] px-1.5 py-0.5 rounded font-medium ${
+                                    borrower.id_front_url
+                                      ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400' 
+                                      : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-400'
+                                  }`}>
+                                    {borrower.id_front_url ? '✓' : '✕'}
+                                  </span>
+                                </div>
+                                {borrower.id_front_url && (
+                                  <div className="space-y-1">
+                                    <img src={borrower.id_front_url} alt="ID Front" className="w-full h-16 rounded object-cover border border-outline-variant/30 dark:border-gray-600" />
+                                    <div className="flex gap-0.5">
+                                      <button
+                                        onClick={() => handleDownload(borrower.id_front_url, borrower.name, "ID-Front")}
+                                        className="flex-1 p-1 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 rounded hover:bg-blue-100 dark:hover:bg-blue-900/40 transition"
+                                        title="Download"
+                                      >
+                                        <Download className="w-3 h-3" />
+                                      </button>
+                                      <button
+                                        onClick={() => handlePrint(borrower.id_front_url)}
+                                        className="flex-1 p-1 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 rounded hover:bg-blue-100 dark:hover:bg-blue-900/40 transition"
+                                        title="Print"
+                                      >
+                                        <Printer className="w-3 h-3" />
+                                      </button>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
 
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handlePrint(imagePreview);
-                  }}
-                  className="px-6 py-3 bg-surface-container-high dark:bg-[#2a2a2a] text-on-surface dark:text-white border border-outline-variant/20 dark:border-gray-700 rounded-lg hover:bg-surface-container-highest dark:hover:bg-[#333] transition font-medium flex items-center gap-2"
-                >
-                  <Printer className="w-5 h-5" />
-                  Print
-                </button>
-              </motion.div>
+                              {/* ID Back */}
+                              <div className="bg-surface-container-high dark:bg-[#2a2a2a] rounded-lg p-2 border border-outline-variant/20 dark:border-gray-700">
+                                <div className="flex items-center justify-between gap-1 mb-2">
+                                  <p className="text-xs font-medium text-on-surface dark:text-white">ID Back</p>
+                                  <span className={`text-[9px] px-1.5 py-0.5 rounded font-medium ${
+                                    borrower.id_back_url
+                                      ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400' 
+                                      : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-400'
+                                  }`}>
+                                    {borrower.id_back_url ? '✓' : '✕'}
+                                  </span>
+                                </div>
+                                {borrower.id_back_url && (
+                                  <div className="space-y-1">
+                                    <img src={borrower.id_back_url} alt="ID Back" className="w-full h-16 rounded object-cover border border-outline-variant/30 dark:border-gray-600" />
+                                    <div className="flex gap-0.5">
+                                      <button
+                                        onClick={() => handleDownload(borrower.id_back_url, borrower.name, "ID-Back")}
+                                        className="flex-1 p-1 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 rounded hover:bg-blue-100 dark:hover:bg-blue-900/40 transition"
+                                        title="Download"
+                                      >
+                                        <Download className="w-3 h-3" />
+                                      </button>
+                                      <button
+                                        onClick={() => handlePrint(borrower.id_back_url)}
+                                        className="flex-1 p-1 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 rounded hover:bg-blue-100 dark:hover:bg-blue-900/40 transition"
+                                        title="Print"
+                                      >
+                                        <Printer className="w-3 h-3" />
+                                      </button>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
 
-              <p className="text-gray-300 dark:text-gray-400 mt-4 text-sm italic text-center">
-                Click anywhere to close
-              </p>
-            </motion.div>
-          )}
-        </AnimatePresence>
+                              {/* Birth Certificate */}
+                              <div className="bg-surface-container-high dark:bg-[#2a2a2a] rounded-lg p-2 border border-outline-variant/20 dark:border-gray-700">
+                                <div className="flex items-center justify-between gap-1 mb-2">
+                                  <p className="text-xs font-medium text-on-surface dark:text-white">Cert</p>
+                                  <span className={`text-[9px] px-1.5 py-0.5 rounded font-medium ${
+                                    borrower.birth_certificate_url
+                                      ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400' 
+                                      : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-400'
+                                  }`}>
+                                    {borrower.birth_certificate_url ? '✓' : '✕'}
+                                  </span>
+                                </div>
+                                {borrower.birth_certificate_url && (
+                                  <div className="space-y-1">
+                                    <img src={borrower.birth_certificate_url} alt="Birth Certificate" className="w-full h-16 rounded object-cover border border-outline-variant/30 dark:border-gray-600" />
+                                    <div className="flex gap-0.5">
+                                      <button
+                                        onClick={() => handleDownload(borrower.birth_certificate_url, borrower.name, "Birth-Certificate")}
+                                        className="flex-1 p-1 bg-purple/10 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 rounded hover:bg-purple/20 dark:hover:bg-purple-900/50 transition"
+                                        title="Download"
+                                      >
+                                        <Download className="w-3 h-3" />
+                                      </button>
+                                      <button
+                                        onClick={() => handlePrint(borrower.birth_certificate_url)}
+                                        className="flex-1 p-1 bg-purple/10 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 rounded hover:bg-purple/20 dark:hover:bg-purple-900/50 transition"
+                                        title="Print"
+                                      >
+                                        <Printer className="w-3 h-3" />
+                                      </button>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </PageLayout>
   );

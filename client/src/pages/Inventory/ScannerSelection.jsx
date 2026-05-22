@@ -1,7 +1,7 @@
 import React, { useContext } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { QrCode, Camera } from "lucide-react";
-import { SidebarContext } from "../../../context/SidebarContext";
+import { SidebarContext } from "../../context/SidebarContext";
 
 export default function ScannerSelection() {
   const navigate = useNavigate();
@@ -36,7 +36,7 @@ export default function ScannerSelection() {
   };
 
   return (
-    <div className="fixed bottom-6 right-6 flex flex-col gap-4 z-50">
+    <div className="hidden md:flex fixed bottom-6 right-6 flex-col gap-4 z-50">
       {/* QR Code Scanner Button */}
       <button
         onClick={handleQRScannerClick}

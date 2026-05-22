@@ -7,8 +7,9 @@ import tokenManager from "../src/utils/tokenManager"; // ✅ Multi-user testing
 
 export const UserContext = createContext({});
 
-// ✅ Global axios defaults
-axios.defaults.baseURL = "http://localhost:8000";
+// ✅ Global axios defaults - use environment variable for production
+const apiURL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+axios.defaults.baseURL = apiURL;
 axios.defaults.withCredentials = true;
 
 /**
@@ -24,6 +25,23 @@ axios.interceptors.request.use(
     return config;
   },
   (error) => Promise.reject(error)
+);
+
+/**
+ * 🔧 Axios response interceptor to handle 401 errors gracefully
+ * During OAuth redirect, some 401 errors are expected and transient
+ */
+axios.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    // ✅ FIX: Don't auto-logout on 401 during component initialization
+    // Components should handle 401 gracefully instead of crashing
+    if (error.response?.status === 401) {
+      // Log but don't throw - let the component handle it
+      console.debug("🔐 [Axios] Received 401 - component will handle auth retry");
+    }
+    return Promise.reject(error);
+  }
 );
 
 export function UserContextProvider({ children }) {
@@ -61,7 +79,7 @@ export function UserContextProvider({ children }) {
         }
       } catch (err) {
         if (err.response?.status === 401 || err.response?.status === 404) {
-          // Expected for logged-out users or missing profiles - don't log as error
+          // ✅ Expected for logged-out users - silently clear session without logging
           setUser(null);
           localStorage.removeItem(INACTIVITY_CONFIG.SESSION_KEY);
         } else {
@@ -77,83 +95,117 @@ export function UserContextProvider({ children }) {
   // Also listen for changes to active user in tokenManager (multi-user support)
   useEffect(() => {
     const fetchProfile = async () => {
-      try {
-        // ✅ Check if there's an active token in tokenManager (multi-user testing)
-        const activeTokenUser = tokenManager.getActiveUser();
-        if (activeTokenUser) {
-          console.log(`✅ [Profile] Using active user from tokenManager: ${activeTokenUser.email}`);
-          setUser(activeTokenUser);
-          setLoading(false);
-          return;
-        }
+      let retries = 0;
+      const MAX_RETRIES = 3;
+      const RETRY_DELAY = 500; // 500ms between retries
 
-        // Otherwise, fetch from API
-        const { data } = await axios.get("/api/profiles/me", {
-          withCredentials: true,
-        });
-
-        if (data && data.id) {
-          const userData = {
-            ...data,
-            id: data.id ? parseInt(data.id, 10) : null,
-          };
-          setUser(userData);
-
-          // ✅ Store session token for persistence
-          if (INACTIVITY_CONFIG.PERSIST_SESSION) {
-            localStorage.setItem(
-              INACTIVITY_CONFIG.SESSION_KEY,
-              JSON.stringify({
-                userId: userData.id,
-                email: userData.email,
-                role: userData.role,
-                timestamp: Date.now(),
-              })
-            );
+      const attemptFetch = async () => {
+        try {
+          // ✅ Check if there's an active token in tokenManager (multi-user testing)
+          const activeTokenUser = tokenManager.getActiveUser();
+          if (activeTokenUser) {
+            console.log(`✅ [Profile] Using active user from tokenManager: ${activeTokenUser.email}`);
+            setUser(activeTokenUser);
+            setLoading(false);
+            return true; // Success
           }
 
-          // Initialize notifications service and auto-subscribe on login
-          try {
-            // Init service worker
-            await notificationService.init();
-            // Request permission and subscribe (will only subscribe if granted)
-            if (Notification.permission === 'granted') {
-              await notificationService.subscribe(data.id);
-              // After subscribing, ask server to resend any pending notifications for this user
-              try {
-                const pendingResp = await notificationService.resendPending();
-                console.log('🔔 Pending notifications resend result:', pendingResp);
-                // Notify any UI listeners to refresh notification lists
-                try { window.dispatchEvent(new Event('notifications:updated')); } catch(e){}
-              } catch(e) {
-                console.warn('⚠️ Failed to fetch pending notifications after subscribe:', e?.message || e);
-              }
-            } else {
-              // Request permission once (non-blocking)
-              notificationService.requestPermission(data.id);
+          // Otherwise, fetch from API
+          console.log(`⏳ [Profile] Fetching profile from API (attempt ${retries + 1}/${MAX_RETRIES + 1})...`);
+          const { data } = await axios.get("/api/profiles/me", {
+            withCredentials: true,
+          });
+
+          if (data && data.id) {
+            const userData = {
+              ...data,
+              id: data.id ? parseInt(data.id, 10) : null,
+            };
+            setUser(userData);
+            console.log(`✅ [Profile] Profile loaded successfully: ${userData.email}`);
+
+            // ✅ Store session token for persistence
+            if (INACTIVITY_CONFIG.PERSIST_SESSION) {
+              localStorage.setItem(
+                INACTIVITY_CONFIG.SESSION_KEY,
+                JSON.stringify({
+                  userId: userData.id,
+                  email: userData.email,
+                  role: userData.role,
+                  timestamp: Date.now(),
+                })
+              );
             }
-          } catch (e) {
-            console.warn('Notification init error:', e.message || e);
+
+            // Initialize notifications service and auto-subscribe on login
+            try {
+              // Init service worker
+              await notificationService.init();
+              // Request permission and subscribe (will only subscribe if granted)
+              if (Notification.permission === 'granted') {
+                await notificationService.subscribe(data.id);
+                // After subscribing, ask server to resend any pending notifications for this user
+                try {
+                  const pendingResp = await notificationService.resendPending();
+                  console.log('🔔 Pending notifications resend result:', pendingResp);
+                  // Notify any UI listeners to refresh notification lists
+                  try { window.dispatchEvent(new Event('notifications:updated')); } catch(e){}
+                } catch(e) {
+                  console.warn('⚠️ Failed to fetch pending notifications after subscribe:', e?.message || e);
+                }
+              } else {
+                // Request permission once (non-blocking)
+                notificationService.requestPermission(data.id);
+              }
+            } catch (e) {
+              console.warn('Notification init error:', e.message || e);
+            }
+
+            return true; // Success
+          } else {
+            console.warn('⚠️ [Profile] No user data in response');
+            setUser(null);
+            if (INACTIVITY_CONFIG.PERSIST_SESSION) {
+              localStorage.removeItem(INACTIVITY_CONFIG.SESSION_KEY);
+            }
+            return true; // Success but no user
           }
-        } else {
-          setUser(null);
-          if (INACTIVITY_CONFIG.PERSIST_SESSION) {
-            localStorage.removeItem(INACTIVITY_CONFIG.SESSION_KEY);
+        } catch (err) {
+          if (err.response?.status === 401 || err.response?.status === 404) {
+            // ✅ 401/404 errors might be temporary during OAuth redirect
+            console.warn(`⏳ [Profile] Auth error ${err.response?.status}: ${err.response?.data?.error || 'Unknown error'}`);
+            if (retries < MAX_RETRIES) {
+              console.log(`⏳ [Profile] Auth may not be ready yet, retrying... (${retries + 1}/${MAX_RETRIES})`);
+              return false; // Retry
+            } else {
+              // After all retries, assume user is not authenticated
+              console.log("✅ [Profile] No user authenticated (401 after all retries)");
+              setUser(null);
+              if (INACTIVITY_CONFIG.PERSIST_SESSION) {
+                localStorage.removeItem(INACTIVITY_CONFIG.SESSION_KEY);
+              }
+              return true; // Stop retrying
+            }
+          } else {
+            console.error("❌ [Profile] Unexpected error:", err.response?.data || err.message);
+            return true; // Stop retrying on other errors
           }
         }
-      } catch (err) {
-        if (err.response?.status === 401 || err.response?.status === 404) {
-          // Expected for logged-out users or missing profiles - don't log as error
-          setUser(null);
-          if (INACTIVITY_CONFIG.PERSIST_SESSION) {
-            localStorage.removeItem(INACTIVITY_CONFIG.SESSION_KEY);
-          }
-        } else {
-          console.error("Profile fetch error:", err.response?.data || err.message);
+      };
+
+      // Retry loop
+      while (retries <= MAX_RETRIES) {
+        const success = await attemptFetch();
+        if (success) break;
+        
+        retries++;
+        if (retries <= MAX_RETRIES) {
+          console.log(`⏳ [Profile] Waiting ${RETRY_DELAY}ms before retry...`);
+          await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
         }
-      } finally {
-        setLoading(false);
       }
+
+      setLoading(false);
     };
 
     fetchProfile();

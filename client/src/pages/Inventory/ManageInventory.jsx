@@ -4,7 +4,7 @@ import axios from "axios";
 import toast from "react-hot-toast";
 import UnitModal from "./UnitModal";
 import PageLayout from "../../components/layout/PageLayout";
-import { Package, GridIcon, Music, AlertTriangle, Search, Filter, Plus, QrCode } from "lucide-react";
+import { Package, GridIcon, Music, AlertTriangle, Search, Filter, Plus, QrCode, ChevronRight, ChevronDown, Edit2, Trash2 } from "lucide-react";
 
 /* -------------------------------------------------------------- */
 /* Static Dropdown Option Values                                  */
@@ -132,6 +132,7 @@ export default function ManageInventory() {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterCategory, setFilterCategory] = useState(null);
   const [formPanelOpen, setFormPanelOpen] = useState(false);
+  const [expandedItems, setExpandedItems] = useState({});
 
   /* ------------------------------------------------------------ */
   const rebuildIndigenousAndDanceMaps = useCallback((data) => {
@@ -603,8 +604,8 @@ export default function ManageInventory() {
       <div className="dark:bg-[#171717]">
         {/* Header Section */}
         <div className="px-6 md:px-8 lg:px-12 pt-8 pb-6">
-          <h1 className="text-3xl md:text-4xl font-bold text-on-surface dark:text-white mb-2">Inventory Catalog</h1>
-          <p className="text-on-surface-variant dark:text-gray-400 text-sm">Manage and organize inventory items across departments</p>
+          <h1 className="text-3xl md:text-4xl font-bold text-on-surface dark:text-white mb-2">Manage Inventory</h1>
+          <p className="text-on-surface-variant dark:text-gray-400 text-sm"> You’re doing a great job keeping everything organized!</p>
         </div>
 
         {/* Main Content Area */}
@@ -661,17 +662,20 @@ export default function ManageInventory() {
             </div>
           </div>
 
-          {/* Inventory Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {/* Inventory List - Row Layout */}
+          <div className="max-w-5xl mx-auto">
             {filteredItems.length === 0 ? (
-              <div className="col-span-full py-16 text-center">
+              <div className="py-16 text-center">
                 <Package className="w-12 h-12 text-on-surface-variant/30 dark:text-gray-700 mx-auto mb-4" />
                 <p className="text-on-surface-variant dark:text-gray-400">
                   {searchQuery ? "No items match your search" : "No items found"}
                 </p>
               </div>
             ) : (
-                filteredItems.map((item) => {
+              <div className="space-y-2">
+                {filteredItems.map((item) => {
+                  const isExpanded = expandedItems[item.uuid];
+                  const itemImage = item.image_url?.startsWith('http') ? item.image_url : item.image_url ? `http://localhost:8000${item.image_url}` : null;
                   const totalQty = item.category === "costume" && item.garment_type?.toLowerCase() !== "accessory"
                     ? (item.qty_small || 0) + (item.qty_medium || 0) + (item.qty_large || 0)
                     : item.quantity || 0;
@@ -679,121 +683,147 @@ export default function ManageInventory() {
 
                   return (
                     <div
-                      key={item.id}
-                      className="group bg-surface-container-low dark:bg-[#222] rounded-xl overflow-hidden border border-transparent dark:border-gray-700 hover:border-primary/20 dark:hover:border-blue-600 transition-all shadow-sm dark:shadow-black/40 hover:shadow-md dark:hover:shadow-black/60 h-full flex flex-col"
+                      key={item.uuid}
+                      className="bg-surface-container-low dark:bg-[#1a1a1a] rounded-lg border border-outline-variant/20 dark:border-gray-700 shadow-sm hover:shadow-md dark:hover:shadow-black/40 overflow-hidden transition-all duration-200"
                     >
-                      {/* Image */}
-                      <div className="relative h-48 overflow-hidden bg-surface-container-high dark:bg-[#1a1a1a]">
-                        {item.image_url ? (
-                          <img
-                            src={item.image_url}
-                            alt={item.name}
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center bg-surface-container-high dark:bg-[#1a1a1a]">
-                            {item.category === 'instrument' ? (
-                              <Music className="w-12 text-outline/30 dark:text-gray-700" />
-                            ) : (
-                              <Package className="w-12 text-outline/30 dark:text-gray-700" />
-                            )}
-                          </div>
-                        )}
-                        
-                        {/* Badges */}
-                        <div className="absolute top-3 left-3 flex gap-1">
-                          <span className="px-2 py-0.5 bg-primary/80 dark:bg-blue-600 backdrop-blur text-white text-[9px] font-bold uppercase tracking-wider rounded">
-                            {item.category}
-                          </span>
-                          <span className={`px-2 py-0.5 backdrop-blur text-[9px] font-bold uppercase tracking-wider rounded ${
-                            status === 'In Stock'
-                              ? 'bg-green-500/80 dark:bg-green-900/60 text-white'
-                              : 'bg-secondary-fixed/80 dark:bg-orange-900/60 text-on-secondary-fixed dark:text-orange-200'
-                          }`}>
-                            {status}
-                          </span>
-                        </div>
-                        
-                        {/* QR Icon */}
-                        <div className="absolute bottom-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button
-                            onClick={() => {
-                              setSelectedItemForQR(item);
-                              setUnitModalOpen(true);
-                            }}
-                            className="w-8 h-8 bg-surface-container-lowest dark:bg-[#222] text-primary dark:text-blue-400 rounded-full shadow-lg dark:shadow-black/40 flex items-center justify-center hover:bg-primary dark:hover:bg-blue-600 hover:text-white dark:hover:text-white transition-colors"
-                          >
-                            <QrCode className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Content */}
-                      <div className="p-4 flex-grow flex flex-col justify-between">
-                        <div>
-                          <p className="text-xs text-on-surface-variant dark:text-gray-500 uppercase tracking-wide mb-1">
-                            {item.category || 'Item'}
-                          </p>
-                          <h3 className="text-sm font-bold text-on-surface dark:text-white line-clamp-2 mb-2">{item.name}</h3>
-                          {item.indigenous_dance && (
-                            <p className="text-[10px] text-on-surface-variant dark:text-gray-400 mt-1">{item.indigenous_dance}</p>
+                      {/* Row Header - Clickable */}
+                      <button
+                        onClick={() => setExpandedItems({
+                          ...expandedItems,
+                          [item.uuid]: !isExpanded
+                        })}
+                        className="w-full px-3 py-2 flex items-center gap-2 hover:bg-surface-container-high dark:hover:bg-[#222] transition-colors text-left"
+                      >
+                        {/* Item Thumbnail */}
+                        <div className="flex-shrink-0 w-10 h-10 rounded-lg overflow-hidden border border-primary/30 dark:border-blue-500/30 bg-surface-container-high dark:bg-[#222]">
+                          {itemImage ? (
+                            <img src={itemImage} alt={item.name} className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-on-surface-variant dark:text-gray-400">
+                              {item.category === 'instrument' ? (
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" /></svg>
+                              ) : (
+                                <Package className="w-5 h-5" />
+                              )}
+                            </div>
                           )}
                         </div>
 
-                        {/* Footer */}
-                        <div className="pt-4 border-t border-outline-variant/10 space-y-3">
-                          {/* Quantity Display */}
-                          {item.category === "costume" && item.garment_type?.toLowerCase() !== "accessory" ? (
-                            <div className="flex flex-wrap gap-1.5">
-                              {item.qty_small > 0 && (
-                                <span className="px-2.5 py-1 bg-primary/10 dark:bg-blue-900/30 border border-primary/30 dark:border-blue-700 rounded-md text-[9px] font-semibold text-primary dark:text-blue-400 uppercase tracking-wide">
-                                  Small: {item.qty_small}
-                                </span>
-                              )}
-                              {item.qty_medium > 0 && (
-                                <span className="px-2.5 py-1 bg-secondary/10 dark:bg-purple-900/30 border border-secondary/30 dark:border-purple-700 rounded-md text-[9px] font-semibold text-secondary dark:text-purple-400 uppercase tracking-wide">
-                                  Medium: {item.qty_medium}
-                                </span>
-                              )}
-                              {item.qty_large > 0 && (
-                                <span className="px-2.5 py-1 bg-tertiary/10 dark:bg-teal-900/30 border border-tertiary/30 dark:border-teal-700 rounded-md text-[9px] font-semibold text-tertiary dark:text-teal-400 uppercase tracking-wide">
-                                  Large: {item.qty_large}
-                                </span>
-                              )}
-                              <span className="px-2.5 py-1 bg-surface-container-high dark:bg-[#2a2a2a] border border-outline-variant/20 dark:border-gray-700 rounded-md text-[9px] font-bold text-on-surface dark:text-white uppercase tracking-wide">
-                                Total: {totalQty}
+                        {/* Item Info - Two Lines */}
+                        <div className="flex-1 min-w-0">
+                          {/* Line 1: Name + Status Badges */}
+                          <div className="flex items-center justify-between gap-2 mb-0.5">
+                            <p className="text-xs font-semibold truncate text-on-surface dark:text-white">{item.name}</p>
+                            <div className="flex gap-1 flex-shrink-0">
+                              <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 font-medium">
+                                {item.category?.charAt(0).toUpperCase() + item.category?.slice(1)}
+                              </span>
+                              <span className={`text-[9px] px-1.5 py-0.5 rounded font-medium ${
+                                status === 'In Stock'
+                                  ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400'
+                                  : 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400'
+                              }`}>
+                                {status}
                               </span>
                             </div>
-                          ) : (
-                            <span className="inline-block px-3 py-1.5 bg-surface-container-high dark:bg-[#2a2a2a] border border-outline-variant/20 dark:border-gray-700 rounded-md text-[10px] font-bold text-on-surface dark:text-white uppercase tracking-wide">
-                              Quantity in Stock: {totalQty}
-                            </span>
-                          )}
+                          </div>
 
-                          {/* Action Buttons */}
-                          <div className="flex gap-2">
+                          {/* Line 2: Dance + Qty Info */}
+                          <div className="flex items-center gap-2 text-[10px] text-on-surface-variant dark:text-gray-400">
+                            {item.indigenous_dance && (
+                              <>
+                                <span className="font-medium text-on-surface dark:text-white">{item.indigenous_dance}</span>
+                                <span>•</span>
+                              </>
+                            )}
+                            {item.category === "costume" && item.garment_type?.toLowerCase() !== "accessory" ? (
+                              <span className="truncate">
+                                {item.qty_small > 0 ? `S:${item.qty_small} ` : ''}
+                                {item.qty_medium > 0 ? `M:${item.qty_medium} ` : ''}
+                                {item.qty_large > 0 ? `L:${item.qty_large} ` : ''}
+                                Total: {totalQty}
+                              </span>
+                            ) : (
+                              <span>Qty: {totalQty}</span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Expand Chevron */}
+                        <ChevronRight
+                          className={`w-4 h-4 text-on-surface-variant dark:text-gray-500 flex-shrink-0 transition-transform ${isExpanded ? 'rotate-90' : ''}`}
+                        />
+                      </button>
+
+                      {/* Expanded Details */}
+                      {isExpanded && (
+                        <div className="border-t border-outline-variant/20 dark:border-gray-700 px-3 py-3 bg-surface-container-lowest/50 dark:bg-[#1a1a1a]/50 text-xs space-y-3">
+                          {/* Item Details */}
+                          <div className="space-y-2">
+                            <p className="text-[10px] text-on-surface-variant dark:text-gray-500 uppercase font-medium">Details</p>
+                            {item.indigenous_group && (
+                              <p className="text-sm text-on-surface dark:text-white">Group: <span className="font-medium">{item.indigenous_group}</span></p>
+                            )}
+                            {item.region && (
+                              <p className="text-sm text-on-surface dark:text-white">Region: <span className="font-medium">{item.region}</span></p>
+                            )}
+                            {item.garment_type && (
+                              <p className="text-sm text-on-surface dark:text-white">Type: <span className="font-medium">{item.garment_type}</span></p>
+                            )}
+                            {item.gender && (
+                              <p className="text-sm text-on-surface dark:text-white">Gender: <span className="font-medium">{item.gender}</span></p>
+                            )}
+                            {item.color && (
+                              <p className="text-sm text-on-surface dark:text-white">Color: <span className="font-medium">{item.color}</span></p>
+                            )}
+                            {item.date_acquired && (
+                              <p className="text-sm text-on-surface dark:text-white">Acquired: <span className="font-medium">{item.date_acquired}</span></p>
+                            )}
+                            {item.description && (
+                              <p className="text-sm text-on-surface dark:text-white">Notes: <span className="font-medium">{item.description}</span></p>
+                            )}
+                            {item.instrument_classification && (
+                              <p className="text-sm text-on-surface dark:text-white">Classification: <span className="font-medium">{item.instrument_classification}</span></p>
+                            )}
+                            {item.instrument_type && (
+                              <p className="text-sm text-on-surface dark:text-white">Instrument Type: <span className="font-medium">{item.instrument_type}</span></p>
+                            )}
+                          </div>
+
+                          {/* Action Buttons - Icon Only */}
+                          <div className="flex gap-2 pt-2 border-t border-outline-variant/10 dark:border-gray-700">
                             <button
                               onClick={() => handleEdit(item)}
-                              className="flex-1 px-3 py-2 bg-primary/10 dark:bg-blue-900/30 text-primary dark:text-blue-400 hover:bg-primary/20 dark:hover:bg-blue-900/50 border border-primary/30 dark:border-blue-700 rounded-lg font-semibold text-xs uppercase tracking-wider transition-colors"
-                              title="Edit item"
+                              className="p-1.5 bg-primary/10 dark:bg-blue-900/30 text-primary dark:text-blue-400 rounded hover:bg-primary/20 dark:hover:bg-blue-900/50 transition"
+                              title="Edit"
                             >
-                              Edit
+                              <Edit2 className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => {
+                                setSelectedItemForQR(item);
+                                setUnitModalOpen(true);
+                              }}
+                              className="p-1.5 bg-primary/10 dark:bg-blue-900/30 text-primary dark:text-blue-400 rounded hover:bg-primary/20 dark:hover:bg-blue-900/50 transition"
+                              title="View QR Codes"
+                            >
+                              <QrCode className="w-4 h-4" />
                             </button>
                             <button
                               onClick={() => handleDelete(item.uuid)}
-                              className="flex-1 px-3 py-2 bg-error/10 dark:bg-red-900/30 text-error dark:text-red-400 hover:bg-error/20 dark:hover:bg-red-900/50 border border-error/30 dark:border-red-700 rounded-lg font-semibold text-xs uppercase tracking-wider transition-colors"
-                              title="Delete item"
+                              className="p-1.5 bg-error/10 dark:bg-red-900/30 text-error dark:text-red-400 rounded hover:bg-error/20 dark:hover:bg-red-900/50 transition"
+                              title="Delete"
                             >
-                              Delete
+                              <Trash2 className="w-4 h-4" />
                             </button>
                           </div>
                         </div>
-                      </div>
+                      )}
                     </div>
                   );
-                })
-              )}
-            </div>
+                })}
+              </div>
+            )}
           </div>
         </div>
 
@@ -1102,6 +1132,7 @@ export default function ManageInventory() {
             <Plus className="w-6 h-6" />
           </button>
         )}
+      </div>
 
       {/* Unit Modal for QR display */}
       {unitModalOpen && selectedItemForQR && (

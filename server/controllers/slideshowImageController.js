@@ -5,12 +5,13 @@ const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
 
-// Backend base URL (set in .env, defaults to port 8000 in dev)
-const BASE_URL = process.env.BASE_URL || "http://localhost:8000";
+// ✅ Backend server URL (set in .env, defaults to port 8000 in dev)
+// In production, this should be your Render backend URL
+const SERVER_URL = process.env.SERVER_URL || "http://localhost:8000";
 
 // Helper: convert relative path to full URL
 function toFullUrl(filePath) {
-  return filePath ? `${BASE_URL}${filePath}` : null;
+  return filePath ? `${SERVER_URL}${filePath}` : null;
 }
 
 // Helper: transform image_url to proper full URL

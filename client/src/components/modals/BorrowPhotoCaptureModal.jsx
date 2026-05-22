@@ -579,10 +579,15 @@ export default function BorrowPhotoCaptureModal({
               </h3>
               <div className="grid grid-cols-3 gap-2">
                 {photos.map((photo, idx) => {
-                  // Handle dynamic photo URL
-                  const photoUrl = photo.photo_url?.startsWith('http')
-                    ? photo.photo_url
-                    : `http://localhost:8000${photo.photo_url}`;
+                  // ✅ Use helper to construct full image URL (works in production)
+                  const getFullImageUrl = (path) => {
+                    if (!path) return "";
+                    if (path.startsWith("http")) return path;
+                    const apiBase = import.meta.env.VITE_API_URL || "http://localhost:8000";
+                    return apiBase + (path.startsWith("/") ? path : "/" + path);
+                  };
+
+                  const photoUrl = getFullImageUrl(photo.photo_url);
 
                   return (
                     <div

@@ -9,6 +9,7 @@ const {
   checkAIServiceHealth,
   scanMultipleImages,
   upload,
+  getDetectionAccuracy,
 } = require("../controllers/imageRecognitionController");
 
 // Health check - public endpoint
@@ -31,6 +32,13 @@ router.get(
   "/history",
   requireRole(["borrower", "student", "staff", "admin"]),
   getRecognitionHistory
+);
+
+// ✅ NEW: Get detection accuracy metrics by instrument (admin/staff only)
+router.get(
+  "/accuracy",
+  requireRole(["staff", "admin"]),
+  getDetectionAccuracy
 );
 
 module.exports = router;

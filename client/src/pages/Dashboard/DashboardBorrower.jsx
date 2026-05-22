@@ -1,7 +1,7 @@
 import { useEffect, useState, useContext, useRef } from "react";
 import axios from "axios";
 import { UserContext } from "../../../context/userContext";
-import { SidebarContext } from "../../../context/SidebarContext";
+import { SidebarContext } from "../../context/SidebarContext";
 import { useNavigate } from "react-router-dom";
 import { Camera, Plus, Settings, UserCircle, History, LogOut } from "lucide-react";
 import PageLayout from "../../components/layout/PageLayout";
@@ -160,97 +160,9 @@ export default function DashboardBorrower() {
         </div>
       </div>
 
-      {/* Profile Card */}
-      <div className="max-w-6xl mx-auto px-6 md:px-12 lg:px-20 mb-12">
-        <div className="bg-surface-container-lowest p-8 rounded-xl shadow-sm border border-outline-variant/10 flex flex-col md:flex-row md:items-center gap-8">
-          {/* Profile Picture */}
-          <div className="relative w-24 h-24 rounded-full overflow-hidden border-4 border-primary flex-shrink-0">
-            {profile?.profile_pic_url ? (
-              <img
-                src={profile.profile_pic_url}
-                alt="Profile"
-                className="w-full h-full object-cover"
-              />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center bg-primary/10">
-                <UserCircle className="w-12 h-12 text-primary" />
-              </div>
-            )}
+      
 
-            {/* Camera icon overlay */}
-            <button
-              className="absolute bottom-0 right-0 bg-primary text-on-primary p-2 rounded-full shadow hover:bg-primary-container transition-all"
-              onClick={() => fileInputRefs.profile_pic.current.click()}
-            >
-              <Camera size={14} />
-            </button>
-            <input
-              type="file"
-              name="profile_pic"
-              ref={fileInputRefs.profile_pic}
-              className="hidden"
-              accept="image/*"
-              onChange={handleFileChange}
-            />
-          </div>
-
-          {/* Profile Info */}
-          <div className="flex-1">
-            <h2 className="font-headline text-3xl text-on-surface mb-2">
-              {user?.name}
-            </h2>
-            <p className="text-on-surface-variant mb-2">{user?.email}</p>
-            <p className="text-sm text-outline-variant capitalize mb-4">Role: {user?.role}</p>
-            
-            {/* Quick Action Buttons */}
-            <div className="flex flex-wrap gap-3">
-              <button
-                onClick={() => navigate("/documents")}
-                className="bg-primary text-on-primary px-6 py-2 rounded-lg flex items-center gap-2 hover:bg-primary-container transition-all font-bold text-sm"
-              >
-                <UserCircle className="w-4 h-4" />
-                Personal Info
-              </button>
-              <button
-                onClick={() => navigate("/settings")}
-                className="bg-surface-container-high text-on-surface px-6 py-2 rounded-lg flex items-center gap-2 hover:bg-outline-variant/20 transition-all font-bold text-sm"
-              >
-                <Settings className="w-4 h-4" />
-                Settings
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Borrowing Summary Cards */}
-      <div className="max-w-6xl mx-auto px-6 md:px-12 lg:px-20 mb-16">
-        <h3 className="font-headline text-2xl text-on-surface mb-6">
-          <span className="text-primary font-bold">Borrowing</span> Summary
-        </h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-surface-container-lowest p-6 rounded-xl shadow-sm border border-outline-variant/10">
-            <Plus className="w-6 h-6 text-primary mb-4" />
-            <h4 className="font-serif text-3xl text-primary font-bold">{history.filter(h => h.status === 'approved').length}</h4>
-            <p className="text-sm font-bold text-on-surface-variant uppercase tracking-tighter mt-2">Active Borrows</p>
-            <p className="text-xs text-outline mt-2 italic">Currently in use</p>
-          </div>
-          
-          <div className="bg-surface-container-lowest p-6 rounded-xl shadow-sm border border-outline-variant/10">
-            <History className="w-6 h-6 text-secondary mb-4" />
-            <h4 className="font-serif text-3xl text-secondary font-bold">{history.length}</h4>
-            <p className="text-sm font-bold text-on-surface-variant uppercase tracking-tighter mt-2">Total Requests</p>
-            <p className="text-xs text-outline mt-2 italic">All time records</p>
-          </div>
-          
-          <div className="bg-surface-container-lowest p-6 rounded-xl shadow-sm border border-outline-variant/10">
-            <Plus className="w-6 h-6 text-tertiary mb-4" />
-            <h4 className="font-serif text-3xl text-tertiary font-bold">{history.filter(h => h.status === 'returned').length}</h4>
-            <p className="text-sm font-bold text-on-surface-variant uppercase tracking-tighter mt-2">Returned Items</p>
-            <p className="text-xs text-outline mt-2 italic">Completed</p>
-          </div>
-        </div>
-      </div>
+     
 
       {/* Quick Links */}
       <div className="max-w-6xl mx-auto px-6 md:px-12 lg:px-20 mb-16">

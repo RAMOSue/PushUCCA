@@ -71,33 +71,7 @@ export const useInactivityTimeout = () => {
     // Only set timers if user is logged in
     if (!user) return;
 
-    // Set warning timer (if enabled)
-    if (INACTIVITY_CONFIG.WARNING_BEFORE_LOGOUT > 0) {
-      warningTimerRef.current = setTimeout(() => {
-        if (!hasShownWarningRef.current) {
-          hasShownWarningRef.current = true;
-          toast(
-            (t) => (
-              <div>
-                <p className="font-semibold mb-2">⏳ Your session is about to expire</p>
-                <p className="text-sm mb-3">You have been inactive for a while. Your session will expire in 2 minutes.</p>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => toast.dismiss(t.id)}
-                    className="px-3 py-1 bg-green-500 text-white rounded text-sm hover:bg-green-600"
-                  >
-                    Stay Logged In
-                  </button>
-                </div>
-              </div>
-            ),
-            {
-              duration: Infinity,
-              icon: '⏰',
-            }
-          );
-        }
-      }, INACTIVITY_CONFIG.INACTIVITY_TIMEOUT - INACTIVITY_CONFIG.WARNING_BEFORE_LOGOUT);
+    // Warning timer disabled - no session expiration warning shown to user
     }
 
     // Set logout timer

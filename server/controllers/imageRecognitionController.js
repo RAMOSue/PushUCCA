@@ -135,6 +135,9 @@ const scanImageWithAI = async (req, res) => {
         console.log(`⚠️ No match: ${prediction.class_name} - Confidence: ${(prediction.confidence * 100).toFixed(1)}%`);
       }
 
+      // ✅ DEBUG: Log bbox structure to understand format
+      console.log(`📦 Prediction ${prediction.class_name} bbox:`, JSON.stringify(prediction.bbox));
+
       // ✅ FIXED: Get DIFFERENT available units for each detection (not same unit)
       let availableUnit = null;
       if (matchedItem?.uuid) {
@@ -172,7 +175,7 @@ const scanImageWithAI = async (req, res) => {
       const result = {
         class_name: prediction.class_name,
         confidence: prediction.confidence,
-        bbox: prediction.bbox,
+        bbox: prediction.bbox, // ✅ Pass through bbox as-is from FastAPI
         matched_item_id: matchedItem?.id || null,
         matched_unit_id: availableUnit || null,
         matched_item_name: matchedItem?.name || null,
@@ -195,6 +198,11 @@ const scanImageWithAI = async (req, res) => {
     }
 
     fs.unlinkSync(imagePath); // cleanup
+
+    console.log(`✅ Sending ${matchedResults.length} matched predictions to frontend`);
+    matchedResults.forEach((r, idx) => {
+      console.log(`  ${idx}: ${r.class_name} bbox=${JSON.stringify(r.bbox)}`);
+    });
 
     res.json({
       type: "success",
@@ -432,10 +440,64 @@ const scanMultipleImages = async (req, res) => {
   }
 };
 
+/**
+ * ✅ NEW: Get detection accuracy metrics by instrument
+ * Shows % accuracy for each instrument detected
+ */
+const getDetectionAccuracy = async (req, res) => {
+  try {
+    const query = `
+      SELECT 
+        COALESCE(predicted_item, 'Unknown') as instrument,
+        COUNT(*) as total_detections,
+        COUNT(CASE WHEN matched_item_id IS NOT NULL THEN 1 END) as correct_detections,
+        ROUND(COUNT(CASE WHEN matched_item_id IS NOT NULL THEN 1 END)::numeric / COUNT(*) * 100, 2) as accuracy_percent,
+        ROUND(AVG(confidence)::numeric, 3) as avg_confidence,
+        MIN(confidence)::numeric as min_confidence,
+        MAX(confidence)::numeric as max_confidence,
+        COUNT(DISTINCT user_id) as unique_users,
+        MAX(created_at) as last_detection
+      FROM image_recognition_data
+      GROUP BY predicted_item
+      ORDER BY total_detections DESC, accuracy_percent DESC
+    `;
+
+    const result = await pool.query(query);
+
+    // Calculate overall stats
+    const totalStats = await pool.query(`
+      SELECT 
+        COUNT(*) as total_scans,
+        COUNT(DISTINCT predicted_item) as unique_instruments,
+        COUNT(DISTINCT user_id) as total_users,
+        ROUND(COUNT(CASE WHEN matched_item_id IS NOT NULL THEN 1 END)::numeric / COUNT(*) * 100, 2) as overall_accuracy,
+        ROUND(AVG(confidence)::numeric, 3) as avg_confidence
+      FROM image_recognition_data
+      WHERE confidence > 0
+    `);
+
+    console.log("📊 Accuracy metrics fetched:");
+    result.rows.forEach(row => {
+      console.log(`  ${row.instrument}: ${row.accuracy_percent}% (${row.correct_detections}/${row.total_detections})`);
+    });
+
+    res.json({
+      success: true,
+      overall: totalStats.rows[0],
+      by_instrument: result.rows,
+      timestamp: new Date().toISOString()
+    });
+  } catch (err) {
+    console.error("❌ Error fetching accuracy metrics:", err);
+    res.status(500).json({ error: "Failed to fetch accuracy metrics" });
+  }
+};
+
 module.exports = {
   scanImageWithAI,
   getRecognitionHistory,
   checkAIServiceHealth,
   scanMultipleImages,
   upload,
+  getDetectionAccuracy,
 };

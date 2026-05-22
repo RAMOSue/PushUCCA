@@ -60,9 +60,15 @@ export default function BorrowPhotoGalleryModal({ isOpen, requestId, borrowerNam
 
   const handleDownload = async (photo) => {
     try {
-      const photoUrl = photo.photo_url?.startsWith('http')
-        ? photo.photo_url
-        : `http://localhost:8000${photo.photo_url}`;
+      // ✅ Construct full image URL using environment variable
+      const getFullImageUrl = (path) => {
+        if (!path) return "";
+        if (path.startsWith("http")) return path;
+        const apiBase = import.meta.env.VITE_API_URL || "http://localhost:8000";
+        return apiBase + (path.startsWith("/") ? path : "/" + path);
+      };
+
+      const photoUrl = getFullImageUrl(photo.photo_url);
       
       const response = await axios.get(photoUrl, { responseType: "blob" });
       const blob = new Blob([response.data], { type: "image/jpeg" });
@@ -132,9 +138,15 @@ export default function BorrowPhotoGalleryModal({ isOpen, requestId, borrowerNam
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {photos.map((photo) => {
-                  const photoUrl = photo.photo_url?.startsWith('http')
-                    ? photo.photo_url
-                    : `http://localhost:8000${photo.photo_url}`;
+                  // ✅ Construct full image URL using environment variable
+                  const getFullImageUrl = (path) => {
+                    if (!path) return "";
+                    if (path.startsWith("http")) return path;
+                    const apiBase = import.meta.env.VITE_API_URL || "http://localhost:8000";
+                    return apiBase + (path.startsWith("/") ? path : "/" + path);
+                  };
+
+                  const photoUrl = getFullImageUrl(photo.photo_url);
                   
                   return (
                     <div

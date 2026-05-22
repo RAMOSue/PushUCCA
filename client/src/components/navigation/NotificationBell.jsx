@@ -9,6 +9,7 @@ export default function NotificationBell() {
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isOpen, setIsOpen] = useState(false);
+  const [filterType, setFilterType] = useState("all"); // all, read, unread
   const bellRef = useRef(null);
   const { user } = useContext(UserContext);
   const navigate = useNavigate();
@@ -241,10 +242,37 @@ export default function NotificationBell() {
             className="fixed right-6 top-20 w-80 bg-white rounded-lg shadow-2xl overflow-hidden border border-gray-200 z-[9999]"
           >
             <div className="p-3 bg-gray-50 border-b border-gray-200">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between mb-3">
                 <h3 className="text-lg font-semibold text-gray-800">
                   Notifications
                 </h3>
+                <button
+                  onClick={() => setIsOpen(false)}
+                  className="p-1 text-gray-400 hover:text-gray-600"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              {/* Filter Buttons */}
+              <div className="flex gap-2 mb-3">
+                {['all', 'unread', 'read'].map((type) => (
+                  <button
+                    key={type}
+                    onClick={() => setFilterType(type)}
+                    className={`px-3 py-1 text-xs font-medium rounded transition-colors ${
+                      filterType === type
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                    }`}
+                  >
+                    {type === 'all' ? 'All' : type === 'unread' ? 'Unread' : 'Read'}
+                  </button>
+                ))}
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-2 mb-2">
                 {unreadCount > 0 && (
                   <button
                     onClick={async () => {
@@ -260,17 +288,28 @@ export default function NotificationBell() {
                       fetchNotifications();
                       fetchUnreadCount();
                     }}
-                    className="text-xs font-semibold text-emerald-600 hover:text-emerald-700 transition-colors"
+                    className="flex-1 px-3 py-2 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded transition-colors"
                     title="Mark all as read"
                   >
                     Mark all as read
                   </button>
                 )}
+                <button
+                  onClick={() => {
+                    setIsOpen(false);
+                    navigate('/notifications');
+                  }}
+                  className="flex-1 px-3 py-2 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded transition-colors"
+                  title="View all notifications"
+                >
+                  See All
+                </button>
               </div>
+
               {!notificationEnabled && (
                 <button
                   onClick={enableNotifications}
-                  className="mt-2 w-full py-2 px-4 bg-blue-500 hover:bg-blue-600 text-white rounded-md text-sm transition-colors"
+                  className="w-full py-2 px-4 bg-blue-500 hover:bg-blue-600 text-white rounded-md text-sm transition-colors"
                 >
                   Enable Push Notifications
                 </button>

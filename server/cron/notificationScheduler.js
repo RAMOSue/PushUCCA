@@ -172,6 +172,82 @@ function startNotificationScheduler() {
       console.error('Due-today scheduler error:', err && err.message ? err.message : err);
     }
   });
+
+  // ✅ NEW: Notify borrowers about performances (1 day before and on performance day)
+  // Send at 9:00 AM daily
+  cron.schedule('0 9 * * *', async () => {
+    try {
+      // Get performances happening today or tomorrow
+      const result = await db.query(
+        `SELECT 
+            p.id,
+            p.title,
+            p.start_time,
+            pb.borrower_user_id,
+            u.name as borrower_name,
+            json_agg(json_build_object(
+                'id', ii.uuid,
+                'name', ii.name,
+                'category', ii.category
+            )) as items
+         FROM performances p
+         JOIN performance_borrowers pb ON p.id = pb.performance_id
+         JOIN users u ON pb.borrower_user_id = u.id
+         JOIN performance_items pi ON p.id = pi.performance_id
+         JOIN inventory_items ii ON pi.inventory_item_id = ii.uuid
+         WHERE (
+           -- Today's performances
+           p.start_time::date = NOW()::date
+           OR
+           -- Tomorrow's performances (1 day before)
+           p.start_time::date = (NOW() + INTERVAL '1 day')::date
+         )
+         AND NOT EXISTS (
+           SELECT 1 FROM notifications n
+           WHERE n.user_id = pb.borrower_user_id
+           AND n.type = 'performance_reminder'
+           AND n.data->>'performanceId' = p.id::text
+           AND n.created_at > NOW() - INTERVAL '20 hours'
+         )
+         GROUP BY p.id, p.title, p.start_time, pb.borrower_user_id, u.name`
+      );
+
+      // Send notifications for each borrower
+      for (const row of result.rows) {
+        const performanceDate = new Date(row.start_time);
+        const isTodayPerformance = performanceDate.toDateString() === new Date().toDateString();
+        
+        let title, message;
+        if (isTodayPerformance) {
+          title = `Performance Today: ${row.title}`;
+          message = `You have a performance today at ${performanceDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}. Don't forget to borrow the items!`;
+        } else {
+          title = `Performance Tomorrow: ${row.title}`;
+          message = `You have a performance tomorrow at ${performanceDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}. Remember to borrow the items!`;
+        }
+
+        // List the items they need
+        const itemNames = row.items.map(item => item.name).join(', ');
+        const fullMessage = `${message} Items needed: ${itemNames}`;
+
+        await notificationController.sendPushToUser({
+          userId: row.borrower_user_id,
+          title: title,
+          message: fullMessage,
+          type: 'performance_reminder',
+          data: {
+            performanceId: row.id,
+            performanceTitle: row.title,
+            performanceDate: row.start_time,
+            items: row.items,
+            url: '/performances'
+          }
+        });
+      }
+    } catch (error) {
+      console.error('Performance reminder scheduler error:', error);
+    }
+  });
 }
 
 module.exports = startNotificationScheduler;

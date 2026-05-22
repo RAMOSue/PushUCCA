@@ -121,8 +121,9 @@ export function BorrowingProvider({ children }) {
   }, [user]);
 
   // ✅ Add to Cart — calls backend to reserve item in borrowing_requests
-  // ✅ NOW RETURNS: { success, data } for proper status tracking
+  // ✅ NOW RETURNS: { success, data, failedItems } for proper status tracking
   // ✅ SUPPORTS: Bulk operations with suppressToast parameter
+  // ✅ IMPROVED: Detailed error logging for debugging failed_items array
   const addToCart = async (itemData, options = {}) => {
     const { suppressToast = false } = options;
     
@@ -175,7 +176,7 @@ export function BorrowingProvider({ children }) {
             const toAdd = mapped.filter((m) => !existingUnitIds.has(m.unitId));
             return [...prev, ...toAdd];
           });
-          if (!suppressToast) toast.success(`${name} reserved and added to cart!`);
+          if (!suppressToast) toast.success(`✅ ${name || "Item"} added to cart!`);
           
           // ✅ NEW: Return success response for bulk operations
           return { success: true, data: res.data, name };
@@ -194,7 +195,7 @@ export function BorrowingProvider({ children }) {
               unit_number, // ✅ PRESERVE: Include unit_number from itemData
             };
             setCart((prev) => [...prev, newCartItem]);
-            if (!suppressToast) toast.success(`${name} reserved and added to cart!`);
+            if (!suppressToast) toast.success(`✅ ${name || "Item"} added to cart!`);
             
             // ✅ NEW: Return success response
             return { success: true, data: newCartItem, name };
@@ -204,20 +205,69 @@ export function BorrowingProvider({ children }) {
           }
         }
       } else {
-        if (!suppressToast) toast.error(res.data.error || "Failed to reserve item.");
-        return { success: false, error: res.data.error || "Failed to reserve item" };
+        // Server returned failure - could have failedItems array with details
+        const failedItems = res.data.failed_items || [];
+        const failedDetails = failedItems.length > 0 
+          ? failedItems.map(f => `${f.error || "Unknown error"}`).join(", ")
+          : res.data.error || "Failed to reserve item";
+        
+        console.warn("⚠️ Add to cart partial/full failure:", {
+          item: name,
+          unitId: unitId?.substring(0, 8),
+          failedItems,
+          error: res.data.error,
+        });
+        
+        if (!suppressToast) {
+          toast.error(failedDetails || "Failed to reserve item. Item may be unavailable.");
+        }
+        return { success: false, error: res.data.error || "Failed to reserve item", failedItems };
       }
     } catch (err) {
-      console.error("❌ Add to cart error:", err.response?.data || err.message);
+      // Extract detailed error information from response
+      const errorData = err.response?.data || {};
+      const failedItems = errorData.failed_items || [];
+      const statusCode = err.response?.status;
+      
+      // Build detailed error message
+      let errorMessage = "Unknown error";
+      if (failedItems.length > 0) {
+        errorMessage = failedItems.map(f => f.error || "Unavailable").join(", ");
+      } else if (errorData.error) {
+        errorMessage = errorData.error;
+      }
+      
+      console.error("❌ Add to cart API error:", {
+        status: statusCode,
+        itemName: name,
+        unitId: unitId?.substring(0, 8),
+        error: errorData.error,
+        failedItems: failedItems.map(f => ({ 
+          id: f.unit_id?.substring(0, 8) || f.item_id, 
+          reason: f.error 
+        })),
+        fullError: err.message,
+      });
+      
       if (!suppressToast) {
-        // Check if it's a 400 Bad Request (unit already reserved) vs 500 error
-        if (err.response?.status === 400) {
-          toast.error("This item is no longer available. Someone else may have reserved it.");
+        if (statusCode === 400) {
+          // 400 = Validation error or all items unavailable
+          toast.error(`❌ ${errorMessage || "Unit unavailable or already reserved. Try refreshing items."}`);
+        } else if (statusCode === 404) {
+          toast.error("❌ Unit not found. It may have been removed from inventory.");
+        } else if (statusCode === 500) {
+          toast.error("❌ Server error. Please try again in a moment.");
         } else {
-          toast.error(err.response?.data?.error || "Failed to add item to cart.");
+          toast.error(`❌ ${errorMessage || "Failed to add item to cart"}`);
         }
       }
-      return { success: false, error: err.response?.data?.error || err.message };
+      
+      return { 
+        success: false, 
+        error: errorData.error || err.message,
+        failedItems: failedItems,
+        statusCode: statusCode
+      };
     }
   };
 

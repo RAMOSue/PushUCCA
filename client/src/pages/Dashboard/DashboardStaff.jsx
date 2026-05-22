@@ -8,7 +8,7 @@ export default function DashboardStaff() {
 	const { user } = useContext(UserContext);
 
 	const modules = [
-		{ label: "Borrow Requests",    icon: <ClipboardList className="w-6 h-6" />, to: "/staff/manage-requests",    priority: true },
+		{ label: "Borrow Requests",    icon: <ClipboardList className="w-6 h-6" />, to: "/staff/manage-requests",    priority: false },
 		{ label: "Manage Returns",     icon: <RefreshCw   className="w-6 h-6" />, to: "/staff/return-items",       priority: false },
 		{ label: "Available Items",    icon: <Package     className="w-6 h-6" />, to: "/staff/available-items",   priority: false },
 		{ label: "Inventory",          icon: <Box         className="w-6 h-6" />, to: "/staff/manage-inventory",   priority: false },
@@ -17,21 +17,19 @@ export default function DashboardStaff() {
 	return (
 		<PageLayout>
 			{/* Welcome Section */}
-			<section className="mb-12">
+			<section className="mb-9">
 				<div>
-					<h1 className="font-headline text-5xl md:text-6xl text-on-surface leading-tight">
-						Welcome back, {user?.name || "Staff"}
-					</h1>
-					<p className="text-on-surface-variant mt-4 text-base max-w-2xl">
-						Here's what you can manage today.
-					</p>
+					<h1 className="text-4xl md:text-5xl font-bold tracking-[-0.02em] text-on-surface leading-tight mt-6 text-center">
+  Welcome back, {user?.name || "Staff"}
+</h1>
+
+<p className="text-on-surface-variant mt-3 text-base md:text-lg max-w-xl mx-auto text-center">
+  Here's what you can manage today.
+</p>
 				</div>
 			</section>
 
-			{/* Workspace Label */}
-			<section className="mb-8">
-				<span className="text-[10px] uppercase tracking-widest text-on-surface-variant font-bold">Your Workspace</span>
-			</section>
+		
 
 			{/* Module Grid - Secondary Actions */}
 			<section>

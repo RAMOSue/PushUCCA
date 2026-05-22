@@ -6,7 +6,7 @@ import { BorrowingContext } from "../../../context/borrowingContext";
 import { UserContext } from "../../../context/userContext";
 import BorrowPhotoCaptureModal from "../../components/modals/BorrowPhotoCaptureModal";
 import PageLayout from "../../components/layout/PageLayout";
-import { Trash2, ArrowLeft, Calendar, ShoppingBag, Minus, Plus } from "lucide-react";
+import { Trash2, ArrowLeft, Calendar, ShoppingBag, Minus, Plus, Package } from "lucide-react";
 
 export default function BorrowCart() {
   const { cart, setCart, removeFromCart, submitBorrowRequest, requestId, refreshAvailableItemsFromServer, saveCartQuantity, unreserveUnits, addToCart } = useContext(BorrowingContext);
@@ -428,7 +428,7 @@ export default function BorrowCart() {
 
   return (
     <PageLayout>
-      <div className="min-h-screen bg-gray-50 lg:bg-white dark:bg-[#171717] dark:lg:bg-[#171717] pb-24">
+      <div className="dark:bg-[#171717]">
         {/* Camera Capture Modal */}
         <BorrowPhotoCaptureModal
           isOpen={photoCaptureOpen}
@@ -443,245 +443,277 @@ export default function BorrowCart() {
           borrowerId={user?.id}
         />
 
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 py-4 sm:py-8">
-        {/* Header */}
-        <div className="flex items-center justify-center mb-6 sm:mb-8 relative">
-          <button
-            onClick={() => navigate(-1)}
-            className="absolute left-0 p-2 hover:bg-gray-100 dark:hover:bg-[#222] rounded-full transition-colors"
-            title="Go back"
-          >
-            <ArrowLeft size={20} className="text-emerald-700" />
-          </button>
-          <div className="text-center">
-            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">Borrowing Cart</h1>
-            <p className="text-sm sm:text-base text-gray-500 dark:text-gray-400 mt-1">Review items before submitting</p>
+        {/* ========== Header Section ========== */}
+        <div className="px-3 sm:px-6 md:px-8 lg:px-12 pt-4 sm:pt-8 pb-4 sm:pb-6 dark:bg-[#171717]">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-6">
+            {/* Left Side - Title */}
+            <div className="flex-1 min-w-0">
+              <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-on-surface dark:text-white mb-1 sm:mb-2">Borrowing Cart</h1>
+              <p className="text-xs sm:text-sm text-on-surface-variant dark:text-gray-400">Review items before submitting</p>
+            </div>
+
+            {/* Right Side - Summary Pills */}
+            <div className="flex gap-2 sm:gap-3 flex-wrap items-center justify-start sm:justify-end">
+              <div className="px-2.5 sm:px-4 py-1 sm:py-2 bg-surface-container-low dark:bg-[#222] rounded-full text-xs sm:text-sm font-medium text-on-surface dark:text-white border border-outline-variant/20 dark:border-gray-700 whitespace-nowrap">
+                Units: <span className="font-bold text-primary dark:text-blue-400">{cart.length}</span>
+              </div>
+              <div className="px-2.5 sm:px-4 py-1 sm:py-2 bg-surface-container-low dark:bg-[#222] rounded-full text-xs sm:text-sm font-medium text-on-surface dark:text-white border border-outline-variant/20 dark:border-gray-700 whitespace-nowrap">
+                Items: <span className="font-bold text-primary dark:text-blue-400">{consolidatedCart.length}</span>
+              </div>
+            </div>
           </div>
-          <button
-            onClick={() => navigate(-1)}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white dark:bg-[#222] border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-[#2a2a2a] text-gray-700 dark:text-gray-300 font-medium transition-colors text-sm sm:text-base"
-          >
-            <ArrowLeft size={18} /> Back
-          </button>
         </div>
 
-        {/* Content */}
-        {cart.length === 0 ? (
-          <div className="bg-white dark:bg-[#1a1a1a] rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-8 sm:p-12 text-center">
-            <ShoppingBag className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
-            <p className="text-gray-500 dark:text-gray-400 text-base sm:text-lg mb-6">Your cart is empty</p>
-            <button
-              onClick={() => navigate('/available-items')}
-              className="px-6 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium transition-colors text-sm sm:text-base"
-            >
-              Continue to Borrow
-            </button>
-          </div>
-        ) : (
-          <div className="grid gap-6">
-            {/* Cart Items */}
-            <div className="bg-white dark:bg-[#1a1a1a] rounded-xl sm:rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
-              {/* Header */}
-              <div className="px-4 sm:px-6 py-4 sm:py-5 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-[#222]">
-                <p className="font-semibold text-gray-900 dark:text-white">
-                  Units ({cart.length}) • {consolidatedCart.length} Item{consolidatedCart.length !== 1 ? "s" : ""}
-                </p>
-              </div>
+        {/* ========== Main Content Area ========== */}
+        <div className="px-3 sm:px-6 md:px-8 lg:px-12 space-y-3 sm:space-y-4 dark:bg-[#171717] pb-24 sm:pb-20">
 
-              {/* Items List */}
-              <div className="divide-y divide-gray-100 dark:divide-gray-700">
-                {consolidatedCart.map((item, index) => (
-                  <div key={index} className="px-4 sm:px-6 py-4 sm:py-5 hover:bg-gray-50 dark:hover:bg-[#222] transition-colors">
-                    {/* Item Header */}
-                    <div className="flex items-center justify-between gap-4 mb-4">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <p className="font-semibold text-gray-900 dark:text-white text-sm sm:text-base">{item.name}</p>
-                          {item.size && item.size !== "nosize" && (
-                            <span className="text-sm text-gray-500">({item.size})</span>
+          {/* Empty Cart State */}
+          {cart.length === 0 ? (
+            <div className="bg-surface-container-low dark:bg-[#1a1a1a] rounded-lg sm:rounded-2xl shadow-sm border border-outline-variant/10 dark:border-gray-700 p-6 sm:p-8 md:p-12 text-center">
+              <ShoppingBag className="w-8 h-8 sm:w-12 sm:h-12 text-on-surface-variant/30 dark:text-gray-600 mx-auto mb-3 sm:mb-4" />
+              <p className="text-on-surface-variant dark:text-gray-400 text-sm sm:text-base md:text-lg mb-4 sm:mb-6">Your cart is empty</p>
+              <button
+                onClick={() => navigate('/available-items')}
+                className="px-4 sm:px-6 py-1.5 sm:py-2 bg-primary dark:bg-blue-600 hover:bg-primary/90 dark:hover:bg-blue-700 text-white rounded-lg font-medium transition-colors text-xs sm:text-base"
+              >
+                Continue to Borrow
+              </button>
+            </div>
+          ) : (
+            <div className="grid gap-3 sm:gap-4">
+              {/* Cart Items */}
+              <div className="bg-surface-container-low dark:bg-[#1a1a1a] rounded-lg sm:rounded-2xl shadow-sm border border-outline-variant/10 dark:border-gray-700 overflow-hidden">
+                {/* Header */}
+                <div className="px-3 sm:px-4 md:px-6 py-3 sm:py-4 md:py-5 border-b border-outline-variant/10 dark:border-gray-700 bg-surface-container-lowest dark:bg-[#222]">
+                  <p className="font-semibold text-xs sm:text-sm md:text-base text-on-surface dark:text-white">
+                    Units ({cart.length}) • {consolidatedCart.length} Item{consolidatedCart.length !== 1 ? "s" : ""}
+                  </p>
+                </div>
+
+                {/* Items List */}
+                <div className="divide-y divide-outline-variant/10 dark:divide-gray-700">
+                  {consolidatedCart.map((item, index) => (
+                    <div
+                      key={index}
+                      className="px-2.5 sm:px-4 md:px-6 py-2 sm:py-3 md:py-4 hover:bg-surface-container-high dark:hover:bg-[#2a2a2a] transition-colors"
+                    >
+                      {/* Item Header */}
+                      <div className="flex items-start sm:items-center justify-between gap-2 mb-2 sm:mb-3">
+                        {/* Image Circle */}
+                        <div className="w-12 sm:w-14 md:w-16 h-12 sm:h-14 md:h-16 flex-shrink-0 rounded-full overflow-hidden border border-outline-variant/20 dark:border-gray-700">
+                          {item.image_url ? (
+                            <img
+                              src={item.image_url?.startsWith('http') ? item.image_url : `http://localhost:8000${item.image_url}`}
+                              alt={item.name}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-full h-full bg-gray-200 dark:bg-gray-800 flex items-center justify-center">
+                              <Package className="w-5 sm:w-6 md:w-7 h-5 sm:h-6 md:h-7 text-gray-400 dark:text-gray-600" />
+                            </div>
                           )}
                         </div>
-                        <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1 capitalize">
-                          {item.category}
-                        </p>
-                      </div>
-                      
-                      {/* Quantity Controls - Consolidated */}
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => handleDecreaseQuantity({
-                            name: item.name,
-                            category: item.category,
-                            size: item.size
-                          })}
-                          disabled={isUpdatingQuantity}
-                          className="p-1.5 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-[#333] rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                          title="Decrease quantity"
-                        >
-                          <Minus size={16} />
-                        </button>
-                        <div className="w-12 flex items-center justify-center">
-                          <input
-                            type="number"
-                            min="1"
-                            value={item.count}
-                            onChange={(e) => {
-                              // Prevent updates while already updating
-                              if (isUpdatingQuantity) return;
-                              
-                              const newQty = parseInt(e.target.value) || 1;
-                              
-                              // Only update if value actually changed
-                              if (newQty !== item.count && newQty > 0) {
-                                handleQuantityChange({
-                                  name: item.name,
-                                  category: item.category,
-                                  size: item.size
-                                }, newQty);
-                              } else if (newQty <= 0) {
-                                // Reset to 1 if user tries to go below 1
-                                e.target.value = item.count;
-                              }
-                            }}
-                            onBlur={(e) => {
-                              // Ensure valid value on blur
-                              const val = parseInt(e.target.value) || 1;
-                              if (val !== item.count) {
-                                e.target.value = item.count;
-                              }
-                            }}
-                            disabled={isUpdatingQuantity}
-                            className="w-full text-center border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-sm font-semibold bg-white dark:bg-[#333] text-gray-900 dark:text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                          />
+
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1 flex-wrap">
+                            <p className="font-medium text-on-surface dark:text-white text-xs sm:text-sm truncate">
+                              {item.name}
+                            </p>
+                            {item.size && item.size !== "nosize" && (
+                              <span className="text-xs text-on-surface-variant dark:text-gray-400">
+                                ({item.size})
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-[10px] sm:text-xs text-on-surface-variant dark:text-gray-400 mt-0.5 sm:mt-1 capitalize">
+                            {item.category}
+                          </p>
                         </div>
-                        <button
-                          onClick={() => handleIncreaseQuantity({
-                            name: item.name,
-                            category: item.category,
-                            size: item.size
-                          })}
-                          disabled={isUpdatingQuantity}
-                          className="p-1.5 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-[#333] rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                          title="Increase quantity"
-                        >
-                          <Plus size={16} />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteItem({
-                            name: item.name,
-                            category: item.category,
-                            size: item.size
-                          })}
-                          disabled={isUpdatingQuantity}
-                          className="p-1.5 text-red-600 hover:bg-red-100 rounded-lg transition-colors ml-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                          title="Remove all units of this item"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-                    </div>
 
-                    {/* Individual Units Display */}
-                    <div className="space-y-2 pl-0 sm:pl-4">
-                      <p className="text-xs text-gray-500 font-semibold uppercase mb-2">Units in cart ({item.count})</p>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-                        {item.units.map((unit, unitIdx) => {
-                          // ✅ CRITICAL: Use unit_number from database FIRST, fallback to generated format
-                          // unit_number is set from database when item is added to cart via BorrowingContext
-                          const displayUnitNumber = unit.unit_number || (() => {
-                            // Fallback for temporary units created via +/- buttons (rare case)
-                            let sizeAbbrv = '';
-                            if (item.size && item.size !== "nosize") {
-                              sizeAbbrv = item.size.charAt(0).toUpperCase();
+                        {/* Quantity Controls */}
+                        <div className="flex items-center gap-0.5 sm:gap-1 flex-shrink-0">
+                          <button
+                            onClick={() =>
+                              handleDecreaseQuantity({
+                                name: item.name,
+                                category: item.category,
+                                size: item.size,
+                              })
                             }
-                            // Generate format: "ItemName-S-1" or "ItemName-1" if no size
-                            const sequenceNum = unitIdx + 1;
-                            return sizeAbbrv ? `${item.name}-${sizeAbbrv}-${sequenceNum}` : `${item.name}-${sequenceNum}`;
-                          })();
-                          
-                          return (
-                            <div
-                              key={unitIdx}
-                              className="flex items-center justify-between bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-lg p-2 sm:p-3"
-                            >
-                              <div className="flex-1 min-w-0">
-                                <p className="text-xs sm:text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">
-                                  🏷️ {displayUnitNumber}
-                                </p>
-                                {item.size && item.size !== "nosize" && (
-                                  <p className="text-2xs text-gray-600 dark:text-gray-400">
-                                    Size: {item.size.charAt(0).toUpperCase()}
+                            disabled={isUpdatingQuantity}
+                            className="p-1 text-on-surface-variant dark:text-gray-400 hover:bg-surface-container-high dark:hover:bg-[#333] rounded-md transition-colors disabled:opacity-50"
+                          >
+                            <Minus size={12} className="sm:hidden" />
+                            <Minus size={14} className="hidden sm:block" />
+                          </button>
+
+                          <div className="w-8 sm:w-10">
+                            <input
+                              type="number"
+                              min="1"
+                              value={item.count}
+                              onChange={(e) => {
+                                if (isUpdatingQuantity) return;
+
+                                const newQty = parseInt(e.target.value) || 1;
+
+                                if (newQty !== item.count && newQty > 0) {
+                                  handleQuantityChange(
+                                    {
+                                      name: item.name,
+                                      category: item.category,
+                                      size: item.size,
+                                    },
+                                    newQty
+                                  );
+                                } else if (newQty <= 0) {
+                                  e.target.value = item.count;
+                                }
+                              }}
+                              onBlur={(e) => {
+                                const val = parseInt(e.target.value) || 1;
+                                if (val !== item.count) {
+                                  e.target.value = item.count;
+                                }
+                              }}
+                              disabled={isUpdatingQuantity}
+                              className="w-full text-center border border-outline-variant/30 dark:border-gray-600 rounded px-0.5 py-0.5 text-xs font-medium bg-surface-container-low dark:bg-[#333] text-on-surface dark:text-white"
+                            />
+                          </div>
+
+                          <button
+                            onClick={() =>
+                              handleIncreaseQuantity({
+                                name: item.name,
+                                category: item.category,
+                                size: item.size,
+                              })
+                            }
+                            disabled={isUpdatingQuantity}
+                            className="p-1 text-on-surface-variant dark:text-gray-400 hover:bg-surface-container-high dark:hover:bg-[#333] rounded-md transition-colors disabled:opacity-50"
+                          >
+                            <Plus size={12} className="sm:hidden" />
+                            <Plus size={14} className="hidden sm:block" />
+                          </button>
+
+                          <button
+                            onClick={() =>
+                              handleDeleteItem({
+                                name: item.name,
+                                category: item.category,
+                                size: item.size,
+                              })
+                            }
+                            disabled={isUpdatingQuantity}
+                            className="p-1 text-error dark:text-red-500 hover:bg-error/10 dark:hover:bg-red-900/20 rounded-md transition-colors ml-0.5 sm:ml-1 disabled:opacity-50"
+                          >
+                            <Trash2 size={12} className="sm:hidden" />
+                            <Trash2 size={14} className="hidden sm:block" />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Units */}
+                      <div className="space-y-1 sm:space-y-1.5">
+                        <p className="text-[10px] text-on-surface-variant dark:text-gray-400 font-medium uppercase">
+                          Units ({item.count})
+                        </p>
+
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-1 sm:gap-1.5">
+                          {item.units.map((unit, unitIdx) => {
+                            const displayUnitNumber =
+                              unit.unit_number ||
+                              (() => {
+                                let sizeAbbrv = "";
+                                if (item.size && item.size !== "nosize") {
+                                  sizeAbbrv = item.size.charAt(0).toUpperCase();
+                                }
+                                const sequenceNum = unitIdx + 1;
+                                return sizeAbbrv
+                                  ? `${item.name}-${sizeAbbrv}-${sequenceNum}`
+                                  : `${item.name}-${sequenceNum}`;
+                              })();
+
+                            return (
+                              <div
+                                key={unitIdx}
+                                className="flex items-center justify-between bg-primary/10 dark:bg-blue-900/20 border border-primary/20 dark:border-blue-800 rounded-md px-1.5 sm:px-2 py-1"
+                              >
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-[9px] sm:text-xs font-medium text-on-surface dark:text-gray-100 truncate">
+                                    🏷️ {displayUnitNumber}
                                   </p>
-                                )}
+                                  {item.size && item.size !== "nosize" && (
+                                    <p className="text-[8px] text-on-surface-variant dark:text-gray-400">
+                                      {item.size.charAt(0).toUpperCase()}
+                                    </p>
+                                  )}
+                                </div>
                               </div>
-                            </div>
-                          );
-                        })}
+                            );
+                          })}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Summary Card */}
-            <div className="bg-white dark:bg-[#1a1a1a] rounded-xl sm:rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 sm:p-6 transition-colors">
-              <div className="space-y-3 mb-6">
-                <div className="flex justify-between text-sm sm:text-base">
-                  <span className="text-gray-600 dark:text-gray-400">Total Units in Cart:</span>
-                  <span className="font-semibold text-gray-900 dark:text-white">{cart.length}</span>
+                  ))}
                 </div>
-                <div className="flex justify-between text-sm sm:text-base">
-                  <span className="text-gray-600 dark:text-gray-400">Unique Items:</span>
-                  <span className="font-semibold text-gray-900 dark:text-white">{consolidatedCart.length}</span>
-                </div>
-                {requestId && (
-                  <div className="flex justify-between text-sm sm:text-base">
-                    <span className="text-gray-600">Request ID:</span>
-                    <span className="font-semibold text-gray-900">{requestId}</span>
-                  </div>
-                )}
               </div>
 
-              {/* Info Message */}
-              <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg mb-6">
-                <p className="text-xs sm:text-sm text-blue-900">
-                  <span className="font-semibold">ℹ️ Note:</span> Items will be reserved upon submission. Staff will review and approve your request.
-                </p>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex flex-col-reverse sm:flex-row gap-3">
-                <button
-                  onClick={() => navigate('/available-items')}
-                  className="flex items-center justify-center gap-2 px-4 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition-colors"
-                >
-                  <ArrowLeft size={18} />
-                  <span>Continue Shopping</span>
-                </button>
-                <button
-                  onClick={handleSubmit}
-                  disabled={submitting || cart.length === 0}
-                  className="flex items-center justify-center gap-2 px-4 py-3 bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-400 text-white rounded-lg font-medium transition-colors"
-                >
-                  {submitting ? (
+              {/* Sticky Action Bar */}
+              <div className="fixed bottom-0 left-0 right-0 z-20 flex flex-col sm:flex-row gap-2 sm:gap-3 items-start sm:items-center justify-between px-3 sm:px-6 md:px-8 lg:px-12 py-2 sm:py-3 bg-surface-container-low dark:bg-[#1a1a1a] border-t border-outline-variant/10 dark:border-gray-700">
+                {/* Left: Summary Text */}
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 text-[10px] sm:text-xs md:text-sm text-on-surface dark:text-white overflow-hidden">
+                  {requestId && (
                     <>
-                      <div className="animate-spin">⏳</div>
-                      <span>Submitting...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Calendar size={18} />
-                      <span>Submit Request</span>
+                      <span className="text-on-surface-variant dark:text-gray-400 truncate font-medium">
+                        #{requestId}
+                      </span>
+                      <span className="hidden sm:inline text-on-surface-variant dark:text-gray-400">|</span>
                     </>
                   )}
-                </button>
+                  <span className="flex-shrink-0 font-medium">
+                    Total Units: <b>{cart.length}</b>
+                  </span>
+                  <span className="hidden sm:inline text-on-surface-variant dark:text-gray-400">|</span>
+                  <span className="flex-shrink-0 font-medium">
+                    Items: <b>{consolidatedCart.length}</b>
+                  </span>
+                </div>
+
+                {/* Right: Action Buttons */}
+                <div className="flex gap-2 w-full sm:w-auto">
+                  <button
+                    onClick={() => navigate('/available-items')}
+                    className="flex items-center justify-center gap-1 flex-1 sm:flex-none px-2.5 sm:px-3 py-1.5 text-xs sm:text-sm bg-surface-container-highest dark:bg-[#222] hover:bg-surface-container dark:hover:bg-[#2a2a2a] text-on-surface dark:text-white rounded-md font-medium transition-colors whitespace-nowrap"
+                  >
+                    <ArrowLeft size={12} className="sm:hidden" />
+                    <ArrowLeft size={14} className="hidden sm:block" />
+                    <span className="hidden sm:inline">Shop</span>
+                  </button>
+                  <button
+                    onClick={handleSubmit}
+                    disabled={submitting || cart.length === 0}
+                    className="flex items-center justify-center gap-1 flex-1 sm:flex-none px-2.5 sm:px-3 py-1.5 text-xs sm:text-sm bg-primary hover:bg-primary/90 disabled:bg-gray-400 dark:disabled:bg-gray-600 text-white rounded-md font-medium transition-all disabled:cursor-not-allowed whitespace-nowrap"
+                  >
+                    {submitting ? (
+                      <>
+                        <div className="animate-spin text-[10px]">⏳</div>
+                        <span className="hidden sm:inline">...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Calendar size={12} className="sm:hidden" />
+                        <Calendar size={14} className="hidden sm:block" />
+                        <span className="hidden sm:inline">Submit</span>
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
-    </div>
     </PageLayout>
   );
 }

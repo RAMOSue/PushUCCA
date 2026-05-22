@@ -1,7 +1,8 @@
 import { useContext, useState, useEffect } from "react";
 import { Clock, CheckCircle, AlertCircle, Package, ArrowLeft, ArrowRight, Loader, Music, Calendar as CalendarIcon } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import Calendar from "react-calendar";
-import { SidebarContext } from "../../../context/SidebarContext";
+import { SidebarContext } from "../../context/SidebarContext";
 import { UserContext } from "../../../context/userContext";
 import axios from "axios";
 import "react-calendar/dist/Calendar.css";
@@ -9,6 +10,7 @@ import "react-calendar/dist/Calendar.css";
 export default function RightNavbar() {
   const { sidebarOpen, isMobile } = useContext(SidebarContext);
   const { user } = useContext(UserContext);
+  const navigate = useNavigate();
   const [currentTime, setCurrentTime] = useState(new Date());
   const [pendingApproval, setPendingApproval] = useState(0);
   const [activeBorrows, setActiveBorrows] = useState(0);
@@ -98,7 +100,7 @@ export default function RightNavbar() {
   const formattedTime = currentTime.toLocaleTimeString("en-US", {
     hour: "2-digit",
     minute: "2-digit",
-    second: "2-digit",
+    
     hour12: true,
   });
 
@@ -232,7 +234,7 @@ export default function RightNavbar() {
       >
         {/* Inner Content Wrapper - Fixed width prevents distortion */}
         <div
-          className="w-72 flex flex-col h-full"
+          className="w-72 flex flex-col h-full mt-2"
           style={{
             flexShrink: 0,
             pointerEvents: sidebarOpen ? "auto" : "none",
@@ -240,7 +242,7 @@ export default function RightNavbar() {
         >
           {/* Clock Section - Sticky Top */}
           
-          <div className="sticky top-0 bg-surface-container-low dark:bg-[#1f1f1f] z-10 p-4 border-b border-outline-variant/10 dark:border-[#2a2a2a] flex-shrink-0 transition-colors duration-300">
+          <div className="sticky top-0  dark:bg-[#1f1f1f] z-10 p-4 border-b border-outline-variant/10 dark:border-[#2a2a2a] flex-shrink-0 transition-colors duration-300 mt-1 mb-4">
             <div className="text-center">
               <p className="text-[10px] uppercase tracking-widest text-on-surface-variant dark:text-gray-400 font-bold mb-2">
                 Current Time
@@ -254,27 +256,27 @@ export default function RightNavbar() {
           <div className="flex-1 overflow-y-auto p-4 space-y-3">
             {/* STAFF/ADMIN: Pending Approval Card */}
             {(user?.role === "staff" || user?.role === "admin") && (
-              <div className="bg-orange/10 dark:bg-orange/5 border border-orange/20 dark:border-orange/20 rounded-lg p-4 flex-shrink-0 transition-colors duration-300">
+              <button
+                onClick={() => navigate("/staff/manage-requests")}
+                className="w-full bg-orange/10 dark:bg-orange/5 border border-orange/20 dark:border-orange/20 rounded-lg p-4 flex-shrink-0 transition-all duration-300 hover:bg-orange/20 dark:hover:bg-orange/10 hover:border-orange/40 dark:hover:border-orange/30 active:scale-95 text-left group"
+              >
                 <div className="flex items-center justify-between mb-2">
-                  <p className="text-[9px] uppercase tracking-widest text-on-surface-variant dark:text-gray-400 font-bold">
+                  <p className="text-[9px] uppercase tracking-widest text-on-surface-variant dark:text-gray-400 font-bold group-hover:text-orange transition-colors">
                     Pending Requests
                   </p>
-                  <button
-                    onClick={fetchStats}
-                    className="p-1 hover:bg-orange/20 dark:hover:bg-orange/10 rounded transition-colors"
-                    title="Refresh"
-                    disabled={!sidebarOpen}
-                  >
+                  <div>
                     {loading ? (
                       <Loader className="w-4 h-4 text-orange animate-spin" />
                     ) : (
-                      <Clock className="w-4 h-4 text-orange" />
+                      <Clock className="w-4 h-4 text-orange group-hover:scale-110 transition-transform" />
                     )}
-                  </button>
+                  </div>
                 </div>
                 <p className="text-3xl font-serif font-bold text-orange">{pendingApproval}</p>
-                <p className="text-[11px] text-on-surface-variant dark:text-gray-400 mt-1">Borrow requests awaiting approval</p>
-              </div>
+                <p className="text-[11px] text-on-surface-variant dark:text-gray-400 mt-1 group-hover:text-orange/70 transition-colors">
+                  Borrow requests awaiting approval
+                </p>
+              </button>
             )}
 
           

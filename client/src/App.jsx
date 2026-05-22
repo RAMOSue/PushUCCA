@@ -3,6 +3,7 @@ import { Routes, Route } from "react-router-dom";
 import { useContext, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
+import "./config/axios"; // ✅ Configure axios globally with credentials
 import { Toaster } from "react-hot-toast";
 import toast from "react-hot-toast";
 
@@ -20,10 +21,16 @@ import BorrowCart from "./pages/Borrower/BorrowCart";
 import StaffBorrowCart from "./pages/Staff/StaffBorrowCart";
 import MyBorrowedItems from "./pages/Borrower/MyBorrowedItems";
 import BorrowerHistory from "./pages/Borrower/BorrowerHistory";
+import StaffHistory from "./pages/Staff/StaffHistory"; // ✅ Staff history page
+import AdminHistory from "./pages/Admin/AdminHistory"; // ✅ Admin history page
+import BorrowerPerformances from "./pages/Borrower/BorrowerPerformances"; // ✅ Borrower performances
 import ScanQR from "./pages/Inventory/ScanQR";
 import MusicInstrumentScanner from "./pages/Inventory/MusicInstrumentScanner";
 import ScannerSelection from "./pages/Inventory/ScannerSelection";
+import StaffScannerSelection from "./pages/Inventory/StaffScannerSelection"; // ✅ Staff scanner buttons
 import AdminUserManagement from "./pages/Admin/AdminUserManagement";
+import MetricsDashboard from "./pages/Admin/MetricsDashboard"; // ✅ Testing System Dashboard
+import DetectionAccuracy from "./pages/Admin/DetectionAccuracy"; // ✅ AI Detection Accuracy Dashboard
 import DashboardStaff from "./pages/Dashboard/DashboardStaff";
 import StaffSchedule from "./pages/Staff/StaffSchedule";
 import DashboardAdmin from "./pages/Dashboard/DashboardAdmin";
@@ -33,29 +40,54 @@ import AdminReports from "./pages/Admin/AdminReports";
 import BorrowerProfiles from "./pages/Borrower/BorrowerProfiles";
 import BorrowerProfileFacebook from "./pages/Borrower/BorrowerProfileFacebook"; // ✅ Facebook-style UI
 import Settings from "./pages/Settings/Settings";
+import NotificationsPage from "./pages/Notifications/NotificationsPage"; // ✅ Notifications page
 import StaffAdminProfileFacebook from "./pages/Staff/StaffAdminProfileFacebook"; // ✅ Facebook-style UI
+import StaffDocuments from "./pages/Staff/StaffDocuments"; // ✅ Staff document management
 import MasterList from "./pages/Staff/MasterList";
 import StaffLayout from "./components/layout/StaffLayout"; // ✅ Staff layout shell
 import BorrowerLayout from "./components/layout/BorrowerLayout"; // ✅ Borrower layout shell
+import UnauthorizedAccess from "./components/UnauthorizedAccess"; // ✅ Security: logout on unauthorized access
 
 import { UserContextProvider, UserContext } from "../context/userContext";
-import { BorrowingProvider } from "../context/borrowingContext";
-import { SidebarProvider } from "../context/SidebarContext";
-import { LoginModalProvider } from "../context/LoginModalContext"; // ✅ Import login modal context
 import { notificationService } from "./services/notifications"; // ✅ Import notification service
 import { useInactivityTimeout } from "./hooks/useInactivityTimeout.jsx"; // ✅ Import inactivity hook
 import "./index.css";
 
+// ✅ Zustand stores (replaces Context for better performance)
+import { useSidebarStore } from "../context/sidebarStore";
+import { useLoginModalStore } from "../context/loginModalStore";
+import { useBorrowingStore } from "../context/borrowingStore";
+
+// ✅ TEMPORARY: Legacy Context providers for backward compatibility during migration
+import { BorrowingProvider } from "../context/borrowingContext";
+import { SidebarProvider } from "./context/SidebarContext";
+import { LoginModalProvider } from "../context/LoginModalContext";
+
 // ✅ Global axios configuration (supports both local and production)
+// Environment variable VITE_API_URL is set in .env.local or Render deployment
 const apiURL = import.meta.env.VITE_API_URL || "http://localhost:8000"
 axios.defaults.baseURL = apiURL
 axios.defaults.withCredentials = true;
 
 function AppContent() {
-  const { user, darkMode } = useContext(UserContext);
+  const { user, darkMode, loading } = useContext(UserContext);
+
+  // ✅ Initialize Zustand stores
+  const initializeMobile = useSidebarStore((state) => state.initializeMobile);
 
   // ✅ Initialize inactivity timeout monitoring
   useInactivityTimeout();
+
+  // ✅ Initialize mobile state on app load
+  useEffect(() => {
+    initializeMobile();
+    const handleResize = () => {
+      const isMobile = window.innerWidth < 1024;
+      useSidebarStore.setState({ isMobile });
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [initializeMobile]);
 
 
   // ✅ Automatically toggle Tailwind's dark mode globally
@@ -190,30 +222,34 @@ function AppContent() {
         darkMode ? "bg-[#171717] text-white" : "bg-gray-50 text-gray-900"
       }`}
     >
-      <BorrowingProvider>
-        <Navbar />
-        
-        {/* ✅ Show RightNavbar for all authenticated users (borrower, staff, admin) */}
-        {user && (user?.role === "borrower" || user?.role === "staff" || user?.role === "admin") && (
-          <RightNavbar />
-        )}
-        
-        {/* ✅ Show left sidebar for borrower users */}
-        {user?.role === "borrower" && (
-          <SideNavbar role="borrower" />
-        )}
-        
-        {/* ✅ Show floating scanner buttons for borrower users (always visible) */}
-        {user?.role === "borrower" && (
-          <ScannerSelection />
-        )}
+      <Navbar />
+      
+      {/* ✅ Show RightNavbar for all authenticated users (borrower, staff, admin) */}
+      {user && (user?.role === "borrower" || user?.role === "staff" || user?.role === "admin") && (
+        <RightNavbar />
+      )}
+      
+      {/* ✅ Show left sidebar for all authenticated users (borrower, staff, admin) */}
+      {user && (user?.role === "borrower" || user?.role === "staff" || user?.role === "admin") && (
+        <SideNavbar role={user?.role} />
+      )}
+      
+      {/* ✅ Show floating scanner buttons for borrower users (always visible) */}
+      {user?.role === "borrower" && (
+        <ScannerSelection />
+      )}
+      
+      {/* ✅ Show floating scanner buttons for staff users (always visible) */}
+      {user?.role === "staff" && (
+        <StaffScannerSelection />
+      )}
 
-        {/* ✅ Test User Switcher - for multi-user testing */}
-        <TestUserSwitcher />
-        
-        <Toaster position="bottom-right" toastOptions={{ duration: 2000 }} />
+      {/* ✅ Test User Switcher - for multi-user testing */}
+      <TestUserSwitcher />
+      
+      <Toaster position="bottom-right" toastOptions={{ duration: 2000 }} />
 
-        <Routes>
+      <Routes>
           {/* ==============================
               PUBLIC ROUTES
           ============================== */}
@@ -227,6 +263,18 @@ function AppContent() {
               BORROWER ROUTES
           ============================== */}
           <Route path="/available-items" element={<AvailableItems />} />
+          
+          {/* ✅ NEW: Borrower Performances Page */}
+          <Route
+            path="/performances"
+            element={
+              user?.role === "borrower" ? (
+                <BorrowerPerformances />
+              ) : (
+                <UnauthorizedAccess loading={loading} />
+              )
+            }
+          />
 
           <Route
             path="/borrow-cart"
@@ -234,9 +282,7 @@ function AppContent() {
               user?.role === "borrower" ? (
                 <BorrowCart />
               ) : (
-                <div className="text-center mt-10 text-red-500 text-xl">
-                  ❌ Access Denied
-                </div>
+                <UnauthorizedAccess loading={loading} />
               )
             }
           />
@@ -248,9 +294,7 @@ function AppContent() {
               user?.role === "staff" ? (
                 <StaffBorrowCart />
               ) : (
-                <div className="text-center mt-10 text-red-500 text-xl">
-                  ❌ Access Denied
-                </div>
+                <UnauthorizedAccess loading={loading} />
               )
             }
           />
@@ -262,9 +306,7 @@ function AppContent() {
               user?.role === "borrower" ? (
                 <MyBorrowedItems />
               ) : (
-                <div className="text-center mt-10 text-red-500 text-xl">
-                  ❌ Access Denied
-                </div>
+                <UnauthorizedAccess loading={loading} />
               )
             }
           />
@@ -276,9 +318,7 @@ function AppContent() {
               user?.role === "borrower" ? (
                 <BorrowerHistory />
               ) : (
-                <div className="text-center mt-10 text-red-500 text-xl">
-                  ❌ Access Denied
-                </div>
+                <UnauthorizedAccess loading={loading} />
               )
             }
           />
@@ -289,9 +329,7 @@ function AppContent() {
               user?.role === "borrower" ? (
                 <ScanQR />
               ) : (
-                <div className="text-center mt-10 text-red-500 text-xl">
-                  ❌ Access Denied
-                </div>
+                <UnauthorizedAccess loading={loading} />
               )
             }
           />
@@ -303,9 +341,7 @@ function AppContent() {
               user?.role === "borrower" ? (
                 <MusicInstrumentScanner />
               ) : (
-                <div className="text-center mt-10 text-red-500 text-xl">
-                  ❌ Access Denied
-                </div>
+                <UnauthorizedAccess loading={loading} />
               )
             }
           />
@@ -324,6 +360,18 @@ function AppContent() {
             }
           />
 
+          {/* ✅ NOTIFICATIONS PAGE */}
+          <Route
+            path="/notifications"
+            element={
+              user ? (
+                <NotificationsPage />
+              ) : (
+                <UnauthorizedAccess loading={loading} />
+              )
+            }
+          />
+
           {/* ✅ BORROWER PROFILE ROUTES */}
           <Route
             path="/profile"
@@ -331,9 +379,7 @@ function AppContent() {
               user?.role === "borrower" ? (
                 <BorrowerProfileFacebook />
               ) : (
-                <div className="text-center mt-10 text-red-500 text-xl">
-                  ❌ Access Denied
-                </div>
+                <UnauthorizedAccess loading={loading} />
               )
             }
           />
@@ -349,12 +395,10 @@ function AppContent() {
               user?.role === "staff" ? (
                 <StaffLayout />
               ) : (
-                <div className="text-center mt-10 text-red-500 text-xl">
-                  ❌ Access Denied
-                </div>
+                <UnauthorizedAccess loading={loading} />
               )
             }
-          >
+          >  
             {/* 🟢 Default staff dashboard home (welcome + tiles) */}
             <Route index element={<DashboardStaff />} />
 
@@ -365,8 +409,15 @@ function AppContent() {
             <Route path="schedule" element={<StaffSchedule />} />
             <Route path="manage-inventory" element={<ManageInventory />} />
             <Route path="borrower-profiles" element={<BorrowerProfiles />} />
+            <Route path="documents" element={<StaffDocuments />} />
             <Route path="master-list" element={<MasterList />} />
             <Route path="profile" element={<StaffAdminProfileFacebook />} />
+            <Route path="settings" element={<Settings />} />
+            <Route path="history" element={<StaffHistory />} />
+            
+            {/* ✅ NEW: Staff Scanner Routes */}
+            <Route path="scan" element={<ScanQR />} />
+            <Route path="scanner" element={<MusicInstrumentScanner />} />
           </Route>
 
           {/* ==============================
@@ -378,9 +429,7 @@ function AppContent() {
               user?.role === "admin" ? (
                 <DashboardAdmin />
               ) : (
-                <div className="text-center mt-10 text-red-500 text-xl">
-                  ❌ Access Denied
-                </div>
+                <UnauthorizedAccess loading={loading} />
               )
             }
           >
@@ -396,23 +445,31 @@ function AppContent() {
             <Route path="return-items" element={<StaffBorrowTimeline />} />
             <Route path="manage-inventory" element={<ManageInventory />} />
             <Route path="users" element={<AdminUserManagement />} />
+            <Route path="master-list" element={<MasterList />} />
             <Route path="reports" element={<AdminReports />} />
             <Route path="profile" element={<StaffAdminProfileFacebook />} />
+            <Route path="settings" element={<Settings />} />
+            <Route path="history" element={<AdminHistory />} />
+            {/* ✅ Testing System Dashboard */}
+            <Route path="metrics" element={<MetricsDashboard />} />
+            {/* ✅ AI Detection Accuracy Dashboard */}
+            <Route path="detection-accuracy" element={<DetectionAccuracy />} />
           </Route>
         </Routes>
-      </BorrowingProvider>
-    </div>
-  );
-}
+      </div>
+    );
+  }
 
 function App() {
   return (
     <UserContextProvider>
-      <LoginModalProvider>
+      <BorrowingProvider>
         <SidebarProvider>
-          <AppContent />
+          <LoginModalProvider>
+            <AppContent />
+          </LoginModalProvider>
         </SidebarProvider>
-      </LoginModalProvider>
+      </BorrowingProvider>
     </UserContextProvider>
   );
 }

@@ -15,15 +15,21 @@
  */
 
 import { useContext } from "react";
-import { SidebarContext } from "../../../context/SidebarContext";
+import { SidebarContext } from "../../context/SidebarContext";
 
 export function PageLayout({ children }) {
   const contextValue = useContext(SidebarContext);
   
+  // Sidebar widths:
+  // - Left sidebar (SideNavbar): w-64 (16rem / 256px)
+  // - Right navbar (RightNavbar): w-72 (18rem / 288px)
+  const defaultMarginLeft = "lg:ml-64";
+  const defaultMarginRight = "lg:mr-72";
+  
   // Fallback if context is not available
   if (!contextValue) {
     return (
-      <div className={`pt-16 px-4 md:px-6 transition-all duration-300 ease-in-out ml-0 lg:mr-72 min-h-screen bg-gray-50 dark:bg-[#171717] dark:text-white`}>
+      <div className={`pt-2 px-0 sm:px-2 md:px-4 transition-all duration-300 ease-in-out ${defaultMarginLeft} ${defaultMarginRight} min-h-screen bg-gray-50 dark:bg-[#171717] dark:text-white`}>
         {children}
       </div>
     );
@@ -32,13 +38,14 @@ export function PageLayout({ children }) {
   const { sidebarOpen, isMobile } = contextValue;
   
   // Content shifts inward on desktop when sidebars open
-  // On mobile, sidebars overlay (no shift)
-  const marginLeft = !isMobile && sidebarOpen ? "lg:ml-72" : "ml-0";
-  const marginRight = !isMobile && sidebarOpen ? "lg:mr-72" : "lg:mr-0";
+  // On mobile, sidebars overlay (no shift) with 0 margins
+  // Always apply margins on lg+ screens to account for sidebars
+  const marginLeft = !isMobile ? "lg:ml-64" : "ml-0";
+  const marginRight = !isMobile ? "lg:mr-72" : "mr-0";
   
   return (
     <div 
-      className={`pt-2 px-4 md:px-6 transition-all duration-300 ease-in-out ${marginLeft} ${marginRight} min-h-screen bg-gray-50 dark:bg-[#171717] dark:text-white`}
+      className={`pt-2 px-0 sm:px-2 md:px-4 transition-all duration-300 ease-in-out ${marginLeft} ${marginRight} min-h-screen bg-gray-50 dark:bg-[#171717] dark:text-white`}
       style={{
         willChange: sidebarOpen ? "margin" : "auto",
       }}

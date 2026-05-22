@@ -1483,7 +1483,7 @@ export default function GetStarted() {
 				initial={{ x: "100%" }}
 				animate={{ x: showLoginModal ? 0 : "100%" }}
 				transition={{ duration: 0.4, ease: "easeInOut" }}
-				className="fixed right-0 top-[65px] h-[calc(100vh-50px)] w-full md:w-1/2 bg-white z-40 overflow-hidden"
+				className="fixed left-0 right-0 top-14 sm:top-16 md:right-0 md:left-auto bottom-0 w-full md:w-1/2 bg-white z-40 overflow-hidden"
 				style={{ clipPath: 'polygon(15% 0, 100% 0, 100% 100%, 0% 100%)' }}
 				onClick={(e) => e.stopPropagation()}
 			>
@@ -1491,9 +1491,9 @@ export default function GetStarted() {
 				
 				<button
 					onClick={() => closeLoginModal()}
-					className="absolute top-6 right-6 text-gray-600 hover:text-gray-900 transition z-10"
+					className="absolute top-3 sm:top-6 right-3 sm:right-6 text-gray-600 hover:text-gray-900 transition z-10"
 				>
-					<MaterialIcon icon="close" className="text-2xl" />
+					<MaterialIcon icon="close" className="text-xl sm:text-2xl" />
 				</button>
 				
 
@@ -1501,12 +1501,12 @@ export default function GetStarted() {
 					initial={{ x: "-100%" }}
 					animate={{ x: showLoginModal ? 0 : "-100%" }}
 					transition={{ duration: 0.4, ease: "easeInOut" }}
-					className="h-full w-full overflow-y-auto p-8 md:p-12"
+					className="h-full w-full overflow-y-auto p-4 sm:p-8 md:p-12"
 				>
-					<div className="max-w-md ml-[180px]">
-						<div className="bg-white rounded-2xl p-8 border border-gray-200">
-							<div className="text-center mb-8">
-							<h1 className="text-2xl md:text-4xl font-bold text-gray-900 mb-2">Welcome Back</h1>
+					<div className="max-w-md ml-0 md:ml-[180px] mx-auto md:mx-0">
+						<div className="bg-white rounded-2xl p-6 sm:p-8 border border-gray-200">
+							<div className="text-center mb-6 sm:mb-8">
+							<h1 className="text-xl sm:text-2xl md:text-4xl font-bold text-gray-900 mb-2">Welcome Back</h1>
 							</div>
 
 							{isLoginLocked && (
@@ -1661,27 +1661,27 @@ export default function GetStarted() {
 				initial={{ x: "100%" }}
 				animate={{ x: showRegisterModal ? 0 : "100%" }}
 				transition={{ duration: 0.4, ease: "easeInOut" }}
-				className="fixed right-0 top-[69px] h-[calc(100vh-50px)] w-full md:w-1/2 bg-white z-40 overflow-hidden"
+				className="fixed left-0 right-0 top-14 sm:top-16 md:right-0 md:left-auto bottom-0 w-full md:w-1/2 bg-white z-40 overflow-hidden"
 				style={{ clipPath: 'polygon(15% 0, 100% 0, 100% 100%, 0% 100%)' }}
 				onClick={(e) => e.stopPropagation()}
 			>
 				<button
 					onClick={() => closeRegisterModal()}
-					className="absolute top-6 right-6 text-gray-600 hover:text-gray-900 transition z-10"
+					className="absolute top-3 sm:top-6 right-3 sm:right-6 text-gray-600 hover:text-gray-900 transition z-10"
 				>
-					<MaterialIcon icon="close" className="text-2xl" />
+					<MaterialIcon icon="close" className="text-xl sm:text-2xl" />
 				</button>
 
 				<motion.div
 					initial={{ x: "-100%" }}
 					animate={{ x: showRegisterModal ? 0 : "-100%" }}
 					transition={{ duration: 0.4, ease: "easeInOut" }}
-					className="h-full w-full overflow-y-auto p-8 md:p-12"
+					className="h-full w-full overflow-y-auto p-4 sm:p-8 md:p-12"
 				>
-					<div className="max-w-md ml-[180px]">
-						<div className="bg-white rounded-2xl p-8 border border-gray-200">
-							<div className="text-center mb-8">
-							<h1 className="text-2xl md:text-4xl font-bold text-gray-900 mb-2">Create Account</h1>
+					<div className="max-w-md ml-0 md:ml-[180px] mx-auto md:mx-0">
+						<div className="bg-white rounded-2xl p-6 sm:p-8 border border-gray-200">
+							<div className="text-center mb-6 sm:mb-8">
+							<h1 className="text-xl sm:text-2xl md:text-4xl font-bold text-gray-900 mb-2">Create Account</h1>
 							</div>
 
 							{/* ✅ NEW: Allowed Email Domains Notice */}

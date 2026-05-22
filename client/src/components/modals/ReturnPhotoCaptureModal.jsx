@@ -293,9 +293,15 @@ export default function ReturnPhotoCaptureModal({
               ) : (
                 <div className="grid grid-cols-2 gap-2 max-h-96 overflow-y-auto">
                   {photos.map((photo) => {
-                    const photoUrl = photo.photo_url?.startsWith("http")
-                      ? photo.photo_url
-                      : `http://localhost:8000${photo.photo_url}`;
+                    // ✅ Construct full image URL using environment variable
+                    const getFullImageUrl = (path) => {
+                      if (!path) return "";
+                      if (path.startsWith("http")) return path;
+                      const apiBase = import.meta.env.VITE_API_URL || "http://localhost:8000";
+                      return apiBase + (path.startsWith("/") ? path : "/" + path);
+                    };
+
+                    const photoUrl = getFullImageUrl(photo.photo_url);
 
                     return (
                       <div

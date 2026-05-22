@@ -4,10 +4,10 @@ import { Html5Qrcode } from "html5-qrcode";
 import axios from "axios";
 import { BorrowingContext } from "../../../context/borrowingContext";
 import { UserContext } from "../../../context/userContext";
-import { SidebarContext } from "../../../context/SidebarContext";
+import { SidebarContext } from "../../context/SidebarContext";
 import { useNavigate, useLocation } from "react-router-dom";
 import toast from "react-hot-toast";
-import { Camera, RotateCw, RefreshCw, AlertCircle, Trash2 } from "lucide-react";
+import { Camera, RotateCw, RefreshCw, AlertCircle, Trash2, ChevronLeft } from "lucide-react";
 import AddToCartModal from "../../components/modals/AddToCartModal";
 import BorrowPhotoCaptureModal from "../../components/modals/BorrowPhotoCaptureModal";
 
@@ -26,7 +26,7 @@ export default function ScanQR() {
   const [showAddToCartModal, setShowAddToCartModal] = useState(false);
   const [addedItemName, setAddedItemName] = useState("");
   const [scanHistory, setScanHistory] = useState([]);
-  const [scanFlash, setScanFlash] = useState(false); // ✅ STEP 6.2: Scan flash effect
+  const [scanFlash, setScanFlash] = useState(false);
 
   const html5QrcodeRef = useRef(null);
   const scannerRunningRef = useRef(false);
@@ -37,7 +37,12 @@ export default function ScanQR() {
   const userRef = useRef(null);
   const videoTrackRef = useRef(null);
   const overlayRef = useRef(null);
-  const scrollRef = useRef(null); // ✅ STEP 6.3: Auto-scroll receipt
+  const scrollRef = useRef(null);
+  const startScannerRef = useRef(null);
+  const cameraAssistFailedRef = useRef(false);
+  const resizeTimeoutRef = useRef(null);
+  const lastResizeDimensionsRef = useRef({ width: 0, height: 0 });
+  const borrowingSessionInitializedRef = useRef(false);
 
   const [aiAssistEnabled, setAiAssistEnabled] = useState(true);
   const analyzeIntervalRef = useRef(null);
@@ -51,7 +56,6 @@ export default function ScanQR() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // ✅ Cashier beep sound function
   const playBeepSound = useCallback(() => {
     try {
       const audioContext = new (window.AudioContext || window.webkitAudioContext)();
@@ -61,8 +65,7 @@ export default function ScanQR() {
       oscillator.connect(gainNode);
       gainNode.connect(audioContext.destination);
       
-      // Beep parameters: high pitch, short duration
-      oscillator.frequency.value = 800; // 800 Hz
+      oscillator.frequency.value = 800;
       oscillator.type = 'sine';
       
       gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
@@ -83,32 +86,52 @@ export default function ScanQR() {
     userRef.current = user;
   }, [user]);
 
-  // ✅ Initialize borrowing session
   useEffect(() => {
     const initBorrowingSession = async () => {
-      if (!requestId) {
-        try {
-          const res = await axios.post("/api/borrow/start");
-          setRequestId(res.data.borrowingId || res.data.request_id || null);
-          console.log("✅ Borrowing session started:", res.data.borrowingId || res.data.request_id);
-        } catch (err) {
-          console.error("❌ Borrowing session error:", err.response?.data || err.message);
-          toast.error("❌ Cannot start borrowing session.");
-        }
+      if (requestId) {
+        console.log("✅ Using existing borrowing session from context:", requestId);
+        borrowingSessionInitializedRef.current = true;
+        return;
+      }
+
+      try {
+        console.log("🔄 Starting new borrowing session...");
+        const res = await axios.post("/api/borrow/start");
+        const newRequestId = res.data.borrowingId || res.data.request_id || null;
+        setRequestId(newRequestId);
+        borrowingSessionInitializedRef.current = true;
+        console.log("✅ New borrowing session started:", newRequestId);
+      } catch (err) {
+        console.error("❌ Borrowing session error:", err.response?.data || err.message);
+        toast.error("❌ Cannot start borrowing session.");
+        borrowingSessionInitializedRef.current = false; // Allow retry on error
       }
     };
-    initBorrowingSession();
-  }, [requestId, setRequestId]);
+
+    // Only initialize once, even if component re-renders or scanner restarts
+    if (!borrowingSessionInitializedRef.current && !requestId) {
+      initBorrowingSession();
+    }
+  }, [requestId]);
 
   const computeQrbox = useCallback(() => {
     const el = document.getElementById("qr-root");
-    if (!el) return 250;
-    // Calculate qrbox based on container - use smaller of width/height
-    // For a 2/3 width container (left panel), with 16:9 aspect ratio
-    const width = el.offsetWidth || 500;
-    const height = el.offsetHeight || 500;
-    const size = Math.min(width, height) * 0.6; // Use 60% of smallest dimension
-    return Math.max(180, Math.min(size, 350));
+    if (!el) {
+      console.warn("⚠️ qr-root not found in computeQrbox");
+      return 280;
+    }
+    
+    const width = el.offsetWidth || 400;
+    const height = el.offsetHeight || 400;
+    const minDimension = Math.min(width, height);
+    
+    console.log(`📏 computeQrbox: width=${width}, height=${height}, minDimension=${minDimension}`);
+    
+    const size = minDimension * 0.7;
+    const result = Math.max(200, Math.min(size, 400));
+    
+    console.log(`📏 QR box calculated: ${result}px (from ${size}px)`);
+    return result;
   }, []);
 
   const normalizeScanPayload = (raw) => {
@@ -136,15 +159,12 @@ export default function ScanQR() {
     };
   };
 
-  // Capture a processed frame from the video element applying the same
-  // brightness/contrast adjustments we made (so the server gets the enhanced image).
   const captureProcessedFrameAsBlob = useCallback(async (videoEl) => {
     const canvas = document.createElement("canvas");
     canvas.width = videoEl.videoWidth || 640;
     canvas.height = videoEl.videoHeight || 480;
     const ctx = canvas.getContext("2d");
 
-    // Apply current CSS filter (if supported) so the server receives the enhanced frame
     const styleFilter = window.getComputedStyle(videoEl).filter || "";
     try {
       ctx.filter = styleFilter;
@@ -159,7 +179,6 @@ export default function ScanQR() {
     );
   }, []);
 
-  // Compute luminance multiplier for auto-brightness adjustments
   const computeLuminanceMultiplier = useCallback((videoEl, sampleSize = 200) => {
     try {
       const canvas = document.createElement("canvas");
@@ -190,9 +209,10 @@ export default function ScanQR() {
     }
   }, []);
 
-  // Attempt to enable continuous focus/exposure/zoom if supported by the camera
   const tryEnableCameraAssists = useCallback(async () => {
     try {
+      if (cameraAssistFailedRef.current) return;
+
       const track = videoTrackRef.current;
       if (!track) return;
       const caps = track.getCapabilities ? track.getCapabilities() : {};
@@ -213,15 +233,16 @@ export default function ScanQR() {
         try {
           await track.applyConstraints({ advanced });
         } catch (e) {
-          console.warn("Camera assist constraints failed:", e.message);
+          cameraAssistFailedRef.current = true;
+          console.warn("⚠️ Camera assist constraints failed (will not retry):", e.message);
         }
       }
     } catch (e) {
-      console.warn("tryEnableCameraAssists error:", e.message);
+      cameraAssistFailedRef.current = true;
+      console.warn("⚠️ Camera assist unavailable (will not retry):", e.message);
     }
   }, []);
 
-  // Start/stop analysis loop for auto brightness and camera assists
   const startAnalysisLoop = useCallback(() => {
     if (analyzeIntervalRef.current) return;
     analyzeIntervalRef.current = setInterval(() => {
@@ -246,13 +267,10 @@ export default function ScanQR() {
     }
   }, []);
 
-  // ✅ AI fallback function
   const handleImageScanFallback = useCallback(async () => {
     try {
       const videoEl = document.querySelector("#qr-root video");
       if (!videoEl) return;
-      // Capture a processed frame (applies CSS filter via canvas) so the model receives
-      // the brightness/contrast-enhanced image.
       const blob = await captureProcessedFrameAsBlob(videoEl);
       const formData = new FormData();
       formData.append("image", blob, "frame.jpg");
@@ -280,11 +298,9 @@ export default function ScanQR() {
           garment_type: data.garment_type,
         });
         
-        // Show success modal
         setAddedItemName(data.name);
         setShowAddToCartModal(true);
         
-        // Auto-close modal after 2 seconds
         setTimeout(() => {
           setShowAddToCartModal(false);
         }, 2000);
@@ -305,33 +321,60 @@ export default function ScanQR() {
   }, [addToCart, requestId]);
 
   const stopScanner = useCallback(async () => {
+    console.log("🛑 Stopping scanner...");
     const inst = html5QrcodeRef.current;
-    if (inst && scannerRunningRef.current) {
+    
+    if (inst) {
       try {
+        console.log("⏹️ Calling inst.stop()...");
         await inst.stop();
+        console.log("✅ inst.stop() completed");
       } catch (e) {
-        console.warn("Stop warning:", e.message);
+        console.warn("⚠️ inst.stop() warning:", e.message);
       }
+      
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
       try {
+        console.log("🧹 Calling inst.clear()...");
         await inst.clear();
+        console.log("✅ inst.clear() completed");
       } catch (e) {
-        console.warn("Clear warning:", e.message);
+        console.warn("⚠️ inst.clear() warning:", e.message);
       }
     }
+    
     scannerRunningRef.current = false;
     html5QrcodeRef.current = null;
+    cameraAssistFailedRef.current = false;
+    
+    scannedCodesRef.current.clear();
+    console.log("🧹 Cleared scanned codes cache");
 
     if (videoTrackRef.current) {
       try {
+        console.log("🎬 Stopping video track...");
         videoTrackRef.current.stop();
+        console.log("✅ Video track stopped");
       } catch (e) {
-        console.warn("Video track stop warning:", e.message);
+        console.warn("⚠️ Video track stop warning:", e.message);
       }
       videoTrackRef.current = null;
     }
     
-    // Give the browser time to release the camera resource
-    await new Promise(resolve => setTimeout(resolve, 500));
+    console.log("🧹 Clearing qr-root contents...");
+    const container = document.getElementById("qr-root");
+    if (container) {
+      container.innerHTML = "";
+      while (container.firstChild) {
+        container.removeChild(container.firstChild);
+      }
+      console.log("✅ qr-root cleared");
+    }
+    
+    console.log("⏳ Waiting 1500ms for browser to fully release camera resource...");
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    console.log("✅ Camera resource released");
   }, []);
 
   const onScanSuccess = useCallback(
@@ -358,7 +401,6 @@ export default function ScanQR() {
                 `/api/inventory/scan/flexible/${encodeURIComponent(cleanQR)}`
               );
             } catch (err) {
-              // If both fail, trigger AI fallback
               await handleImageScanFallback();
               return;
             }
@@ -388,11 +430,9 @@ export default function ScanQR() {
             garment_type: data.garment_type,
           });
           
-          // Show success modal
           setAddedItemName(data.name);
           setShowAddToCartModal(true);
           
-          // Auto-close modal after 2 seconds
           setTimeout(() => {
             setShowAddToCartModal(false);
           }, 2000);
@@ -405,139 +445,415 @@ export default function ScanQR() {
           size: data.size || "N/A",
           status: data.status || "Unknown",
         });
-        // ✅ STEP 6.2: Add scan flash effect
         setScanFlash(true);
         setTimeout(() => setScanFlash(false), 300);
-        // ✅ STEP 6.1: Play cashier beep sound
         playBeepSound();
-        // ✅ STEP 6.3: Auto-scroll receipt to bottom
         setTimeout(() => {
           if (scrollRef.current) {
             scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
           }
         }, 0);
-        // ✅ NEW: Add to scan history
         setScanHistory(prev => [data.name, ...prev.slice(0, 4)]);
         setError("");
       } catch (err) {
         console.error("Scan error:", err?.response?.data || err.message);
         setError("❌ Item not found or server error.");
         setLastScannedItem(null);
-        // Optional: trigger fallback here as well
-        // await handleImageScanFallback();
       }
     },
     [addToCart, requestId, handleImageScanFallback, playBeepSound]
   );
 
   const startScanner = useCallback(
-    async (cameraId) => {
-      if (scannerRunningRef.current || isUnmountedRef.current) return;
+    async (cameraId, retryCount = 0) => {
+      if (isUnmountedRef.current) {
+        console.warn("⚠️ Component unmounted, skipping start");
+        return;
+      }
 
-      await stopScanner();
+      const attemptId = Date.now();
+      startScannerRef.current = attemptId;
+      const maxRetries = 3;
+      
+      console.log(
+        `🚀 startScanner attempt #${attemptId} (retry: ${retryCount}/${maxRetries}) with cameraId:`,
+        cameraId
+      );
+
+      if (scannerRunningRef.current) {
+        console.warn("⚠️ Scanner already running, stopping first...");
+        await stopScanner();
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+
+      const waitAfterStop = 2000 + retryCount * 1000;
+      console.log(`⏳ Waiting ${waitAfterStop}ms for html5-qrcode state machine to fully reset...`);
+      await new Promise(resolve => setTimeout(resolve, waitAfterStop));
+
+      if (startScannerRef.current !== attemptId) {
+        console.warn("⚠️ Another startScanner call came in, abandoning attempt #", attemptId);
+        return;
+      }
 
       setIsStarting(true);
       setError("");
-      const container = document.getElementById("qr-root");
-      if (container) container.innerHTML = "";
 
-      const inst = new Html5Qrcode("qr-root", { verbose: false });
-      html5QrcodeRef.current = inst;
+      let container = document.getElementById("qr-root");
+      if (!container) {
+        await new Promise(resolve => setTimeout(resolve, 200));
+        container = document.getElementById("qr-root");
+      }
 
+      const containerWidth = container?.offsetWidth || 400;
+      const containerHeight = container?.offsetHeight || 400;
+      
+      const computedAspectRatio = containerWidth / containerHeight;
+      
       const config = {
         fps: 15,
         qrbox: computeQrbox(),
-        // ✅ FIXED: Correct aspect ratio calculation (width/height not height/width)
-        // For a 16:9 landscape video feed
-        aspectRatio: 16 / 9,
+        aspectRatio: computedAspectRatio,
         disableFlip: false,
         experimentalFeatures: { useBarCodeDetectorIfSupported: true },
       };
 
-      try {
-        // Add a small delay before starting to ensure camera is fully released
-        await new Promise(resolve => setTimeout(resolve, 300));
-        
-        // ✅ FIXED: Use flexible camera constraints that don't force zoom
-        const constraints = cameraId 
-          ? { deviceId: { exact: cameraId } } 
-          : { 
-              facingMode: "environment",
-              // Prefer wide-angle (not zoomed)
-              width: { ideal: 1280 },
-              height: { ideal: 720 }
-            };
-        
-        await inst.start(
-          constraints,
-          config,
-          onScanSuccess
-        );
-        scannerRunningRef.current = true;
+      console.log("📊 Config computed:", {
+        qrbox: config.qrbox,
+        containerWidth,
+        containerHeight,
+        computedAspectRatio: computedAspectRatio.toFixed(2),
+      });
 
-        const videoEl = container.querySelector("video");
-        if (videoEl) {
-          videoTrackRef.current = videoEl.srcObject?.getVideoTracks?.()[0] || null;
-          // ✅ FIXED: Use 'contain' instead of 'cover' to prevent zoom/cropping
-          videoEl.style.width = "100%";
-          videoEl.style.height = "100%";
-          videoEl.style.objectFit = "contain";  // ✅ Changed from 'cover' to 'contain'
-          videoEl.style.borderRadius = "0.75rem";
-          videoEl.style.backgroundColor = "#000";
-          // Start AI assist analysis loop
-          startAnalysisLoop();
+      try {
+        console.log("⏳ Allowing React to fully mount component...");
+        await new Promise(resolve => setTimeout(resolve, 100));
+
+        if (!container) {
+          console.error("❌ qr-root element not available");
+          throw new Error("qr-root element not available. Component may not be fully rendered. Try refreshing the page.");
         }
+        
+        console.log(`✅ qr-root element ready with dimensions: ${containerWidth}x${containerHeight}`);
+        container.innerHTML = "";
+        while (container.firstChild) {
+          container.removeChild(container.firstChild);
+        }
+        
+        const waitAfterDomClear = 2000 + retryCount * 1000;
+        console.log(`⏳ Waiting ${waitAfterDomClear}ms for html5-qrcode state to fully reset...`);
+        await new Promise(resolve => setTimeout(resolve, waitAfterDomClear));
+
+        if (startScannerRef.current !== attemptId) {
+          console.warn("⚠️ Another startScanner call came in during reset wait, abandoning attempt #", attemptId);
+          return;
+        }
+
+        const inst = new Html5Qrcode("qr-root", { verbose: false });
+        html5QrcodeRef.current = inst;
+        console.log("✅ Html5Qrcode instance created");
+
+        const waitBeforeStart = 500 + retryCount * 500;
+        console.log(`⏳ Waiting ${waitBeforeStart}ms before calling inst.start()...`);
+        await new Promise(resolve => setTimeout(resolve, waitBeforeStart));
+
+        if (startScannerRef.current !== attemptId) {
+          console.warn("⚠️ Another startScanner call came in, abandoning attempt #", attemptId);
+          try {
+            await inst.stop();
+          } catch (e) {
+            console.warn("⚠️ Could not stop instance:", e.message);
+          }
+          return;
+        }
+        
+        let cameraConfig;
+        if (cameraId) {
+          cameraConfig = cameraId;
+          console.log("🎬 Calling inst.start() with cameraId string:", cameraConfig);
+        } else {
+          cameraConfig = { video: true };
+          console.log("🎬 Calling inst.start() with basic video");
+        }
+        
+        try {
+          await inst.start(cameraConfig, config, onScanSuccess);
+          console.log("✅ Scanner started successfully");
+          scannerRunningRef.current = true;
+        } catch (constraintErr) {
+          const errMsg = constraintErr?.message || String(constraintErr) || "";
+          
+          if (errMsg.includes("transition") || errMsg.includes("already")) {
+            console.error("❌ State machine error detected:", errMsg);
+            
+            if (retryCount < maxRetries) {
+              console.warn(`⚠️ State machine corrupt, retrying (${retryCount + 1}/${maxRetries})...`);
+              try {
+                await inst.stop();
+              } catch {
+                // Ignore
+              }
+              html5QrcodeRef.current = null;
+              
+              const retryWait = 3000 + retryCount * 2000;
+              console.log(`⏳ Waiting ${retryWait}ms before retry...`);
+              await new Promise(resolve => setTimeout(resolve, retryWait));
+              
+              if (startScannerRef.current !== attemptId) {
+                console.warn("⚠️ Another call came in, abandoning retry");
+                return;
+              }
+              
+              return await startScanner(cameraId, retryCount + 1);
+            } else {
+              throw new Error(`Scanner state machine corrupted after ${retryCount + 1} retries: ${errMsg}. Please refresh the page.`);
+            }
+          }
+          
+          console.warn("⚠️ Constraints failed, trying basic video...", errMsg);
+          
+          try {
+            console.log("🎬 Retrying with basic video...");
+            await inst.start({ video: true }, config, onScanSuccess);
+            console.log("✅ Scanner started successfully with basic video");
+            scannerRunningRef.current = true;
+          } catch (basicErr) {
+            const errorMsg = basicErr?.message || String(basicErr).substring(0, 100) || "Unknown error";
+            console.error("❌ Failed even with basic video:", errorMsg);
+            console.error("🔍 Full error object:", basicErr);
+            throw new Error(`Camera initialization failed: ${errorMsg}`);
+          }
+        }
+
+        const freshContainer = document.getElementById("qr-root");
+        if (freshContainer) {
+          const videoEl = freshContainer.querySelector("video");
+          if (videoEl) {
+            console.log("📺 Configuring video element...");
+            
+            videoTrackRef.current = videoEl.srcObject?.getVideoTracks?.()[0] || null;
+            
+            videoEl.style.width = "100%";
+            videoEl.style.height = "100%";
+            videoEl.style.objectFit = "cover";
+            videoEl.style.borderRadius = "0.75rem";
+            videoEl.style.backgroundColor = "#000";
+            videoEl.style.display = "block";
+            
+            videoEl.addEventListener('loadedmetadata', () => {
+              console.log(`📺 Video stream dimensions: ${videoEl.videoWidth}x${videoEl.videoHeight}`);
+            }, { once: true });
+            
+            console.log("✅ Video element configured");
+            
+            startAnalysisLoop();
+          } else {
+            console.warn("⚠️ Video element not found in qr-root");
+          }
+        } else {
+          console.warn("⚠️ qr-root element not found after scanner started");
+        }
+
       } catch (err) {
-        console.error("Failed to start scanner:", err);
-        setError("❌ Unable to access camera. Check permissions or try another camera.");
+        const errorMsg = err?.message || String(err) || "Unknown error";
+        console.error("❌ Failed to start scanner:", errorMsg);
+        console.error("Error object:", err);
+        console.error("Error stack:", err?.stack);
+        
+        let errorHint = "❌ Unable to access camera. Check permissions or try another camera.";
+        
+        if (errorMsg.includes("DOM") || errorMsg.includes("qr-root") || errorMsg.includes("not found")) {
+          errorHint = "❌ Camera container not found. Try refreshing the page.";
+        } else if (errorMsg.includes("transition") || errorMsg.includes("already") || errorMsg.includes("corrupted")) {
+          errorHint = "❌ Camera state corrupted. Please refresh the page and try again.";
+        } else if (errorMsg.includes("NotAllowedError") || errorMsg.includes("Permission") || errorMsg.includes("permission")) {
+          errorHint = "❌ Camera permission denied. Enable camera in browser settings.";
+        } else if (errorMsg.includes("NotFoundError")) {
+          errorHint = "❌ No camera found. Ensure a camera is connected.";
+        } else if (errorMsg.includes("NotReadableError") || errorMsg.includes("already in use")) {
+          errorHint = "❌ Camera in use by another app. Close other apps and try again.";
+        } else if (errorMsg.includes("InsecureContextError")) {
+          errorHint = "❌ Camera requires HTTPS connection.";
+        } else if (errorMsg.includes("OverconstrainedError")) {
+          errorHint = "❌ Camera doesn't support this resolution. Try switching camera.";
+        } else if (errorMsg.includes("AbortError")) {
+          errorHint = "❌ Camera operation interrupted. Try refreshing the page.";
+        } else if (errorMsg.includes("initialization")) {
+          errorHint = "❌ Camera initialization failed. Try refreshing and retrying.";
+        }
+        
+        setError(errorHint);
+        toast.error(errorHint);
         scannerRunningRef.current = false;
         html5QrcodeRef.current = null;
       } finally {
         setIsStarting(false);
       }
     },
-    [computeQrbox, onScanSuccess, stopScanner, startAnalysisLoop]
+    [computeQrbox, onScanSuccess, startAnalysisLoop]
   );
 
   useEffect(() => {
-    if (location.pathname !== "/scan") return;
+    const isScanPage = location.pathname === "/scan" || location.pathname === "/staff/scan";
+    if (!isScanPage) return;
     isUnmountedRef.current = false;
 
     (async () => {
       try {
-        await navigator.mediaDevices.getUserMedia({ video: true });
-        const devices = await Html5Qrcode.getCameras();
-        if (!devices.length) throw new Error("No cameras found.");
+        console.log("⏳ Waiting for DOM to be fully ready...");
+        await new Promise(resolve => {
+          if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', resolve, { once: true });
+          } else {
+            requestAnimationFrame(() => {
+              setTimeout(resolve, 100);
+            });
+          }
+        });
+        console.log("✅ DOM is ready");
+
+        const qrRoot = document.getElementById("qr-root");
+        if (!qrRoot) {
+          throw new Error("qr-root element still not available after DOM ready. Page structure may be incorrect.");
+        }
+        console.log("✅ qr-root element is available");
+
+        console.log("📷 Requesting camera access with relaxed constraints...");
+        try {
+          await navigator.mediaDevices.getUserMedia({ 
+            video: {
+              facingMode: { ideal: "environment" },
+              width: { min: 320, ideal: 640, max: 1280 },
+              height: { min: 240, ideal: 480, max: 720 }
+            }
+          });
+        } catch (e) {
+          console.warn("⚠️ Relaxed constraints failed, trying basic video...", e.message);
+          try {
+            await navigator.mediaDevices.getUserMedia({ video: true });
+          } catch (e2) {
+            console.warn("⚠️ Basic video also failed:", e2.message);
+            throw e;
+          }
+        }
+
+        console.log("✅ Camera access granted");
+        
+        let devices = await Html5Qrcode.getCameras();
+        console.log("📋 Cameras detected:", devices.length, devices);
+        
+        if (!devices.length) {
+          console.warn("⚠️ First enumeration returned no cameras, retrying after delay...");
+          await new Promise(resolve => setTimeout(resolve, 1500));
+          devices = await Html5Qrcode.getCameras();
+          console.log("📋 Cameras after retry:", devices.length, devices);
+        }
+        
+        if (!devices.length) {
+          throw new Error("No cameras detected by Html5Qrcode after retries");
+        }
+        
         setCameraDevices(devices);
 
         let preferred =
           devices.find((d) => /back|rear|environment/i.test(d.label)) || devices[0];
         if (preferred) {
+          console.log("🎯 Preferred camera selected:", preferred);
           setActiveCameraId(preferred.id);
-          // Auto-detect if preferred camera is front-facing
           const isFront = /front|user|facing|internal/i.test(preferred.label);
           setIsFrontCamera(isFront);
-          setIsFlipped(isFront); // Auto-flip if front camera
+          setIsFlipped(isFront);
+          
+          console.log("⏳ Waiting before starting scanner...");
+          await new Promise(resolve => setTimeout(resolve, 500));
+          
           await startScanner(preferred.id);
         }
       } catch (err) {
-        console.error("Camera enumeration failed:", err);
-        setError("❌ Cannot access camera. Check permissions.");
+        console.error("❌ Camera initialization failed:", err);
+        const errMsg = err?.message || String(err);
+        
+        let errorHint = "❌ Cannot access camera. Check permissions.";
+        if (errMsg.includes("NotAllowedError") || errMsg.includes("Permission")) {
+          errorHint = "❌ Camera permission denied. Please enable camera in browser settings.";
+        } else if (errMsg.includes("NotFoundError") || errMsg.includes("no devices")) {
+          errorHint = "❌ No camera found on this device.";
+        } else if (errMsg.includes("NotReadableError") || errMsg.includes("already in use")) {
+          errorHint = "❌ Camera is already in use by another application.";
+        } else if (errMsg.includes("InsecureContextError")) {
+          errorHint = "❌ Camera requires HTTPS (except localhost).";
+        } else if (errMsg.includes("qr-root")) {
+          errorHint = "❌ Page layout error. Try refreshing the page.";
+        }
+        
+        setError(errorHint);
       }
     })();
 
+    const handleResize = () => {
+      if (resizeTimeoutRef.current) {
+        clearTimeout(resizeTimeoutRef.current);
+      }
+      
+      resizeTimeoutRef.current = setTimeout(() => {
+        console.log("📐 Resize event debounced, checking scanner...");
+        const el = document.getElementById("qr-root");
+        if (!el || !html5QrcodeRef.current) return;
+        
+        const width = el.offsetWidth;
+        const height = el.offsetHeight;
+        const lastWidth = lastResizeDimensionsRef.current.width;
+        const lastHeight = lastResizeDimensionsRef.current.height;
+        
+        console.log(`📐 Current: ${width}x${height}, Last: ${lastWidth}x${lastHeight}`);
+        
+        const widthChange = Math.abs(width - lastWidth);
+        const heightChange = Math.abs(height - lastHeight);
+        
+        if (widthChange > 50 || heightChange > 50) {
+          console.log(`⚠️ Significant resize detected (Δwidth=${widthChange}, Δheight=${heightChange}), restarting scanner...`);
+          lastResizeDimensionsRef.current = { width, height };
+          
+          stopScanner().then(() => {
+            setTimeout(() => {
+              if (!isUnmountedRef.current) {
+                startScanner(activeCameraId);
+              }
+            }, 1000);
+          });
+        } else {
+          console.log(`✅ Resize too small, no restart needed (Δwidth=${widthChange}, Δheight=${heightChange})`);
+          lastResizeDimensionsRef.current = { width, height };
+        }
+      }, 500);
+    };
+
+    window.addEventListener("resize", handleResize);
+
     return () => {
       isUnmountedRef.current = true;
-      stopScanner();
+      window.removeEventListener("resize", handleResize);
+      if (resizeTimeoutRef.current) {
+        clearTimeout(resizeTimeoutRef.current);
+        resizeTimeoutRef.current = null;
+      }
+      
+      // Reset borrowing session flag when leaving scan page
+      if (location.pathname !== "/scan" && location.pathname !== "/staff/scan") {
+        borrowingSessionInitializedRef.current = false;
+      }
+      
+      stopScanner().catch(e => {
+        console.warn("⚠️ Error during cleanup stopScanner:", e.message);
+      });
       stopAnalysisLoop();
     };
-  }, [location.pathname, startScanner, stopScanner]);
+  }, [location.pathname]);
 
   const handleRetry = async () => {
+    console.log("🔄 Retrying camera access...");
     setError("");
     await stopScanner();
-    // Wait a bit before restarting
-    await new Promise(resolve => setTimeout(resolve, 300));
+    await new Promise(resolve => setTimeout(resolve, 1500));
     await startScanner(activeCameraId);
   };
 
@@ -548,18 +864,15 @@ export default function ScanQR() {
     const nextDevice = cameraDevices[nextIdx];
     const nextId = nextDevice.id;
     setActiveCameraId(nextId);
-    // Auto-detect if next camera is front-facing
     const isFront = /front|user|facing|internal/i.test(nextDevice.label);
     setIsFrontCamera(isFront);
-    setIsFlipped(isFront); // Auto-flip if front camera
+    setIsFlipped(isFront);
     setError("");
     await stopScanner();
-    // Wait before starting new camera
-    await new Promise(resolve => setTimeout(resolve, 300));
+    await new Promise(resolve => setTimeout(resolve, 1500));
     await startScanner(nextId);
   };
 
-  // ✅ Submit borrow request directly from scanner
   const handleSubmit = async () => {
     if (cart.length === 0) {
       toast.error("Your cart is empty");
@@ -568,16 +881,13 @@ export default function ScanQR() {
 
     setSubmitting(true);
     try {
-      // ✅ Use same submitBorrowRequest as BorrowCart with skipNavigation
       const result = await submitBorrowRequest({ skipNavigation: true });
       if (result?.request_id) {
         setCurrentRequestId(result.request_id);
       } else if (requestId) {
         setCurrentRequestId(requestId);
       }
-      // Refresh available items after successful submission
       await refreshAvailableItemsFromServer();
-      // Open camera modal after successful submission
       setPhotoCaptureOpen(true);
       setSubmitting(false);
     } catch (err) {
@@ -589,37 +899,50 @@ export default function ScanQR() {
 
   const handlePhotosCaptured = (photos) => {
     toast.success(`✅ ${photos.length} photo(s) captured successfully!`);
-    // Navigate back to previous page and re-enable sidebar
     setSidebarOpen(true);
     navigate(-1);
   };
 
   const handlePhotosSkipped = () => {
-    // Allow user to skip photos and go back to previous page
     setSidebarOpen(true);
     navigate(-1);
   };
 
   return (
     <>
-      {/* ✅ STEP 6: Global CSS for scan animation */}
       <style>{`
         @keyframes scan {
           0% { transform: translateY(0); }
-          100% { transform: translateY(280px); }
+          100% { transform: translateY(256px); }
         }
       `}</style>
 
-      {/* ✅ STEP 1: 70/30 Split Layout */}
-      <div className="h-screen flex bg-gray-100 gap-4 p-4">
+      {/* Mobile-First Layout: Vertical Stack on Mobile, Horizontal on Desktop */}
+      <div className="min-h-screen flex flex-col lg:flex-row bg-white gap-0 lg:gap-4 p-0 lg:p-4">
         
-        {/* LEFT (70%): SCANNER - Cashier Device Feel */}
-        <div className="w-[70%] flex flex-col gap-4">
+        {/* SCANNER SECTION - Full width on mobile, 2/3 on desktop */}
+        <div className="w-full lg:w-2/3 flex flex-col gap-0 lg:gap-4 h-screen lg:h-auto p-0 lg:p-0" style={{ maxHeight: "100vh" }}>
           
-          {/* ✅ STEP 2.1: Scanner Container with Hardware Feel */}
-          <div className="bg-black rounded-xl h-full relative overflow-hidden shadow-2xl border-4 border-gray-800">
+          {/* Mobile Header - Black and White, Compact */}
+          <div className="lg:hidden flex items-center justify-between bg-black rounded-none px-3 py-2 flex-shrink-0">
+            <button
+              onClick={() => {
+                setSidebarOpen(true);
+                navigate(-1);
+              }}
+              className="text-white hover:text-gray-300 transition"
+              title="Back"
+            >
+              <ChevronLeft size={18} />
+            </button>
+            <span className="text-white font-semibold text-sm">Scan</span>
+            <span className="text-xs text-white bg-gray-700 px-2 py-0.5 rounded-full">{cart?.length || 0}</span>
+          </div>
+
+          {/* Camera Container - Maintains square aspect ratio */}
+          <div className="bg-black rounded-none lg:rounded-lg flex-1 relative overflow-hidden shadow-lg min-h-64 lg:min-h-0" style={{ aspectRatio: "1", minHeight: "min(100vw, 500px)" }}>
             
-            {/* Scan Field Container */}
+            {/* QR Scanner */}
             <div
               id="qr-root"
               ref={overlayRef}
@@ -629,174 +952,217 @@ export default function ScanQR() {
               }}
             />
 
-            {/* ✅ STEP 2.2: Green Scan Frame */}
+            {/* Scan Guide Frame - Square */}
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              <div className="w-72 h-72 border-4 border-green-400 rounded-lg relative">
-                {/* ✅ STEP 2.3: Animated Scan Line */}
-                <div className="absolute top-0 left-0 w-full h-1 bg-green-400 animate-[scan_2s_linear_infinite]" style={{
-                  animation: 'scan 2s linear infinite'
-                }} />
-                {/* Pulsing inner border */}
-                <div className="absolute inset-0 border border-green-300 rounded-lg animate-pulse" />
-              </div>
+              <div 
+                className="border-2 lg:border-4 border-white/70"
+                style={{
+                  width: "min(70vw, 280px)",
+                  height: "min(70vw, 280px)",
+                  aspectRatio: "1",
+                }}
+              />
             </div>
 
-            {/* ✅ STEP 2.4: Live Scanner Status */}
-            <div className="absolute top-3 left-3 bg-black/70 text-green-400 px-3 py-1 rounded text-xs font-bold flex items-center gap-2">
-              <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
-              SCANNING ACTIVE
+            {/* Instruction Text */}
+            <div className="absolute top-2 lg:top-6 left-0 right-0 text-center text-white font-semibold text-xs lg:text-sm opacity-80">
+              <span>Align QR</span>
             </div>
 
-            {/* ✅ STEP 6.2: Scan Flash Effect */}
+            {/* Camera Controls - Black and White, Minimal Icons */}
+            <div className="absolute bottom-2 lg:bottom-4 left-1/2 transform -translate-x-1/2 flex gap-1 lg:gap-2 bg-black/70 backdrop-blur-sm rounded-lg px-2 lg:px-3 py-1.5 lg:py-2">
+              <button
+                onClick={() => {
+                  setIsFlipped(!isFlipped);
+                  toast.success(!isFlipped ? "Flipped" : "Normal");
+                }}
+                className="bg-black border border-white text-white p-1.5 lg:p-2 rounded transition hover:bg-gray-800"
+                title="Flip"
+              >
+                <RefreshCw size={14} />
+              </button>
+
+              {cameraDevices.length > 1 && (
+                <button
+                  onClick={handleSwitchCamera}
+                  className="bg-black border border-white text-white p-1.5 lg:p-2 rounded transition hover:bg-gray-800"
+                  title="Switch"
+                >
+                  <Camera size={14} />
+                </button>
+              )}
+
+              <button
+                onClick={() => setAiAssistEnabled(!aiAssistEnabled)}
+                className={`text-white p-1.5 lg:p-2 rounded transition text-xs font-bold border ${
+                  aiAssistEnabled
+                    ? "bg-black border-white text-white hover:bg-gray-800"
+                    : "bg-gray-700 border-gray-600 text-gray-300 hover:bg-gray-600"
+                }`}
+                title="AI"
+              >
+                ⚡
+              </button>
+            </div>
+
+            {/* Scan Flash Effect */}
             {scanFlash && (
-              <div className="absolute inset-0 bg-green-400/30 animate-pulse pointer-events-none rounded-xl" />
+              <div className="absolute inset-0 bg-green-400/20 pointer-events-none" />
             )}
 
-            {/* Starting Overlay */}
+            {/* Loading Overlay */}
             {isStarting && (
-              <div className="absolute inset-0 bg-black/70 flex items-center justify-center z-20 rounded-xl">
-                <div className="flex flex-col items-center gap-3">
-                  <RotateCw className="animate-spin text-green-400" size={40} />
-                  <p className="text-white font-medium">Starting camera...</p>
+              <div className="absolute inset-0 bg-black/75 flex items-center justify-center z-20">
+                <div className="flex flex-col items-center gap-2">
+                  <RotateCw className="animate-spin text-white" size={28} />
+                  <p className="text-white font-medium text-xs">Starting...</p>
                 </div>
               </div>
             )}
+          </div>
+
+          {/* Mobile Cart Section - Scrollable, Professional, Black & White */}
+          <div className="lg:hidden bg-gray-100 border-t border-gray-300 p-2 flex flex-col flex-shrink-0" style={{ maxHeight: "25vh", minHeight: "80px" }}>
+            <div className="flex items-center justify-between mb-1.5">
+              <p className="text-gray-800 text-xs font-bold uppercase">Cart</p>
+              <span className="text-xs font-semibold text-gray-700 bg-white border border-gray-300 px-2 py-0.5 rounded">{cart?.length || 0}</span>
+            </div>
+            
+            {/* Scrollable Cart Items */}
+            <div ref={scrollRef} className="flex-1 overflow-y-auto space-y-1 pr-1">
+              {cart && cart.length > 0 ? (
+                cart.map((item) => (
+                  <div key={item.unitId} className="bg-white border border-gray-300 rounded px-2 py-1.5 flex justify-between items-center group hover:bg-gray-50 transition">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-gray-900 text-xs font-medium truncate">{item.name}</p>
+                      {item.size && <p className="text-gray-500 text-xs truncate">{item.size}</p>}
+                    </div>
+                    <button
+                      onClick={() => {
+                        removeFromCart(item.unitId);
+                        toast.success("Removed");
+                      }}
+                      className="p-1 text-red-600 hover:text-red-700 hover:bg-red-50 rounded transition ml-1 flex-shrink-0"
+                      title="Delete"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                ))
+              ) : (
+                <p className="text-gray-500 text-center text-xs py-2">No items</p>
+              )}
+            </div>
+
+            {/* Cart Actions */}
+            <div className="mt-1.5 pt-1.5 border-t border-gray-300 flex gap-1">
+              <button
+                onClick={() => {
+                  setSidebarOpen(true);
+                  navigate("/borrow-cart");
+                }}
+                className="flex-1 bg-white border border-gray-300 text-gray-900 text-xs font-semibold py-1.5 rounded transition hover:bg-gray-50"
+              >
+                View
+              </button>
+              <button
+                onClick={handleSubmit}
+                disabled={submitting || cart.length === 0}
+                className="flex-1 bg-black text-white text-xs font-semibold py-1.5 rounded transition hover:bg-gray-800 disabled:bg-gray-400 disabled:cursor-not-allowed"
+              >
+                {submitting ? "..." : "Submit"}
+              </button>
+            </div>
           </div>
         </div>
 
-        {/* RIGHT (30%): RECEIPT PANEL - POS Style */}
-        <div className="w-[30%] flex flex-col gap-3 bg-white rounded-xl shadow-lg overflow-hidden">
+        {/* DESKTOP SIDEBAR - Hidden on mobile */}
+        <div className="hidden lg:flex lg:w-1/3 flex-col gap-4 overflow-y-auto max-h-screen">
           
-          {/* ✅ STEP 3.1: Receipt Header with Date */}
-          <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-4 py-3 font-bold text-center">
-            <p className="text-lg">🧾 BORROW RECEIPT</p>
-            <p className="text-xs mt-1 opacity-90">{new Date().toLocaleDateString()} • {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
-          </div>
-
-          {/* Scrollable Receipt Content */}
-          <div className="flex-1 overflow-y-auto px-4" ref={scrollRef}>
-            
-            {/* ✅ STEP 3.2: Last Scanned Highlight */}
-            {lastScannedItem && (
-              <div className="bg-green-50 border-2 border-green-400 p-3 rounded mb-3">
-                <p className="text-xs text-green-700 font-bold">✓ LAST SCANNED</p>
-                <p className="font-bold text-green-900 text-sm">{lastScannedItem.name}</p>
-                {lastScannedItem.size !== "N/A" && (
-                  <p className="text-xs text-green-700">Size: {lastScannedItem.size}</p>
-                )}
-              </div>
-            )}
-
-            {/* Error Alert */}
-            {error && (
-              <div className="bg-red-50 border-2 border-red-400 p-3 rounded mb-3">
-                <p className="text-xs text-red-700 font-bold">⚠ ERROR</p>
-                <p className="text-red-700 text-xs">{error}</p>
-              </div>
-            )}
-
-            {/* ✅ STEP 3.3: Receipt Line Items */}
-            {cart.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">
-                <p className="text-sm font-medium">No items yet</p>
-                <p className="text-xs mt-1">Start scanning...</p>
-              </div>
-            ) : (
-              <div className="space-y-1">
-                {/* Header */}
-                <div className="flex justify-between border-b border-gray-300 pb-2 text-xs font-bold text-gray-700 sticky top-0 bg-white">
-                  <span>ITEM</span>
-                  <span>SIZE</span>
-                </div>
-                {/* Items */}
-                {cart.map((item, idx) => (
-                  <div key={item.unitId} className="flex justify-between items-center text-xs border-b border-gray-200 py-1 hover:bg-gray-50 group">
-                    <span className="truncate flex-1 font-medium text-gray-900">{idx + 1}. {item.name}</span>
-                    <div className="flex items-center gap-1 ml-2">
-                      <span className="text-gray-500">{item.size || "—"}</span>
-                      <button
-                        onClick={() => {
-                          removeFromCart(item.unitId);
-                          toast.success(`Removed ${item.name}`);
-                        }}
-                        className="p-0.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded opacity-0 group-hover:opacity-100 transition-opacity"
-                        title="Delete item"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* ✅ STEP 3.4: Total Items Footer */}
-          <div className="border-t-2 border-gray-300 px-4 py-3">
-            <div className="flex justify-between font-bold text-lg text-gray-900">
-              <span>TOTAL ITEMS</span>
-              <span className="text-blue-600">{cart.length}</span>
+          {/* Error Alert */}
+          {error && (
+            <div className="bg-red-50 border border-red-300 rounded-lg p-3">
+              <p className="text-red-800 text-xs font-medium">{error}</p>
             </div>
-          </div>
+          )}
 
-          {/* ✅ STEP 4: Compact Status Bar */}
-          <div className="bg-gray-800 text-white text-xs px-4 py-2 flex justify-between font-semibold">
-            <span>🟢 Camera</span>
-            <span>{aiAssistEnabled ? "⚡ AI" : "○ AI Off"}</span>
-            <span>📦 {cart.length}</span>
-          </div>
+          {/* Last Scanned Item */}
+          {lastScannedItem && (
+            <div className="bg-white border-l-4 border-green-600 rounded-lg p-3 shadow-sm">
+              <p className="text-gray-600 text-xs uppercase tracking-wider mb-1 font-semibold">Last Scanned</p>
+              <p className="text-gray-900 font-bold text-sm">{lastScannedItem.name}</p>
+              <div className="mt-2 space-y-1 text-xs text-gray-600">
+                <p>Category: <span className="text-gray-900 font-medium">{lastScannedItem.category}</span></p>
+                {lastScannedItem.size !== "N/A" && (
+                  <p>Size: <span className="text-gray-900 font-medium">{lastScannedItem.size}</span></p>
+                )}
+                <p className="text-green-700 font-semibold">✓ Added</p>
+              </div>
+            </div>
+          )}
 
-          {/* ✅ STEP 5: Controls Grid at Bottom */}
-          <div className="grid grid-cols-3 gap-2 px-4 pb-4">
-            <button
-              onClick={handleRetry}
-              className="bg-blue-600 hover:bg-blue-700 text-white py-2 rounded font-bold text-sm transition shadow-lg"
-              title="Retry scan"
-            >
-              🔄 Scan
-            </button>
-            <button
-              onClick={handleSwitchCamera}
-              disabled={cameraDevices.length <= 1}
-              className="bg-yellow-600 hover:bg-yellow-700 disabled:bg-gray-400 text-white py-2 rounded font-bold text-sm transition shadow-lg"
-              title="Switch camera"
-            >
-              📷 Switch
-            </button>
-            <button
-              onClick={() => setAiAssistEnabled(!aiAssistEnabled)}
-              className={`text-white py-2 rounded font-bold text-sm transition shadow-lg ${
-                aiAssistEnabled
-                  ? "bg-amber-600 hover:bg-amber-700"
-                  : "bg-gray-600 hover:bg-gray-700"
-              }`}
-              title="Toggle AI assist"
-            >
-              {aiAssistEnabled ? "⚡ AI On" : "AI Off"}
-            </button>
-            <button
-              onClick={handleSubmit}
-              disabled={submitting || cart.length === 0}
-              className="col-span-3 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white py-2 rounded font-bold text-sm transition shadow-lg"
-              title="Submit borrow request"
-            >
-              {submitting ? "⏳ Submitting..." : `✓ Submit Request (${cart.length})`}
-            </button>
+          {/* Cart Panel */}
+          <div className="bg-white border border-gray-300 rounded-lg p-3 shadow-sm flex-1 flex flex-col">
+            <p className="text-gray-800 text-xs uppercase tracking-wider font-bold mb-2">Borrow Cart</p>
+            <div className="flex-1 overflow-y-auto space-y-1.5">
+              {cart && cart.length > 0 ? (
+                cart.map((item) => (
+                  <div key={item.unitId} className="bg-gray-50 border border-gray-200 rounded p-2 text-xs flex justify-between items-center group hover:bg-gray-100 transition">
+                    <div className="flex-1">
+                      <p className="text-gray-900 font-medium truncate">{item.name}</p>
+                      <p className="text-gray-600 text-xs">{item.size || "—"}</p>
+                    </div>
+                    <button
+                      onClick={() => {
+                        removeFromCart(item.unitId);
+                        toast.success("Removed");
+                      }}
+                      className="p-1 text-red-600 hover:text-red-700 hover:bg-red-50 rounded transition opacity-0 group-hover:opacity-100"
+                      title="Remove"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                ))
+              ) : (
+                <p className="text-gray-500 text-center text-xs py-4">No items yet</p>
+              )}
+            </div>
+            <div className="mt-2 pt-2 border-t border-gray-300 flex gap-2">
+              <button
+                onClick={() => {
+                  setSidebarOpen(true);
+                  navigate("/borrow-cart");
+                }}
+                className="flex-1 bg-black text-white text-xs font-bold py-1.5 rounded transition hover:bg-gray-800"
+              >
+                View ({cart?.length || 0})
+              </button>
+              <button
+                onClick={() => {
+                  setSidebarOpen(true);
+                  navigate(-1);
+                }}
+                className="flex-1 bg-gray-200 text-gray-900 text-xs font-bold py-1.5 rounded transition hover:bg-gray-300"
+              >
+                Back
+              </button>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Error Modal (Keep for critical errors) */}
+      {/* Error Modal */}
       {error && error.includes("Unable to access camera") && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-sm w-full">
-            <div className="p-6 text-center">
-              <AlertCircle className="mx-auto text-red-500 mb-4" size={48} />
-              <h2 className="text-xl font-bold text-gray-900 mb-2">Camera Error</h2>
-              <p className="text-gray-600 text-sm mb-6">{error}</p>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-sm w-full shadow-lg">
+            <div className="p-4 text-center">
+              <AlertCircle className="mx-auto text-red-600 mb-3" size={40} />
+              <h2 className="text-lg font-bold text-gray-900 mb-2">Camera Error</h2>
+              <p className="text-gray-700 text-xs mb-4">{error}</p>
               <button
                 onClick={handleRetry}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition"
+                className="w-full bg-black text-white px-4 py-2 rounded font-semibold text-sm transition hover:bg-gray-800"
               >
                 Retry
               </button>
@@ -805,7 +1171,7 @@ export default function ScanQR() {
         </div>
       )}
 
-      {/* Camera Capture Modal - Shows after successful submission */}
+      {/* Camera Capture Modal */}
       <BorrowPhotoCaptureModal
         isOpen={photoCaptureOpen}
         requestId={currentRequestId || requestId}
@@ -819,7 +1185,7 @@ export default function ScanQR() {
         borrowerId={user?.id}
       />
 
-      {/* Add to Cart Success Modal */}
+      {/* Add to Cart Modal */}
       <AddToCartModal
         isOpen={showAddToCartModal}
         onClose={() => setShowAddToCartModal(false)}

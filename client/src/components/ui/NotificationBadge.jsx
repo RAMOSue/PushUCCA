@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
+import { User } from 'lucide-react';
 import { notificationService } from '../../services/notifications';
 
 const NotificationBadge = () => {
@@ -7,66 +9,102 @@ const NotificationBadge = () => {
   const [notificationCount, setNotificationCount] = useState(0);
   const [notificationList, setNotificationList] = useState([]);
   const [showDropdown, setShowDropdown] = useState(false);
+  const [filterType, setFilterType] = useState("all");
+  const [profilePics, setProfilePics] = useState({});
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
-  // Initialize notifications
+  // Fetch profile pictures for users
+  const fetchProfilePic = async (userId) => {
+    // Return cached pic if available
+    if (profilePics[userId]) {
+      return profilePics[userId];
+    }
+
+    try {
+      const { data } = await axios.get(`/api/profiles/${userId}`, {
+        withCredentials: true,
+      });
+      
+      const picUrl = data?.profile_pic_url || null;
+      setProfilePics((prev) => ({
+        ...prev,
+        [userId]: picUrl,
+      }));
+      return picUrl;
+    } catch (err) {
+      console.warn(`Failed to fetch profile pic for user ${userId}:`, err);
+      setProfilePics((prev) => ({
+        ...prev,
+        [userId]: null,
+      }));
+      return null;
+    }
+  };
+
+  // Track mobile viewport
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // Initialize
   useEffect(() => {
     const initNotifications = async () => {
       try {
-        console.log('🔔 NotificationBadge: Starting initialization');
-        console.log('Current permission:', Notification.permission);
-        
-        // Initialize notification service and fetch server-side notifications
         await notificationService.init();
-        console.log('✅ Notification service initialized');
 
-        // Always request permission if not already granted
         if (Notification.permission !== 'granted') {
-          console.log('🔔 NotificationBadge: Requesting notification permission...');
           await notificationService.requestPermission();
-          console.log('✅ Permission request completed');
-        } else {
-          console.log('✅ Notifications already permitted');
         }
 
-        // Load persisted notifications and unread count from server
-        try {
-          const [list, count] = await Promise.all([
-            notificationService.getNotifications(),
-            notificationService.getUnreadCount()
-          ]);
+        const [list, count] = await Promise.all([
+          notificationService.getNotifications(),
+          notificationService.getUnreadCount()
+        ]);
 
-          // Normalize each notification so it always has a parsable `timestamp` (ISO string)
-          const normalized = (list || []).map((n) => ({
-            ...n,
-            timestamp: n.created_at || n.data?.createdAt || n.data?.timestamp || new Date().toISOString()
-          }));
+        const normalized = (list || []).map((n) => ({
+          ...n,
+          timestamp:
+            n.created_at ||
+            n.data?.createdAt ||
+            n.data?.timestamp ||
+            new Date().toISOString()
+        }));
 
-          setNotificationList(normalized);
-          setNotificationCount(Number(count) || 0);
-        } catch (err) {
-          console.warn('Could not fetch notifications from server:', err);
-        }
+        setNotificationList(normalized);
+        setNotificationCount(Number(count) || 0);
+
+        // Fetch profile pictures for all users in notifications
+        normalized.forEach((n) => {
+          if (n.data?.borrowerId) {
+            fetchProfilePic(n.data.borrowerId);
+          }
+        });
       } catch (error) {
-        console.error('❌ Notification initialization error:', error);
+        console.error('Notification init error:', error);
       }
     };
 
     initNotifications();
   }, []);
 
-  // Handle notification clicks
+  // Click notification
   const handleNotificationClick = (notification) => {
-    // Mark as read locally and server-side
-    setNotificationList(prev => 
-      prev.map(n => n.id === notification.id ? { ...n, is_read: true } : n)
+    setNotificationList(prev =>
+      prev.map(n =>
+        n.id === notification.id ? { ...n, is_read: true } : n
+      )
     );
+
     if (!notification.is_read) {
-      // markAsRead expects a single id (object with { id })
-      notificationService.markAsRead(notification.id).catch(err => console.warn('Mark as read failed', err));
+      notificationService.markAsRead(notification.id);
       setNotificationCount(prev => Math.max(0, prev - 1));
     }
 
-    // Navigate based on notification payload. If a requestId is present, deep-link into staff manage requests
     if (notification.data?.requestId) {
       navigate(`/staff/manage-requests?openRequestId=${notification.data.requestId}`);
     } else if (notification.data?.url) {
@@ -76,23 +114,24 @@ const NotificationBadge = () => {
     setShowDropdown(false);
   };
 
-  // Listen for notifications
+  // Listen updates
   useEffect(() => {
     const handleNotification = (event) => {
-      const payload = event.data;
-      // payload from service-worker should include a type or notification doc
-      if (!payload) return;
+      const incoming = event.data?.notification || event.data;
+      if (!incoming) return;
 
-      // If the service worker posts a notification object, normalize it
-      const incoming = payload.notification || payload;
-      const ts = incoming.created_at || incoming.data?.createdAt || incoming.data?.timestamp || new Date().toISOString();
+      const ts =
+        incoming.created_at ||
+        incoming.data?.createdAt ||
+        incoming.data?.timestamp ||
+        new Date().toISOString();
+
       const newNotif = {
         id: incoming.id || Date.now(),
-        title: incoming.title || incoming.data?.title || 'Notification',
-        message: incoming.message || incoming.data?.message || '',
+        title: incoming.title || 'Notification',
+        message: incoming.message || '',
         data: incoming.data || {},
-        is_read: incoming.is_read === true || false,
-        // store as ISO string for consistency with server responses
+        is_read: incoming.is_read || false,
         timestamp: typeof ts === 'string' ? ts : new Date(ts).toISOString()
       };
 
@@ -100,112 +139,164 @@ const NotificationBadge = () => {
       if (!newNotif.is_read) setNotificationCount(prev => prev + 1);
     };
 
-    // Add event listener
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.addEventListener('message', handleNotification);
     }
 
-    // Also listen for in-app events when notifications are updated elsewhere
     const onUpdated = async () => {
-      try {
-        const [list, count] = await Promise.all([
-          notificationService.getNotifications(),
-          notificationService.getUnreadCount()
-        ]);
-        setNotificationList(list || []);
-        setNotificationCount(Number(count) || 0);
-      } catch (err) {
-        console.warn('Failed to refresh notifications:', err);
-      }
+      const [list, count] = await Promise.all([
+        notificationService.getNotifications(),
+        notificationService.getUnreadCount()
+      ]);
+      setNotificationList(list || []);
+      setNotificationCount(Number(count) || 0);
+
+      // Fetch profile pictures for any new users
+      (list || []).forEach((n) => {
+        if (n.data?.borrowerId && !profilePics[n.data.borrowerId]) {
+          fetchProfilePic(n.data.borrowerId);
+        }
+      });
     };
+
     window.addEventListener('notifications:updated', onUpdated);
 
     return () => {
-      if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.removeEventListener('message', handleNotification);
-      }
+      navigator.serviceWorker?.removeEventListener('message', handleNotification);
       window.removeEventListener('notifications:updated', onUpdated);
     };
   }, []);
 
+  // Filtered + limited (Facebook style: only few items)
+  const filteredNotifications = notificationList
+    .filter(n => {
+      if (filterType === 'unread') return !n.is_read;
+      if (filterType === 'read') return n.is_read;
+      return true;
+    })
+    .slice(0, 6);
+
   return (
     <div className="relative">
-      {/* Notification Bell Icon with Badge */}
+      {/* 🔔 Bell */}
       <button
-        onClick={() => setShowDropdown(!showDropdown)}
-        className="relative p-2 text-white hover:text-yellow-200 focus:outline-none transition-colors"
+        onClick={() => {
+          if (isMobile) {
+            navigate('/notifications');
+          } else {
+            setShowDropdown(!showDropdown);
+          }
+        }}
+        className="relative w-10 h-10 flex items-center justify-center rounded-full bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
       >
         <svg
           xmlns="http://www.w3.org/2000/svg"
-          className="h-6 w-6"
+          className="w-5 h-5 text-gray-700 dark:text-gray-300"
           fill="currentColor"
           viewBox="0 0 24 24"
-          stroke="currentColor"
         >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
-          />
+          <path d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0a3 3 0 11-6 0h6z"/>
         </svg>
+
         {notificationCount > 0 && (
-          <span className="absolute top-0 right-0 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white bg-red-600 rounded-full">
-            {notificationCount}
-          </span>
+          <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 dark:bg-red-600 rounded-full"></span>
         )}
       </button>
 
-      {/* Notification Dropdown */}
-      {showDropdown && (
-        <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-xl z-50">
-          <div className="py-2">
-            <div className="px-4 py-2 border-b border-gray-200 font-semibold text-gray-800">
-              Notifications
-              {notificationCount > 0 && (
-                <button
-                  onClick={() => {
-                    setNotificationList(prev =>
-                      prev.map(n => ({ ...n, read: true }))
-                    );
-                    setNotificationCount(0);
-                  }}
-                  className="float-right text-sm text-blue-600 hover:text-blue-800"
-                >
-                  Mark all as read
-                </button>
-              )}
-            </div>
-            <div className="max-h-96 overflow-y-auto">
-              {notificationList.length === 0 ? (
-                <div className="px-4 py-3 text-sm text-gray-500">
-                  No new notifications
+      {/* 🔽 Dropdown */}
+      {showDropdown && !isMobile && (
+        <div className="absolute right-0 mt-2 w-80 bg-white dark:bg-[#1f1f1f] rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 z-50 overflow-hidden">
+
+          {/* HEADER */}
+          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 dark:border-gray-700 bg-white dark:bg-[#1f1f1f]">
+            <h3 className="font-semibold text-gray-900 dark:text-white">Notifications</h3>
+
+            <button
+              onClick={() => {
+                setShowDropdown(false);
+                navigate('/notifications');
+              }}
+              className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 hover:underline transition-colors"
+            >
+              See Alls
+            </button>
+          </div>
+
+          {/* FILTER TABS */}
+          <div className="flex gap-4 px-4 py-2 text-sm border-b border-gray-100 dark:border-gray-700 bg-white dark:bg-[#1f1f1f]">
+            {['all', 'unread'].map((type) => (
+              <button
+                key={type}
+                onClick={() => setFilterType(type)}
+                className={`pb-1 transition-colors ${
+                  filterType === type
+                    ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400 font-medium'
+                    : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                }`}
+              >
+                {type === 'all' ? 'All' : type === 'unread' ? 'Unread' : 'Read'}
+              </button>
+            ))}
+          </div>
+
+          {/* LIST */}
+          <div className="max-h-[400px] overflow-y-auto bg-white dark:bg-[#1f1f1f]">
+
+            {filteredNotifications.length === 0 ? (
+              <div className="px-4 py-4 text-sm text-gray-500 dark:text-gray-400">
+                No notifications
+              </div>
+            ) : (
+              <>
+                {/* SECTION */}
+                <div className="px-4 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase bg-gray-50 dark:bg-[#272727]">
+                  Earlier
                 </div>
-              ) : (
-                notificationList.map(notification => (
+
+                {filteredNotifications.map(notification => (
                   <button
                     key={notification.id}
                     onClick={() => handleNotificationClick(notification)}
-                    className={`w-full text-left px-4 py-3 hover:bg-gray-50 ${
-                      !notification.is_read ? 'bg-blue-50' : ''
+                    className={`w-full text-left px-4 py-3 hover:bg-gray-100 dark:hover:bg-gray-900 transition-colors border-b border-gray-100 dark:border-gray-700 ${
+                      !notification.is_read ? 'bg-blue-50 dark:bg-blue-900/20' : ''
                     }`}
                   >
-                    <p className="font-semibold text-sm text-gray-800">
-                      {notification.title}
-                    </p>
-                    <p className="text-sm text-gray-600">{notification.message}</p>
-                    <p className="text-xs text-gray-400 mt-1">
-                      {(() => {
-                        const raw = notification.timestamp || notification.created_at;
-                        const d = raw ? new Date(raw) : new Date();
-                        const safeDate = isNaN(d.getTime()) ? new Date() : d;
-                        return safeDate.toLocaleString();
-                      })()}
-                    </p>
+                    <div className="flex gap-3">
+
+                      {/* Avatar */}
+                      <div className="w-9 h-9 rounded-full bg-gray-300 dark:bg-gray-600 flex-shrink-0 overflow-hidden flex items-center justify-center">
+                        {profilePics[notification.data?.borrowerId] ? (
+                          <img
+                            src={profilePics[notification.data?.borrowerId]}
+                            alt="User"
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <User className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                        )}
+                      </div>
+
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-gray-800 dark:text-gray-200 leading-snug">
+                          <span className="font-semibold">
+                            {notification.title}
+                          </span>{" "}
+                          {notification.message}
+                        </p>
+
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                          {new Date(notification.timestamp).toLocaleTimeString()}
+                        </p>
+                      </div>
+
+                      {!notification.is_read && (
+                        <div className="w-2 h-2 bg-blue-500 dark:bg-blue-400 rounded-full mt-2 flex-shrink-0"></div>
+                      )}
+                    </div>
                   </button>
-                ))
-              )}
-            </div>
+                ))}
+              </>
+            )}
           </div>
         </div>
       )}

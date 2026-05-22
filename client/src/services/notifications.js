@@ -194,10 +194,17 @@ class NotificationService {
   // Retrieve all notifications
   async getNotifications() {
     try {
-      const response = await axios.get("/api/notifications");
-      return response.data;
+      const response = await axios.get("/api/notifications", {
+        withCredentials: true // ✅ CRITICAL: Ensure cookies are sent
+      });
+      return response.data || [];
     } catch (error) {
-      console.error("❌ Failed to fetch notifications:", error);
+      // ✅ FIX: Gracefully handle 401 during OAuth initialization
+      if (error.response?.status === 401) {
+        console.warn("🔐 [Notifications] Auth not ready yet (401)");
+        return [];
+      }
+      console.error("❌ Failed to fetch notifications:", error.message || error);
       return [];
     }
   }
@@ -205,10 +212,17 @@ class NotificationService {
   // Get count of unread notifications
   async getUnreadCount() {
     try {
-      const response = await axios.get("/api/notifications/unread-count");
-      return response.data.count;
+      const response = await axios.get("/api/notifications/unread-count", {
+        withCredentials: true // ✅ CRITICAL: Ensure cookies are sent
+      });
+      return response.data?.count || 0;
     } catch (error) {
-      console.error("❌ Failed to fetch unread count:", error);
+      // ✅ FIX: Gracefully handle 401 during OAuth initialization
+      if (error.response?.status === 401) {
+        console.warn("🔐 [Notifications] Auth not ready yet (401)");
+        return 0;
+      }
+      console.error("❌ Failed to fetch unread count:", error.message || error);
       return 0;
     }
   }

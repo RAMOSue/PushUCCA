@@ -683,7 +683,7 @@ export default function MasterList() {
     <PageLayout>
       <div className="min-h-screen bg-surface dark:bg-[#171717]">
         {/* Header */}
-        <div className="px-6 md:px-8 lg:px-12 pt-8 pb-6">
+        <div className="px-6 md:px-8 lg:px-12 pt-8 pb-3">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
             <div>
               <h1 className="text-3xl md:text-4xl font-bold text-on-surface dark:text-white mb-2">Master List</h1>
@@ -702,7 +702,7 @@ export default function MasterList() {
         </div>
 
         {/* Tabs */}
-        <div className="px-6 md:px-8 lg:px-12 flex flex-wrap gap-2 border-b border-outline-variant/20 dark:border-gray-700 pb-4 mt-6">
+        <div className="px-6 md:px-8 lg:px-12 flex flex-nowrap gap-1 border-b border-outline-variant/20 dark:border-gray-700 pb-2 mt-2 overflow-x-auto">
           {Object.entries(tabs).map(([key, tab]) => (
             <button
               key={key}
@@ -711,7 +711,7 @@ export default function MasterList() {
                 setCurrentPage(1);
                 setSearchTerm("");
               }}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm transition-all ${
+              className={`flex items-center gap-1 px-2.5 py-1 rounded-lg font-medium text-xs whitespace-nowrap transition-all ${
                 activeTab === key
                   ? "bg-primary dark:bg-blue-600 text-white shadow-md"
                   : "bg-surface-container-lowest dark:bg-[#222] text-slate-700 dark:text-gray-300 hover:bg-surface-container dark:hover:bg-[#2a2a2a]"
@@ -723,55 +723,10 @@ export default function MasterList() {
           ))}
         </div>
 
-        {/* Search & Filter - Only for non-slideshow tabs */}
-        {activeTab !== "slideshow" && (
-          <div className="px-6 md:px-8 lg:px-12 space-y-4 mt-6">
-            {/* Search */}
-            <div className="flex items-center gap-3 bg-surface-container-low dark:bg-[#222] rounded-lg px-4 py-3 border border-transparent dark:border-gray-700 hover:border-primary/20 dark:hover:border-blue-600 focus-within:ring-2 focus-within:ring-primary focus-within:border-transparent transition shadow-sm dark:shadow-black/40">
-              <Search className="w-5 text-on-surface-variant dark:text-gray-500 flex-shrink-0" />
-              <input
-                type="text"
-                placeholder="Search entries..."
-                value={searchTerm}
-                onChange={(e) => {
-                  setSearchTerm(e.target.value);
-                  setCurrentPage(1);
-                }}
-                className="flex-1 bg-transparent focus:outline-none text-sm text-on-surface dark:text-white dark:placeholder-gray-500"
-              />
-              {searchTerm && (
-                <button
-                  onClick={() => {
-                    setSearchTerm("");
-                    setCurrentPage(1);
-                  }}
-                  className="px-2 text-on-surface-variant dark:text-gray-500 hover:text-on-surface dark:hover:text-white transition"
-                >
-                  ✕
-                </button>
-              )}
-            </div>
-
-            {/* Filter */}
-            <div className="flex gap-2 flex-wrap items-center">
-              <select
-                value={filterStatus}
-                onChange={(e) => {
-                  setFilterStatus(e.target.value);
-                  setCurrentPage(1);
-                }}
-                className="px-4 py-2 bg-surface-container-low dark:bg-[#222] border border-outline-variant/30 dark:border-gray-700 rounded-lg text-sm font-medium text-on-surface dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent dark:focus:border-transparent"
-              >
-                <option value="all">All Status</option>
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
-              </select>
-            </div>
-          </div>
-        )}
+       
 
         {/* Content - Table or Image Gallery */}
-        <div className="px-6 md:px-8 lg:px-12 mt-6">
+        <div className="px-6 md:px-8 lg:px-12 mt-3">
           {activeTab === "slideshow" ? (
             <>
               {/* Image Upload Form */}

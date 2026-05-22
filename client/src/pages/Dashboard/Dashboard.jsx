@@ -25,7 +25,7 @@ export default function Dashboard() {
 
 	// ✅ Staff and Admin dashboards retain container styling
 	return (
-		<div className="max-w-4xl mx-auto mt-10 p-6 bg-white dark:bg-[#1a1a1a] shadow-lg dark:shadow-xl dark:shadow-black/40 rounded-lg transition-colors duration-300">
+		<div className="">
 			{user.role === "staff" && <DashboardStaff />}
 			{user.role === "admin" && <DashboardAdmin />}
 		</div>

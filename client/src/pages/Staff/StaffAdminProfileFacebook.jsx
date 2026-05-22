@@ -218,7 +218,7 @@ export default function StaffAdminProfileFacebook() {
   return (
     <PageLayout>
       {/* COVER SECTION */}
-      <div className="relative w-full h-60 bg-gradient-to-r from-gray-100 to-gray-50">
+      <div className="relative w-full h-60 bg-gradient-to-r from-gray-100 to-gray-50 dark:from-gray-800 dark:to-gray-900">
         <div className="absolute top-0 left-0 right-0 h-full opacity-20">
           <div className="absolute inset-0 bg-gradient-to-br from-emerald-400/5 to-transparent" />
         </div>
@@ -301,14 +301,14 @@ export default function StaffAdminProfileFacebook() {
         {/* CONTENT AREA */}
         <div className="max-w-7xl mx-auto pb-12">
           {/* TAB NAVIGATION */}
-          <div className="flex gap-1 border-b border-gray-200 mb-8 -mx-4 sm:mx-0 px-4 sm:px-0">
+          <div className="flex gap-1 border-b border-gray-200 dark:border-gray-700 mb-8 -mx-4 sm:mx-0 px-4 sm:px-0">
             {["overview", "documents"].map(tab => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
                 className={`px-6 py-3 font-medium text-sm transition-all border-b-2 ${
                   activeTab === tab
-                    ? "border-emerald-600 text-emerald-600"
+                    ? "border-emerald-600 dark:border-emerald-500 text-emerald-600 dark:text-emerald-400"
                     : "border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
                 }`}
               >
@@ -428,13 +428,13 @@ export default function StaffAdminProfileFacebook() {
                           <div key={doc} className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
                               {isUploaded ? (
-                                <Check className="w-4 h-4 text-emerald-600" />
+                                <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                               ) : (
-                                <div className="w-4 h-4 rounded-full border-2 border-gray-300" />
+                                <div className="w-4 h-4 rounded-full border-2 border-gray-300 dark:border-gray-600" />
                               )}
-                              <span className="text-sm text-gray-700">{labels[doc]}</span>
+                              <span className="text-sm text-gray-700 dark:text-gray-300">{labels[doc]}</span>
                             </div>
-                            <span className="text-xs font-medium text-gray-500">
+                            <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
                               {isUploaded ? "✓" : "−"}
                             </span>
                           </div>
@@ -447,23 +447,23 @@ export default function StaffAdminProfileFacebook() {
 
               {/* RIGHT CONTENT */}
               <div className="lg:col-span-2">
-                <div className="bg-white rounded-lg border border-gray-200 p-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Profile Summary</h3>
+                <div className="bg-white dark:bg-[#1a1a1a] rounded-lg border border-gray-200 dark:border-gray-700 p-6 transition-colors">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Profile Summary</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="p-4 bg-gray-50 rounded-lg">
-                      <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Full Name</p>
+                    <div className="p-4 bg-gray-50 dark:bg-[#252525] rounded-lg transition-colors">
+                      <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Full Name</p>
                       {editingName ? (
                         <div className="flex gap-2 mt-2">
                           <input
                             type="text"
                             value={tempName}
                             onChange={(e) => setTempName(e.target.value)}
-                            className="flex-1 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-emerald-500"
+                            className="flex-1 px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-[#333] text-gray-900 dark:text-white focus:ring-2 focus:ring-emerald-500 dark:focus:ring-emerald-600 transition-colors"
                             autoFocus
                           />
                           <button
                             onClick={() => handleSaveField("name")}
-                            className="px-2 py-1 text-sm bg-emerald-600 text-white rounded hover:bg-emerald-700"
+                            className="px-2 py-1 text-sm bg-emerald-600 text-white rounded hover:bg-emerald-700 transition-colors"
                           >
                             Save
                           </button>
@@ -471,28 +471,28 @@ export default function StaffAdminProfileFacebook() {
                       ) : (
                         <p
                           onClick={() => setEditingName(true)}
-                          className="text-sm font-medium text-gray-900 cursor-pointer hover:text-emerald-600"
+                          className="text-sm font-medium text-gray-900 dark:text-white cursor-pointer hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
                         >
                           {tempName} ✎
                         </p>
                       )}
                     </div>
 
-                    <div className="p-4 bg-gray-50 rounded-lg">
-                      <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Role</p>
-                      <p className="text-sm font-medium text-gray-900">
+                    <div className="p-4 bg-gray-50 dark:bg-[#252525] rounded-lg transition-colors">
+                      <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Role</p>
+                      <p className="text-sm font-medium text-gray-900 dark:text-white">
                         {user?.role?.charAt(0).toUpperCase() + user?.role?.slice(1)}
                       </p>
                     </div>
 
-                    <div className="p-4 bg-gray-50 rounded-lg">
-                      <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">User ID</p>
-                      <p className="text-sm font-medium text-gray-900 font-mono">{user?.id}</p>
+                    <div className="p-4 bg-gray-50 dark:bg-[#252525] rounded-lg transition-colors">
+                      <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">User ID</p>
+                      <p className="text-sm font-medium text-gray-900 dark:text-white font-mono">{user?.id}</p>
                     </div>
 
-                    <div className="p-4 bg-gray-50 rounded-lg">
-                      <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Last Updated</p>
-                      <p className="text-sm font-medium text-gray-900">
+                    <div className="p-4 bg-gray-50 dark:bg-[#252525] rounded-lg transition-colors">
+                      <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Last Updated</p>
+                      <p className="text-sm font-medium text-gray-900 dark:text-white">
                         {profile?.updated_at ? new Date(profile.updated_at).toLocaleDateString() : "N/A"}
                       </p>
                     </div>
@@ -522,18 +522,18 @@ export default function StaffAdminProfileFacebook() {
                 const isUploaded = !!url;
 
                 return (
-                  <div key={doc} className="bg-white rounded-lg border border-gray-200 p-6 hover:shadow-md transition-shadow">
+                  <div key={doc} className="bg-white dark:bg-[#1a1a1a] rounded-lg border border-gray-200 dark:border-gray-700 p-6 hover:shadow-md dark:hover:shadow-md dark:hover:shadow-black/50 transition-shadow">
                     <div className="flex items-start justify-between mb-4">
                       <div>
                         <div className="text-3xl mb-2">{icons[doc]}</div>
-                        <h4 className="font-semibold text-gray-900">{labels[doc]}</h4>
+                        <h4 className="font-semibold text-gray-900 dark:text-white">{labels[doc]}</h4>
                       </div>
                       {isUploaded && (
-                        <Check className="w-5 h-5 text-emerald-600 flex-shrink-0" />
+                        <Check className="w-5 h-5 text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
                       )}
                     </div>
 
-                    <p className="text-sm text-gray-500 mb-4">
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
                       {isUploaded ? "✓ Uploaded" : "⚠ Missing"}
                     </p>
 
@@ -547,7 +547,7 @@ export default function StaffAdminProfileFacebook() {
                               fileName: labels[doc],
                             })
                           }
-                          className="flex-1 px-3 py-2 text-sm bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition-colors font-medium"
+                          className="flex-1 px-3 py-2 text-sm bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-colors font-medium"
                         >
                           View
                         </button>
@@ -556,7 +556,7 @@ export default function StaffAdminProfileFacebook() {
                       {(doc === "id_front" || doc === "id_back") && (
                         <button
                           onClick={() => setCameraModal({ isOpen: true, fieldName: doc })}
-                          className="flex-1 px-3 py-2 text-sm bg-purple-100 text-purple-700 rounded hover:bg-purple-200 transition-colors font-medium"
+                          className="flex-1 px-3 py-2 text-sm bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded hover:bg-purple-200 dark:hover:bg-purple-900/50 transition-colors font-medium"
                         >
                           Camera
                         </button>
@@ -565,7 +565,7 @@ export default function StaffAdminProfileFacebook() {
                       <button
                         onClick={() => fileInputRefs[doc].current?.click()}
                         disabled={uploadingDoc === doc}
-                        className="flex-1 px-3 py-2 text-sm bg-emerald-100 text-emerald-700 rounded hover:bg-emerald-200 disabled:opacity-50 transition-colors font-medium"
+                        className="flex-1 px-3 py-2 text-sm bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 rounded hover:bg-emerald-200 dark:hover:bg-emerald-900/50 disabled:opacity-50 transition-colors font-medium"
                       >
                         {uploadingDoc === doc ? "⏳ Uploading..." : "Upload"}
                       </button>
