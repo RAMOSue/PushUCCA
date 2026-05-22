@@ -1,0 +1,54 @@
+services:
+  # ===== BACKEND SERVICE =====
+  - type: web
+    name: server
+    runtime: node
+    region: oregon
+    plan: free
+    rootDir: server
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "8000"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: neon-db
+          property: connection_string
+      - key: JWT_SECRET
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_CALLBACK_URL
+        value: https://server-ayi2.onrender.com/api/auth/google/callback
+      - key: FRONTEND_URL
+        value: https://frontend-mkqo.onrender.com
+      - key: SERVER_URL
+        value: https://server-ayi2.onrender.com
+
+  # ===== FRONTEND SERVICE =====
+  - type: web
+    name: frontend
+    runtime: node
+    region: oregon
+    plan: free
+    rootDir: client
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: VITE_API_URL
+        value: https://server-ayi2.onrender.com
+
+  # ===== DATABASE (Neon PostgreSQL) =====
+  - type: postgres
+    name: neon-db
+    region: oregon
+    plan: free
+    dbName: neondb
+    user: neonuser
