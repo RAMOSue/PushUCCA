@@ -19,23 +19,33 @@ const comparePassword = (password, hashed) => {
 };
 
 /* ---------------- Auth Middleware ---------------- */
-// ✅ Verify JWT from cookie, attach user to req
+// ✅ Verify JWT from cookie OR Authorization header, attach user to req
 const ensureAuth = (req, res, next) => {
   try {
-    const token = req.cookies?.token; // read JWT from cookie
+    let token = req.cookies?.token; // read JWT from cookie first
+    
+    // ✅ Check Authorization header if not in cookie (for Bearer tokens from frontend)
+    if (!token && req.headers.authorization) {
+      const authHeader = req.headers.authorization;
+      if (authHeader.startsWith('Bearer ')) {
+        token = authHeader.slice(7); // Remove "Bearer " prefix
+      }
+    }
     
     // ✅ Enhanced logging
     const cookieHeader = req.headers['cookie'];
     console.log(`🔐 [ensureAuth] Auth check for ${req.path}`);
+    console.log(`  - Token from cookie: ${!!(req.cookies?.token)}`);
+    console.log(`  - Token from Authorization header: ${!!(req.headers.authorization && token)}`);
     console.log(`  - Token present: ${!!token}`);
     console.log(`  - Cookies header: ${!!cookieHeader}`);
     console.log(`  - Token preview: ${token ? token.substring(0, 20) + '...' : 'none'}`);
     
     if (!token) {
-      console.warn(`⚠️ [ensureAuth] No token found in cookies for ${req.path}`);
+      console.warn(`⚠️ [ensureAuth] No token found in cookies or Authorization header for ${req.path}`);
       return res.status(401).json({ 
         error: "Unauthorized - No token provided",
-        details: "Cookie 'token' not found in request"
+        details: "Token not found in cookies or Authorization header"
       });
     }
 
