@@ -1,7 +1,7 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useContext, useState, useEffect } from "react";
 import { UserContext } from "../../../context/userContext";
-import { BorrowingContext } from "../../../context/borrowingcontext";
+import { BorrowingContext } from "../../../context/borrowingContext";
 import { SidebarContext } from "../../context/SidebarContext";
 import axios from "axios";
 import { Package, ClipboardList, RefreshCw, Calendar, Users, Box, LogOut, User, ChevronRight, Plus, Database, Camera, Settings, Home, FileText, TrendingUp } from "lucide-react";

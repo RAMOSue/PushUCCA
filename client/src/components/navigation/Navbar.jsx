@@ -1,7 +1,7 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useContext, useEffect, useState, useRef } from "react";
 import { UserContext } from "../../../context/userContext";
-import { BorrowingContext } from "../../../context/borrowingcontext";
+import { BorrowingContext } from "../../../context/borrowingContext";
 import { SidebarContext } from "../../context/SidebarContext";
 import { LoginModalContext } from "../../../context/LoginModalContext";
 import axios from "axios";
