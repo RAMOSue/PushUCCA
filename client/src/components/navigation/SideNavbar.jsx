@@ -14,26 +14,12 @@ export default function SideNavbar({ role = "staff" }) {
   const navigate = useNavigate();
   const [profilePic, setProfilePic] = useState(null);
 
-  // Fetch profile picture on mount
+  // ✅ Use profile picture from UserContext instead of separate API call
   useEffect(() => {
-    // ✅ FIX: Only fetch once UserContext has finished loading and user is confirmed
-    if (!loading && user?.id) {
-      fetchProfilePicture();
+    if (user?.profile_pic_url) {
+      setProfilePic(user.profile_pic_url);
     }
-  }, [user, loading]);
-
-  const fetchProfilePicture = async () => {
-    try {
-      const { data } = await axios.get("/api/profiles/me", {
-        withCredentials: true,
-      });
-      if (data?.profile_pic_url) {
-        setProfilePic(data.profile_pic_url);
-      }
-    } catch (err) {
-      console.error("Failed to fetch profile picture:", err.message);
-    }
-  };
+  }, [user]);
 
   const handleLogout = async () => {
     try {

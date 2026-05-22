@@ -33,17 +33,11 @@ export default function Documents() {
   };
 
   useEffect(() => {
-    if (user?.id) fetchProfile();
-  }, [user]);
-
-  async function fetchProfile() {
-    try {
-      const res = await axios.get("/api/profiles/me", { withCredentials: true });
-      setProfile(res.data);
-    } catch (err) {
-      console.error("Failed to fetch profile:", err.response?.data || err.message);
+    // ✅ Use user data from context initially, only refresh after uploads
+    if (user?.id) {
+      setProfile(user);
     }
-  }
+  }, [user]);
 
   const handleFileChange = (e) => {
     const { name, files: selectedFiles } = e.target;

@@ -97,25 +97,14 @@ export default function Navbar() {
       };
       setupNotifications();
       
-      // ✅ FIX: Only fetch once UserContext has finished loading and user is confirmed
-      if (!loading && user?.role && (user?.role === "staff" || user?.role === "admin" || user?.role === "borrower")) {
-        fetchProfilePicture();
+      // ✅ Use profile picture from UserContext instead of separate API call
+      if (user?.profile_pic_url) {
+        setProfilePic(user.profile_pic_url);
       }
     }
-  }, [user, loading]);
+  }, [user]);
 
-  const fetchProfilePicture = async () => {
-    try {
-      const { data } = await axios.get("/api/profiles/me", {
-        withCredentials: true,
-      });
-      if (data?.profile_pic_url) {
-        setProfilePic(data.profile_pic_url);
-      }
-    } catch (err) {
-      console.error("Failed to fetch profile picture:", err.message);
-    }
-  };
+  // Removed: fetchProfilePicture() - now using data from UserContext
 
   const handleViewProfile = () => {
     if (user?.role === "admin") {

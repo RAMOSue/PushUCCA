@@ -63,18 +63,15 @@ export default function DashboardBorrower() {
     }
   };
 
+  // ✅ Use profile data from UserContext instead of making duplicate API calls
   useEffect(() => {
-    if (user?.id) fetchProfile();
-  }, [user]);
-
-  async function fetchProfile() {
-    try {
-      const res = await axios.get("/api/profiles/me", { withCredentials: true });
-      setProfile(res.data);
-    } catch (err) {
-      console.error("Failed to fetch profile:", err.response?.data || err.message);
+    if (user?.id) {
+      setProfile(user);
+      if (user?.profile_pic_url) {
+        setProfilePic(user.profile_pic_url);
+      }
     }
-  }
+  }, [user]);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -88,26 +85,6 @@ export default function DashboardBorrower() {
     };
     fetchHistory();
   }, [user]);
-
-  // Fetch profile picture on mount
-  useEffect(() => {
-    if (user?.id) {
-      fetchProfilePicture();
-    }
-  }, [user]);
-
-  const fetchProfilePicture = async () => {
-    try {
-      const { data } = await axios.get("/api/profiles/me", {
-        withCredentials: true,
-      });
-      if (data?.profile_pic_url) {
-        setProfilePic(data.profile_pic_url);
-      }
-    } catch (err) {
-      console.error("Failed to fetch profile picture:", err.message);
-    }
-  };
 
   const formatDate = (dateString) => {
     if (!dateString) return "—";

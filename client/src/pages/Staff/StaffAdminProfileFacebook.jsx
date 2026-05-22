@@ -39,26 +39,16 @@ export default function StaffAdminProfileFacebook() {
   // ===== FETCH DATA =====
   useEffect(() => {
     if (user?.id) {
-      Promise.all([fetchProfile(), fetchDivisions()]);
+      // ✅ Use user data from context initially
+      setProfile(user);
+      setPreviewUrl(user.profile_pic_url || "");
+      setTempName(user.name || "");
+      setTempPhone(user.phone || "");
+      setTempDivision(user.division_id || null);
+      // Still fetch divisions
+      fetchDivisions();
     }
   }, [user]);
-
-  const fetchProfile = async () => {
-    try {
-      setLoading(true);
-      const { data } = await axios.get("/api/profiles/me", { withCredentials: true });
-      setProfile(data);
-      setPreviewUrl(data.profile_pic_url);
-      setTempName(data.name || "");
-      setTempPhone(data.phone || "");
-      setTempDivision(data.division_id || null);
-    } catch (err) {
-      console.error("Failed to fetch profile:", err.message);
-      toast.error("Failed to load profile");
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const fetchDivisions = async () => {
     try {
