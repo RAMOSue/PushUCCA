@@ -234,28 +234,22 @@ export default function GetStarted() {
 
 	const exploreCultureCards = [
 		{
-			icon: "masks",
-			title: "Costumes by Culture",
-			description: "Discover traditional attire from different cultures and regions",
+			icon: "checkroom",
+			title: "Costumes",
+			description: "Browse traditional cultural attire",
 			gradient: "from-purple-500 to-pink-500"
 		},
 		{
 			icon: "library_music",
-			title: "Instruments by Region",
-			description: "Explore musical heritage and traditional instruments",
+			title: "Instruments",
+			description: "Discover indigenous musical instruments",
 			gradient: "from-blue-500 to-cyan-500"
 		},
 		{
-			icon: "public",
-			title: "Explore Traditions",
-			description: "Learn stories behind cultural practices and rituals",
+			icon: "auto_stories",
+			title: "Cultural Stories",
+			description: "Learn the history behind cultural traditions",
 			gradient: "from-green-500 to-emerald-500"
-		},
-		{
-			icon: "celebrate",
-			title: "Cultural Events",
-			description: "Join celebrations and experience living heritage",
-			gradient: "from-yellow-500 to-orange-500"
 		}
 	];
 
@@ -649,8 +643,8 @@ export default function GetStarted() {
 								alt="Current"
 								className="w-full h-full object-cover"
 							/>
-							{/* Minimal dark overlay - no text */}
-							<div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent" />
+							{/* Dark overlay for text contrast */}
+							<div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/30 to-transparent" />
 						</div>
 
 						{/* Next Slide */}
@@ -661,6 +655,54 @@ export default function GetStarted() {
 								className="w-full h-full object-cover"
 							/>
 						</div>
+					</motion.div>
+
+					{/* Text Overlay - Centered */}
+					<motion.div
+						className="absolute inset-0 flex flex-col items-center justify-center z-20 px-4"
+						initial={{ opacity: 0, y: 20 }}
+						whileInView={{ opacity: 1, y: 0 }}
+						transition={{ duration: 0.8 }}
+						viewport={{ once: false }}
+					>
+						<motion.h1
+							className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-headline font-bold text-white text-center mb-2 md:mb-4"
+							variants={itemVariants}
+						>
+							Preserve. Explore. Borrow.
+						</motion.h1>
+						<motion.p
+							className="text-sm sm:text-base md:text-lg lg:text-xl text-white/90 text-center mb-6 md:mb-8 max-w-2xl"
+							variants={itemVariants}
+						>
+							Cultural Costumes, Instruments, and Heritage Collections
+						</motion.p>
+						<motion.div
+							className="flex flex-col sm:flex-row gap-3 md:gap-4"
+							variants={containerVariants}
+						>
+							<motion.button
+								onClick={() => setShowLoginModal(true)}
+								whileHover={{ scale: 1.05 }}
+								whileTap={{ scale: 0.95 }}
+								className="px-6 sm:px-8 py-2 sm:py-3 bg-[#92D6A2] hover:bg-[#ADF2BC] text-[#003300] font-bold text-sm sm:text-base rounded-lg transition-all"
+								variants={itemVariants}
+							>
+								Explore Collection
+							</motion.button>
+							<motion.button
+								onClick={() => {
+									const aboutSection = document.querySelector('[data-section="about"]');
+									aboutSection?.scrollIntoView({ behavior: 'smooth' });
+								}}
+								whileHover={{ scale: 1.05 }}
+								whileTap={{ scale: 0.95 }}
+								className="px-6 sm:px-8 py-2 sm:py-3 border-2 border-white hover:bg-white/10 text-white font-bold text-sm sm:text-base rounded-lg transition-all"
+								variants={itemVariants}
+							>
+								Learn More
+							</motion.button>
+						</motion.div>
 					</motion.div>
 
 					{/* Navigation Buttons */}
@@ -706,81 +748,66 @@ export default function GetStarted() {
 			)}
 
 			{/* ============================================ */}
-			{/* SECTION 2: ABOUT THE CENTER (IMPROVED SCANNABLE DESIGN) */}
+			{/* SECTION 2: ABOUT UCCA */}
 			{/* ============================================ */}
-			<Section className="py-12 md:py-24 px-3 sm:px-4 md:px-6 bg-gradient-to-b from-white to-[#003300]/5">
-				<div className="max-w-6xl mx-auto">
-					<motion.h2
-						className="text-xl sm:text-2xl md:text-4xl lg:text-5xl font-headline font-bold text-center text-[#003300] mb-2 md:mb-4"
-						variants={slideInVariants}
-						initial="hidden"
-						whileInView="visible"
-						viewport={{ once: true }}
-					>
-						About the University Center of Culture and the Arts
-					</motion.h2>
-
-					<motion.p
-						className="text-center text-stone-600 mb-8 md:mb-16 text-xs sm:text-sm md:text-base lg:text-lg px-2"
-						variants={slideInVariants}
-						initial="hidden"
-						whileInView="visible"
-						viewport={{ once: true }}
-					>
-						Preserving heritage, celebrating identity, strengthening community.
-					</motion.p>
-
-					{/* 3-Column Content Grid */}
+			<Section className="py-12 md:py-20 px-3 sm:px-4 md:px-6 bg-white" data-section="about">
+				<div className="max-w-4xl mx-auto">
 					<motion.div
-						className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-8"
+						className="text-center mb-6 md:mb-10"
+						variants={slideInVariants}
+						initial="hidden"
+						whileInView="visible"
+						viewport={{ once: true }}
+					>
+						<h2 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-headline font-bold text-[#003300] mb-3">
+							About UCCA
+						</h2>
+						<p className="text-sm sm:text-base md:text-lg text-stone-600">
+							University Center of Culture and the Arts
+						</p>
+					</motion.div>
+
+					<motion.div
+						className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6"
 						variants={containerVariants}
 						initial="hidden"
 						whileInView="visible"
 						viewport={{ once: true }}
 					>
-						{/* Card 1: Our Role */}
+						{/* Point 1 */}
 						<motion.div
 							variants={itemVariants}
-							whileHover={{ y: -4 }}
-							className="bg-white rounded-lg sm:rounded-xl p-3 sm:p-4 md:p-8 border border-[#004d1a]/10 shadow-sm hover:shadow-lg transition-all"
+							className="bg-gradient-to-br from-[#003300]/5 to-[#92D6A2]/5 rounded-lg p-4 md:p-6 border border-[#92D6A2]/30"
 						>
-							<div className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 rounded-lg bg-gradient-to-br from-[#004d1a] to-[#003300] flex items-center justify-center mb-3 md:mb-4">
-								<MaterialIcon icon="museum" className="text-[#92D6A2] text-base sm:text-lg md:text-2xl" />
+							<div className="w-8 h-8 md:w-10 md:h-10 rounded-lg bg-[#004d1a] flex items-center justify-center mb-3">
+								<MaterialIcon icon="museum" className="text-white text-lg md:text-xl" />
 							</div>
-							<h3 className="text-base sm:text-lg md:text-xl font-bold text-[#003300] mb-2 md:mb-3">Our Role</h3>
-							<p className="text-xs sm:text-sm md:text-sm text-stone-700 leading-relaxed">
-								The UCCA serves as the heart of cultural preservation at Caraga State University, fostering appreciation for our heritage.
-							</p>
+							<h3 className="font-bold text-[#003300] text-sm md:text-base mb-2">Preserves Heritage</h3>
+							<p className="text-xs md:text-sm text-stone-700">Protects cultural traditions and artifacts for future generations</p>
 						</motion.div>
 
-						{/* Card 2: What We Do */}
+						{/* Point 2 */}
 						<motion.div
 							variants={itemVariants}
-							whileHover={{ y: -4 }}
-							className="bg-white rounded-lg sm:rounded-xl p-3 sm:p-4 md:p-8 border border-[#004d1a]/10 shadow-sm hover:shadow-lg transition-all"
+							className="bg-gradient-to-br from-[#003300]/5 to-[#92D6A2]/5 rounded-lg p-4 md:p-6 border border-[#92D6A2]/30"
 						>
-							<div className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 rounded-lg bg-gradient-to-br from-[#004d1a] to-[#003300] flex items-center justify-center mb-3 md:mb-4">
-								<MaterialIcon icon="perform_arts" className="text-[#92D6A2] text-base sm:text-lg md:text-2xl" />
+							<div className="w-8 h-8 md:w-10 md:h-10 rounded-lg bg-[#004d1a] flex items-center justify-center mb-3">
+								<MaterialIcon icon="stage" className="text-white text-lg md:text-xl" />
 							</div>
-							<h3 className="text-base sm:text-lg md:text-xl font-bold text-[#003300] mb-2 md:mb-3">What We Do</h3>
-							<p className="text-xs sm:text-sm md:text-sm text-stone-700 leading-relaxed">
-								We promote indigenous traditions, performing arts, and material heritage through dedicated programs.
-							</p>
+							<h3 className="font-bold text-[#003300] text-sm md:text-base mb-2">Supports Performances</h3>
+							<p className="text-xs md:text-sm text-stone-700">Provides resources for cultural events and celebrations</p>
 						</motion.div>
 
-						{/* Card 3: Our Impact */}
+						{/* Point 3 */}
 						<motion.div
 							variants={itemVariants}
-							whileHover={{ y: -4 }}
-							className="bg-white rounded-lg sm:rounded-xl p-3 sm:p-4 md:p-8 border border-[#004d1a]/10 shadow-sm hover:shadow-lg transition-all"
+							className="bg-gradient-to-br from-[#003300]/5 to-[#92D6A2]/5 rounded-lg p-4 md:p-6 border border-[#92D6A2]/30"
 						>
-							<div className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 rounded-lg bg-gradient-to-br from-[#004d1a] to-[#003300] flex items-center justify-center mb-3 md:mb-4">
-								<MaterialIcon icon="handshake" className="text-[#92D6A2] text-base sm:text-lg md:text-2xl" />
+							<div className="w-8 h-8 md:w-10 md:h-10 rounded-lg bg-[#004d1a] flex items-center justify-center mb-3">
+								<MaterialIcon icon="card_giftcard" className="text-white text-lg md:text-xl" />
 							</div>
-							<h3 className="text-base sm:text-lg md:text-xl font-bold text-[#003300] mb-2 md:mb-3">Our Impact</h3>
-							<p className="text-xs sm:text-sm md:text-sm text-stone-700 leading-relaxed">
-								We engage communities through events, workshops, and cultural initiatives that strengthen bonds.
-							</p>
+							<h3 className="font-bold text-[#003300] text-sm md:text-base mb-2">Enables Borrowing</h3>
+							<p className="text-xs md:text-sm text-stone-700">Lends authentic items for approved cultural activities</p>
 						</motion.div>
 					</motion.div>
 				</div>
@@ -1055,7 +1082,7 @@ export default function GetStarted() {
 					</motion.p>
 
 					<motion.div
-						className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-8"
+						className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-8"
 						variants={containerVariants}
 						initial="hidden"
 						whileInView="visible"
@@ -1080,221 +1107,7 @@ export default function GetStarted() {
 			</Section>
 
 			{/* ============================================ */}
-			{/* SECTION 5: FEATURED CULTURE STORY */}
-			{/* ============================================ */}
-			<Section className="py-12 md:py-24 px-3 sm:px-4 md:px-6 bg-gradient-to-br from-[#003300]/5 to-[#92D6A2]/5">
-				<div className="max-w-6xl mx-auto">
-					<motion.div
-						className="text-center mb-8 md:mb-12"
-						variants={slideInVariants}
-						initial="hidden"
-						whileInView="visible"
-						viewport={{ once: true }}
-					>
-						<p className="text-[#004d1a] font-bold text-xs uppercase tracking-wider mb-1 md:mb-2">Featured Experience</p>
-						<h2 className="text-xl sm:text-2xl md:text-4xl lg:text-5xl font-headline font-bold text-[#003300]">
-							The Voice of Mindanao
-						</h2>
-					</motion.div>
-
-					<div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-12 items-center">
-						{/* Left: Image */}
-						<motion.div
-							className="rounded-lg sm:rounded-xl overflow-hidden shadow-2xl"
-							variants={slideInVariants}
-							initial="hidden"
-							whileInView="visible"
-							viewport={{ once: true }}
-						>
-							<img
-								src="https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=600&h=600&fit=crop"
-								alt="Featured Culture"
-								className="w-full h-[200px] sm:h-[280px] md:h-[400px] lg:h-[450px] object-cover"
-							/>
-						</motion.div>
-
-						{/* Right: Content */}
-						<motion.div
-							variants={slideInVariants}
-							initial="hidden"
-							whileInView="visible"
-							viewport={{ once: true }}
-						>
-							<span className="text-[#004d1a] font-bold text-xs uppercase tracking-widest">Featured Story</span>
-							<h3 className="text-base sm:text-lg md:text-3xl lg:text-4xl font-headline font-bold text-[#003300] mt-2 md:mt-4 mb-3 md:mb-6">
-								Kulintang: Music of the Ancestors
-							</h3>
-							<p className="text-stone-700 text-xs sm:text-sm md:text-lg lg:text-xl mb-4 md:mb-6 leading-relaxed">
-								The kulintang is more than brass gongs—it's the heartbeat of Mindanao, resonating through celebrations and rituals across generations.
-							</p>
-							<button
-								onClick={() => setShowLoginModal(true)}
-								className="px-6 py-2 sm:px-8 sm:py-3 bg-[#004d1a] hover:bg-[#003d15] text-white font-bold text-sm sm:text-base rounded-lg transition-all duration-300 inline-flex items-center gap-2"
-							>
-								Explore This Culture
-								<MaterialIcon icon="arrow_forward" className="text-base md:text-lg" />
-							</button>
-						</motion.div>
-					</div>
-				</div>
-			</Section>
-
-			{/* ============================================ */}
-			{/* SECTION 6: SEARCH & DISCOVER */}
-			{/* ============================================ */}
-			<Section className="py-12 md:py-24 px-3 sm:px-4 md:px-6 bg-gradient-to-b from-white to-[#003300]/5">
-				<div className="max-w-6xl mx-auto">
-					<motion.div
-						className="text-center mb-3 md:mb-4"
-						variants={slideInVariants}
-						initial="hidden"
-						whileInView="visible"
-						viewport={{ once: true }}
-					>
-						<p className="text-[#004d1a] font-bold text-xs uppercase tracking-wider mb-1 md:mb-2">Interactive Exploration</p>
-						<h2 className="text-xl sm:text-2xl md:text-4xl lg:text-5xl font-headline font-bold text-[#003300]">
-							Search & Discover
-						</h2>
-					</motion.div>
-
-					<motion.p
-						className="text-center text-stone-600 mb-6 md:mb-12 text-xs sm:text-sm md:text-lg lg:text-xl max-w-2xl mx-auto"
-						variants={slideInVariants}
-						initial="hidden"
-						whileInView="visible"
-						viewport={{ once: true }}
-					>
-						Find instruments, costumes, and stories
-					</motion.p>
-
-					<div className="relative group mb-6 md:mb-8">
-						<div className="absolute inset-y-0 left-3 md:left-6 flex items-center pointer-events-none">
-							<MaterialIcon icon="search" className="text-stone-400 group-focus-within:text-[#004d1a] transition-colors text-lg md:text-2xl" />
-						</div>
-						<input
-							className="w-full h-10 md:h-16 pl-12 md:pl-20 pr-4 md:pr-6 rounded-lg md:rounded-xl border-2 border-stone-300 focus:border-[#004d1a] focus:ring-0 text-xs md:text-lg font-body transition-all bg-white placeholder-stone-400"
-							placeholder="Search..."
-							type="text"
-							value={searchTerm}
-							onChange={(e) => setSearchTerm(e.target.value)}
-						/>
-					</div>
-
-					{/* Filter Dropdowns */}
-					<motion.div
-						className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4"
-						variants={containerVariants}
-						initial="hidden"
-						whileInView="visible"
-						viewport={{ once: true }}
-					>
-						<motion.div variants={itemVariants}>
-							<label className="block text-xs md:text-sm font-semibold text-[#003300] mb-1 md:mb-2">Culture</label>
-							<select
-								value={selectedFilters.culture}
-								onChange={(e) => setSelectedFilters({ ...selectedFilters, culture: e.target.value })}
-								className="w-full px-3 md:px-4 py-2 text-xs md:text-sm border-2 border-stone-300 rounded-lg focus:border-[#004d1a] focus:ring-0"
-							>
-								<option value="all">All Cultures</option>
-								<option value="mindanao">Mindanao</option>
-								<option value="visayas">Visayas</option>
-								<option value="luzon">Luzon</option>
-							</select>
-						</motion.div>
-
-						<motion.div variants={itemVariants}>
-							<label className="block text-sm font-semibold text-[#003300] mb-2">Type</label>
-							<select
-								value={selectedFilters.type}
-								onChange={(e) => setSelectedFilters({ ...selectedFilters, type: e.target.value })}
-								className="w-full px-4 py-2 border-2 border-stone-300 rounded-lg focus:border-[#004d1a] focus:ring-0"
-							>
-								<option value="all">All Types</option>
-								<option value="instrument">Instruments</option>
-								<option value="costume">Costumes</option>
-								<option value="artifact">Artifacts</option>
-							</select>
-						</motion.div>
-
-						<motion.div variants={itemVariants}>
-							<label className="block text-sm font-semibold text-[#003300] mb-2">Event</label>
-							<select
-								value={selectedFilters.event}
-								onChange={(e) => setSelectedFilters({ ...selectedFilters, event: e.target.value })}
-								className="w-full px-4 py-2 border-2 border-stone-300 rounded-lg focus:border-[#004d1a] focus:ring-0"
-							>
-								<option value="all">All Events</option>
-								<option value="festival">Festival</option>
-								<option value="celebration">Celebration</option>
-								<option value="ritual">Ritual</option>
-							</select>
-						</motion.div>
-					</motion.div>
-				</div>
-			</Section>
-
-			{/* ============================================ */}
-			{/* SECTION 7: QUICK LINKS */}
-			{/* ============================================ */}
-			<Section className="py-16 md:py-24 px-4 md:px-6 bg-white">
-				<div className="max-w-6xl mx-auto">
-					<motion.div
-						className="text-center mb-4"
-						variants={slideInVariants}
-						initial="hidden"
-						whileInView="visible"
-						viewport={{ once: true }}
-					>
-						<p className="text-[#004d1a] font-bold text-sm uppercase tracking-wider mb-4">Quick Navigation</p>
-						<h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-headline font-bold text-[#003300]">
-							Explore by Interest
-						</h2>
-					</motion.div>
-
-					<motion.p
-						className="text-center text-stone-600 mb-16 text-xs sm:text-base md:text-lg lg:text-xl max-w-2xl mx-auto"
-						variants={slideInVariants}
-						initial="hidden"
-						whileInView="visible"
-						viewport={{ once: true }}
-					>
-						Find exactly what you're looking for with quick access to our main features
-					</motion.p>
-
-					<motion.div
-						className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
-						variants={containerVariants}
-						initial="hidden"
-						whileInView="visible"
-						viewport={{ once: true }}
-					>
-						{[
-							{ icon: "public", label: "Explore Culture", hint: "Discover heritage" },
-							{ icon: "auto_stories", label: "Cultural Stories", hint: "Learn traditions" },
-							{ icon: "celebrate", label: "Events", hint: "Join celebrations" },
-							{ icon: "shopping_bag", label: "Available Items", hint: "Browse collection" },
-							{ icon: "bookmark", label: "My Borrowings", hint: "Your items" },
-							{ icon: "mail", label: "Contact Us", hint: "Get help" },
-						].map((link, idx) => (
-							<motion.button
-								key={idx}
-								variants={itemVariants}
-								whileHover={{ y: -4, boxShadow: "0 15px 40px rgba(0,77,26,0.15)" }}
-								className="bg-white border-2 border-stone-200 hover:border-[#004d1a] rounded-xl p-4 md:p-6 text-center transition-all"
-							>
-								<div className="w-10 h-10 md:w-12 md:h-12 rounded-lg bg-gradient-to-br from-[#004d1a] to-[#003300] flex items-center justify-center mx-auto mb-4">
-									<MaterialIcon icon={link.icon} className="text-[#92D6A2] text-xl md:text-2xl" />
-								</div>
-								<p className="text-base md:text-lg font-bold text-[#003300]">{link.label}</p>
-								<p className="text-xs md:text-sm text-stone-500 mt-2">{link.hint}</p>
-							</motion.button>
-						))}
-					</motion.div>
-				</div>
-			</Section>
-
-			{/* ============================================ */}
-			{/* SECTION 8: HOW IT WORKS */}
+			{/* SECTION 5: HOW IT WORKS */}
 			{/* ============================================ */}
 			<Section className="py-12 md:py-24 px-3 sm:px-4 md:px-6 bg-gradient-to-b from-white to-[#003300]/5">
 				<div className="max-w-6xl mx-auto">
@@ -1352,62 +1165,6 @@ export default function GetStarted() {
 										→
 									</div>
 								)}
-							</motion.div>
-						))}
-					</motion.div>
-				</div>
-			</Section>
-
-			{/* ============================================ */}
-			{/* SECTION 9: TESTIMONIALS */}
-			{/* ============================================ */}
-			<Section className="py-12 md:py-24 px-3 sm:px-4 md:px-6 bg-white">
-				<div className="max-w-6xl mx-auto">
-					<motion.div
-						className="text-center mb-3 md:mb-4"
-						variants={slideInVariants}
-						initial="hidden"
-						whileInView="visible"
-						viewport={{ once: true }}
-					>
-						<p className="text-[#004d1a] font-bold text-xs uppercase tracking-wider mb-1 md:mb-2">Real Stories</p>
-						<h2 className="text-xl sm:text-2xl md:text-4xl lg:text-5xl font-headline font-bold text-[#003300]">
-							Voices from Our Community
-						</h2>
-					</motion.div>
-
-					<motion.p
-						className="text-center text-stone-600 mb-8 md:mb-16 text-xs sm:text-sm md:text-lg lg:text-xl max-w-2xl mx-auto px-2"
-						variants={slideInVariants}
-						initial="hidden"
-						whileInView="visible"
-						viewport={{ once: true }}
-					>
-						Hear from our community about their experiences
-					</motion.p>
-
-					<motion.div
-						className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-8"
-						variants={containerVariants}
-						initial="hidden"
-						whileInView="visible"
-						viewport={{ once: true }}
-					>
-						{testimonials.map((testimonial, idx) => (
-							<motion.div
-								key={idx}
-								variants={itemVariants}
-								whileHover={{ y: -10 }}
-								className="bg-white rounded-lg sm:rounded-xl p-3 sm:p-4 md:p-8 shadow-lg border-l-4 border-[#92D6A2]"
-							>
-								<p className="text-stone-700 italic mb-3 md:mb-6 text-xs sm:text-sm md:text-lg">"{testimonial.text}"</p>
-								<div className="flex items-center gap-1 mb-2">
-									{[...Array(5)].map((_, i) => (
-										<span key={i} className="text-yellow-400 text-xs md:text-base">★</span>
-									))}
-								</div>
-								<p className="font-bold text-[#003300] text-sm md:text-base">{testimonial.author}</p>
-								<p className="text-xs md:text-sm text-stone-500">{testimonial.role}</p>
 							</motion.div>
 						))}
 					</motion.div>
