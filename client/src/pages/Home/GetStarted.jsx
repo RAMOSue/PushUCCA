@@ -112,6 +112,17 @@ export default function GetStarted() {
 	const [isWiping, setIsWiping] = useState(false);
 	const [wipeDuration] = useState(0.4); // Match modal transition: 0.4 seconds
 
+	// ✅ MOBILE DETECTION: For responsive clipPath in modals
+	const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+
+	useEffect(() => {
+		const handleResize = () => {
+			setIsMobile(window.innerWidth < 768);
+		};
+		window.addEventListener('resize', handleResize);
+		return () => window.removeEventListener('resize', handleResize);
+	}, []);
+
 	// ✅ DEPARTMENT REVEAL PANEL: Interactive department explorer
 	const [activeDepartment, setActiveDepartment] = useState(null);
 	const [departmentSlideIndex, setDepartmentSlideIndex] = useState({
@@ -1507,7 +1518,7 @@ export default function GetStarted() {
 				animate={{ x: showLoginModal ? 0 : "100%" }}
 				transition={{ duration: 0.4, ease: "easeInOut" }}
 				className="fixed left-0 right-0 top-14 sm:top-16 md:right-0 md:left-auto bottom-0 w-full md:w-1/2 bg-white z-40 overflow-hidden"
-				style={{ clipPath: 'polygon(15% 0, 100% 0, 100% 100%, 0% 100%)' }}
+				style={{ clipPath: isMobile ? 'polygon(0 0, 100% 0, 100% 100%, 0 100%)' : 'polygon(15% 0, 100% 0, 100% 100%, 0% 100%)' }}
 				onClick={(e) => e.stopPropagation()}
 			>
 			
@@ -1685,7 +1696,7 @@ export default function GetStarted() {
 				animate={{ x: showRegisterModal ? 0 : "100%" }}
 				transition={{ duration: 0.4, ease: "easeInOut" }}
 				className="fixed left-0 right-0 top-14 sm:top-16 md:right-0 md:left-auto bottom-0 w-full md:w-1/2 bg-white z-40 overflow-hidden"
-				style={{ clipPath: 'polygon(15% 0, 100% 0, 100% 100%, 0% 100%)' }}
+				style={{ clipPath: isMobile ? 'polygon(0 0, 100% 0, 100% 100%, 0 100%)' : 'polygon(15% 0, 100% 0, 100% 100%, 0% 100%)' }}
 				onClick={(e) => e.stopPropagation()}
 			>
 				<button
