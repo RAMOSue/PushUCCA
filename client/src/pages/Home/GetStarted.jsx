@@ -649,27 +649,8 @@ export default function GetStarted() {
 								alt="Current"
 								className="w-full h-full object-cover"
 							/>
-							{/* Dark overlay */}
-							<div className="absolute inset-0 bg-gradient-to-t from-/70 via-black/40 to-transparent" />
-							
-							{/* Text overlay with animations */}
-							<motion.div
-								key={`text-${currentSlide}`}
-								className="absolute inset-0 flex flex-col items-center justify-center text-center text-white px-6"
-								initial={{ opacity: 0, y: 20 }}
-								animate={{ opacity: 1, y: 0 }}
-								transition={{ duration: 0.8, delay: 0.2 }}
-							>
-								<h2 className="text-2xl sm:text-3xl md:text-5xl lg:text-6xl font-headline font-bold mb-4">
-									{slideImages[currentSlide]?.title}
-								</h2>
-								<p className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-headline font-light mb-6">
-									{slideImages[currentSlide]?.tagline}
-								</p>
-								<p className="text-xs sm:text-base md:text-lg lg:text-xl font-body text-gray-200">
-									{slideImages[currentSlide]?.subtitle}
-								</p>
-							</motion.div>
+							{/* Minimal dark overlay - no text */}
+							<div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent" />
 						</div>
 
 						{/* Next Slide */}
@@ -727,10 +708,10 @@ export default function GetStarted() {
 			{/* ============================================ */}
 			{/* SECTION 2: ABOUT THE CENTER (IMPROVED SCANNABLE DESIGN) */}
 			{/* ============================================ */}
-			<Section className="py-16 md:py-24 px-4 md:px-6 bg-gradient-to-b from-white to-[#003300]/5">
+			<Section className="py-12 md:py-24 px-3 sm:px-4 md:px-6 bg-gradient-to-b from-white to-[#003300]/5">
 				<div className="max-w-6xl mx-auto">
 					<motion.h2
-						className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-headline font-bold text-center text-[#003300] mb-3 md:mb-4"
+						className="text-xl sm:text-2xl md:text-4xl lg:text-5xl font-headline font-bold text-center text-[#003300] mb-2 md:mb-4"
 						variants={slideInVariants}
 						initial="hidden"
 						whileInView="visible"
@@ -740,7 +721,7 @@ export default function GetStarted() {
 					</motion.h2>
 
 					<motion.p
-						className="text-center text-stone-600 mb-10 md:mb-16 text-sm md:text-base lg:text-lg"
+						className="text-center text-stone-600 mb-8 md:mb-16 text-xs sm:text-sm md:text-base lg:text-lg px-2"
 						variants={slideInVariants}
 						initial="hidden"
 						whileInView="visible"
@@ -751,7 +732,7 @@ export default function GetStarted() {
 
 					{/* 3-Column Content Grid */}
 					<motion.div
-						className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-8"
+						className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-8"
 						variants={containerVariants}
 						initial="hidden"
 						whileInView="visible"
@@ -761,14 +742,14 @@ export default function GetStarted() {
 						<motion.div
 							variants={itemVariants}
 							whileHover={{ y: -4 }}
-							className="bg-white rounded-xl p-4 md:p-8 border border-[#004d1a]/10 shadow-sm hover:shadow-lg transition-all"
+							className="bg-white rounded-lg sm:rounded-xl p-3 sm:p-4 md:p-8 border border-[#004d1a]/10 shadow-sm hover:shadow-lg transition-all"
 						>
-							<div className="w-10 h-10 md:w-12 md:h-12 rounded-lg bg-gradient-to-br from-[#004d1a] to-[#003300] flex items-center justify-center mb-4">
-								<MaterialIcon icon="museum" className="text-[#92D6A2] text-xl md:text-2xl" />
+							<div className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 rounded-lg bg-gradient-to-br from-[#004d1a] to-[#003300] flex items-center justify-center mb-3 md:mb-4">
+								<MaterialIcon icon="museum" className="text-[#92D6A2] text-base sm:text-lg md:text-2xl" />
 							</div>
-							<h3 className="text-xl font-bold text-[#003300] mb-3">Our Role</h3>
-							<p className="text-stone-700 text-sm leading-relaxed">
-								The UCCA serves as the heart of cultural preservation at Caraga State University, fostering deep appreciation for our rich heritage.
+							<h3 className="text-base sm:text-lg md:text-xl font-bold text-[#003300] mb-2 md:mb-3">Our Role</h3>
+							<p className="text-xs sm:text-sm md:text-sm text-stone-700 leading-relaxed">
+								The UCCA serves as the heart of cultural preservation at Caraga State University, fostering appreciation for our heritage.
 							</p>
 						</motion.div>
 
@@ -776,14 +757,14 @@ export default function GetStarted() {
 						<motion.div
 							variants={itemVariants}
 							whileHover={{ y: -4 }}
-							className="bg-white rounded-xl p-4 md:p-8 border border-[#004d1a]/10 shadow-sm hover:shadow-lg transition-all"
+							className="bg-white rounded-lg sm:rounded-xl p-3 sm:p-4 md:p-8 border border-[#004d1a]/10 shadow-sm hover:shadow-lg transition-all"
 						>
-							<div className="w-10 h-10 md:w-12 md:h-12 rounded-lg bg-gradient-to-br from-[#004d1a] to-[#003300] flex items-center justify-center mb-4">
-								<MaterialIcon icon="perform_arts" className="text-[#92D6A2] text-xl md:text-2xl" />
+							<div className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 rounded-lg bg-gradient-to-br from-[#004d1a] to-[#003300] flex items-center justify-center mb-3 md:mb-4">
+								<MaterialIcon icon="perform_arts" className="text-[#92D6A2] text-base sm:text-lg md:text-2xl" />
 							</div>
-							<h3 className="text-xl font-bold text-[#003300] mb-3">What We Do</h3>
-							<p className="text-stone-700 text-sm leading-relaxed">
-								We promote indigenous traditions, performing arts, and material heritage through dedicated programs and meaningful experiences.
+							<h3 className="text-base sm:text-lg md:text-xl font-bold text-[#003300] mb-2 md:mb-3">What We Do</h3>
+							<p className="text-xs sm:text-sm md:text-sm text-stone-700 leading-relaxed">
+								We promote indigenous traditions, performing arts, and material heritage through dedicated programs.
 							</p>
 						</motion.div>
 
@@ -791,14 +772,14 @@ export default function GetStarted() {
 						<motion.div
 							variants={itemVariants}
 							whileHover={{ y: -4 }}
-							className="bg-white rounded-xl p-4 md:p-8 border border-[#004d1a]/10 shadow-sm hover:shadow-lg transition-all"
+							className="bg-white rounded-lg sm:rounded-xl p-3 sm:p-4 md:p-8 border border-[#004d1a]/10 shadow-sm hover:shadow-lg transition-all"
 						>
-							<div className="w-10 h-10 md:w-12 md:h-12 rounded-lg bg-gradient-to-br from-[#004d1a] to-[#003300] flex items-center justify-center mb-4">
-								<MaterialIcon icon="handshake" className="text-[#92D6A2] text-xl md:text-2xl" />
+							<div className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 rounded-lg bg-gradient-to-br from-[#004d1a] to-[#003300] flex items-center justify-center mb-3 md:mb-4">
+								<MaterialIcon icon="handshake" className="text-[#92D6A2] text-base sm:text-lg md:text-2xl" />
 							</div>
-							<h3 className="text-xl font-bold text-[#003300] mb-3">Our Impact</h3>
-							<p className="text-stone-700 text-sm leading-relaxed">
-								We engage communities through events, workshops, and cultural initiatives that strengthen bonds and inspire generations.
+							<h3 className="text-base sm:text-lg md:text-xl font-bold text-[#003300] mb-2 md:mb-3">Our Impact</h3>
+							<p className="text-xs sm:text-sm md:text-sm text-stone-700 leading-relaxed">
+								We engage communities through events, workshops, and cultural initiatives that strengthen bonds.
 							</p>
 						</motion.div>
 					</motion.div>
@@ -808,49 +789,49 @@ export default function GetStarted() {
 			{/* ============================================ */}
 			{/* SECTION 3: OUR CULTURAL DEPARTMENTS (SIMPLIFIED CARDS) */}
 			{/* ============================================ */}
-			<Section className="py-16 md:py-24 px-4 md:px-6 bg-gradient-to-b from-white via-white to-[#003300]/5">
+			<Section className="py-12 md:py-24 px-3 sm:px-4 md:px-6 bg-gradient-to-b from-white via-white to-[#003300]/5">
 				<div className="max-w-6xl mx-auto">
 					<motion.div
-						className="text-center mb-3 md:mb-4"
+						className="text-center mb-2 md:mb-4"
 						variants={slideInVariants}
 						initial="hidden"
 						whileInView="visible"
 						viewport={{ once: true }}
 					>
-						<p className="text-[#004d1a] font-bold text-xs md:text-sm uppercase tracking-wider mb-2 md:mb-4">Cultural Excellence</p>
-						<h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-headline font-bold text-[#003300]">
+						<p className="text-[#004d1a] font-bold text-xs uppercase tracking-wider mb-1 md:mb-2">Cultural Excellence</p>
+						<h2 className="text-xl sm:text-2xl md:text-4xl lg:text-5xl font-headline font-bold text-[#003300]">
 							Our Cultural Departments
 						</h2>
 					</motion.div>
 
-					<p className="text-center text-stone-600 mb-10 md:mb-16 text-xs md:text-base lg:text-lg max-w-2xl mx-auto">
-						Discover our cultural divisions working to preserve traditions, celebrate identity, and create transformative experiences.
+					<p className="text-center text-stone-600 mb-8 md:mb-16 text-xs sm:text-sm md:text-base lg:text-lg max-w-2xl mx-auto px-2">
+						Discover our cultural divisions working to preserve traditions and celebrate identity.
 					</p>
 
-					<div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-8">
+					<div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-8">
 						{/* Department 1: Dulimbay */}
 						<motion.div
 							variants={itemVariants}
 							whileHover={{ y: -6, boxShadow: "0 25px 50px rgba(0,51,0,0.15)" }}
 							onClick={() => toggleDepartment("dulimbay")}
-							className={`rounded-xl p-8 border overflow-hidden transition-all duration-300 cursor-pointer ${
+							className={`rounded-lg sm:rounded-xl p-4 sm:p-6 md:p-8 border overflow-hidden transition-all duration-300 cursor-pointer ${
 								activeDepartment === "dulimbay"
 									? "bg-white border-[#004d1a] ring-2 ring-[#004d1a] shadow-lg"
 									: "bg-white border-gray-200 hover:border-[#004d1a]/30 shadow-sm"
 							}`}
 						>
-							<div className="flex items-start justify-between mb-6">
-								<div className="w-10 h-10 md:w-14 md:h-14 rounded-lg bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center flex-shrink-0">
-									<MaterialIcon icon="theater_comedy" className="text-white text-xl md:text-3xl" />
+							<div className="flex items-start justify-between mb-4 md:mb-6">
+								<div className="w-8 h-8 sm:w-10 sm:h-10 md:w-14 md:h-14 rounded-lg bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center flex-shrink-0">
+									<MaterialIcon icon="theater_comedy" className="text-white text-base sm:text-lg md:text-3xl" />
 								</div>
 								<motion.div animate={{ rotate: activeDepartment === "dulimbay" ? 180 : 0 }} transition={{ duration: 0.3 }}>
-									<MaterialIcon icon="expand_more" className="text-[#004d1a] text-2xl" />
+									<MaterialIcon icon="expand_more" className="text-[#004d1a] text-lg md:text-2xl" />
 								</motion.div>
 							</div>
-							<h3 className="text-lg md:text-2xl font-bold text-[#003300] mb-2">Dulimbay</h3>
-							<p className="text-xs font-bold uppercase tracking-wider text-purple-600 mb-4">Dance & Performance</p>
-							<p className="text-sm text-stone-700 leading-relaxed">
-								Specializing in traditional cultural dances that express stories of heritage and community identity.
+							<h3 className="text-base sm:text-lg md:text-2xl font-bold text-[#003300] mb-1 md:mb-2">Dulimbay</h3>
+							<p className="text-xs font-bold uppercase tracking-wider text-purple-600 mb-2 md:mb-4">Dance & Performance</p>
+							<p className="text-xs sm:text-sm md:text-sm text-stone-700 leading-relaxed">
+								Specializing in traditional cultural dances that express stories of heritage.
 							</p>
 						</motion.div>
 
@@ -859,24 +840,24 @@ export default function GetStarted() {
 							variants={itemVariants}
 							whileHover={{ y: -6, boxShadow: "0 25px 50px rgba(0,51,0,0.15)" }}
 							onClick={() => toggleDepartment("budjong")}
-							className={`rounded-xl p-8 border overflow-hidden transition-all duration-300 cursor-pointer ${
+							className={`rounded-lg sm:rounded-xl p-4 sm:p-6 md:p-8 border overflow-hidden transition-all duration-300 cursor-pointer ${
 								activeDepartment === "budjong"
 									? "bg-white border-[#004d1a] ring-2 ring-[#004d1a] shadow-lg"
 									: "bg-white border-gray-200 hover:border-[#004d1a]/30 shadow-sm"
 							}`}
 						>
-							<div className="flex items-start justify-between mb-6">
-								<div className="w-10 h-10 md:w-14 md:h-14 rounded-lg bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center flex-shrink-0">
-									<MaterialIcon icon="library_music" className="text-white text-xl md:text-3xl" />
+							<div className="flex items-start justify-between mb-4 md:mb-6">
+								<div className="w-8 h-8 sm:w-10 sm:h-10 md:w-14 md:h-14 rounded-lg bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center flex-shrink-0">
+									<MaterialIcon icon="library_music" className="text-white text-base sm:text-lg md:text-3xl" />
 								</div>
 								<motion.div animate={{ rotate: activeDepartment === "budjong" ? 180 : 0 }} transition={{ duration: 0.3 }}>
-									<MaterialIcon icon="expand_more" className="text-[#004d1a] text-2xl" />
+									<MaterialIcon icon="expand_more" className="text-[#004d1a] text-lg md:text-2xl" />
 								</motion.div>
 							</div>
-							<h3 className="text-lg md:text-2xl font-bold text-[#003300] mb-2">Budjong</h3>
-							<p className="text-xs font-bold uppercase tracking-wider text-blue-600 mb-4">Music & Instruments</p>
-							<p className="text-sm text-stone-700 leading-relaxed">
-								Dedicated to preserving indigenous music and traditional instruments that reflect Filipino cultural spirit.
+							<h3 className="text-base sm:text-lg md:text-2xl font-bold text-[#003300] mb-1 md:mb-2">Budjong</h3>
+							<p className="text-xs font-bold uppercase tracking-wider text-blue-600 mb-2 md:mb-4">Music & Instruments</p>
+							<p className="text-xs sm:text-sm md:text-sm text-stone-700 leading-relaxed">
+								Dedicated to preserving indigenous music and traditional instruments.
 							</p>
 						</motion.div>
 
@@ -885,18 +866,18 @@ export default function GetStarted() {
 							variants={itemVariants}
 							whileHover={{ y: -6, boxShadow: "0 25px 50px rgba(0,51,0,0.15)" }}
 							onClick={() => toggleDepartment("kayam")}
-							className={`rounded-xl p-8 border overflow-hidden transition-all duration-300 cursor-pointer ${
+							className={`rounded-lg sm:rounded-xl p-4 sm:p-6 md:p-8 border overflow-hidden transition-all duration-300 cursor-pointer ${
 								activeDepartment === "kayam"
 									? "bg-white border-[#004d1a] ring-2 ring-[#004d1a] shadow-lg"
 									: "bg-white border-gray-200 hover:border-[#004d1a]/30 shadow-sm"
 							}`}
 						>
-							<div className="flex items-start justify-between mb-6">
-								<div className="w-10 h-10 md:w-14 md:h-14 rounded-lg bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center flex-shrink-0">
-									<MaterialIcon icon="handcraft" className="text-white text-xl md:text-3xl" />
+							<div className="flex items-start justify-between mb-4 md:mb-6">
+								<div className="w-8 h-8 sm:w-10 sm:h-10 md:w-14 md:h-14 rounded-lg bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center flex-shrink-0">
+									<MaterialIcon icon="handcraft" className="text-white text-base sm:text-lg md:text-3xl" />
 								</div>
 								<motion.div animate={{ rotate: activeDepartment === "kayam" ? 180 : 0 }} transition={{ duration: 0.3 }}>
-									<MaterialIcon icon="expand_more" className="text-[#004d1a] text-2xl" />
+									<MaterialIcon icon="expand_more" className="text-[#004d1a] text-lg md:text-2xl" />
 								</motion.div>
 							</div>
 							<h3 className="text-lg md:text-2xl font-bold text-[#003300] mb-2">Kayam</h3>
@@ -1048,33 +1029,33 @@ export default function GetStarted() {
 			{/* ============================================ */}
 			{/* SECTION 4: EXPLORE CULTURE CARDS */}
 			{/* ============================================ */}
-			<Section className="py-16 md:py-24 px-4 md:px-6 bg-white">
+			<Section className="py-12 md:py-24 px-3 sm:px-4 md:px-6 bg-white">
 				<div className="max-w-6xl mx-auto">
 					<motion.div
-						className="text-center mb-4"
+						className="text-center mb-3 md:mb-4"
 						variants={slideInVariants}
 						initial="hidden"
 						whileInView="visible"
 						viewport={{ once: true }}
 					>
-						<p className="text-[#004d1a] font-bold text-sm uppercase tracking-wider mb-4">Start Your Journey</p>
-						<h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-headline font-bold text-[#003300] mb-6">
-							Explore Our Cultural Collections
+						<p className="text-[#004d1a] font-bold text-xs uppercase tracking-wider mb-1 md:mb-2">Start Your Journey</p>
+						<h2 className="text-xl sm:text-2xl md:text-4xl lg:text-5xl font-headline font-bold text-[#003300] mb-3 md:mb-6">
+							Explore Our Collections
 						</h2>
 					</motion.div>
 
 					<motion.p
-						className="text-center text-stone-600 mb-16 text-xs sm:text-base md:text-lg lg:text-xl max-w-2xl mx-auto"
+						className="text-center text-stone-600 mb-8 md:mb-16 text-xs sm:text-sm md:text-lg lg:text-xl max-w-2xl mx-auto px-2"
 						variants={slideInVariants}
 						initial="hidden"
 						whileInView="visible"
 						viewport={{ once: true }}
 					>
-						Discover the richness of Filipino heritage, traditions, and the stories that connect us
+						Discover the richness of Filipino heritage and traditions
 					</motion.p>
 
 					<motion.div
-						className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-8"
+						className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-8"
 						variants={containerVariants}
 						initial="hidden"
 						whileInView="visible"
@@ -1085,13 +1066,13 @@ export default function GetStarted() {
 								key={idx}
 								variants={itemVariants}
 								whileHover={{ y: -10, boxShadow: "0 20px 40px rgba(0,51,0,0.15)" }}
-								className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl p-6 cursor-pointer overflow-hidden group border border-gray-200"
+								className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg sm:rounded-xl p-4 sm:p-6 md:p-6 cursor-pointer overflow-hidden group border border-gray-200"
 							>
-								<div className={`bg-gradient-to-br ${card.gradient} rounded-lg p-4 mb-4 w-fit group-hover:scale-110 transition-transform duration-300`}>
-									<MaterialIcon icon={card.icon} className="text-white text-3xl" />
+								<div className={`bg-gradient-to-br ${card.gradient} rounded-lg p-3 md:p-4 mb-3 md:mb-4 w-fit group-hover:scale-110 transition-transform duration-300`}>
+									<MaterialIcon icon={card.icon} className="text-white text-lg sm:text-2xl md:text-3xl" />
 								</div>
-								<h3 className="text-xl font-bold text-[#003300] mb-2">{card.title}</h3>
-								<p className="text-stone-600 text-sm">{card.description}</p>
+								<h3 className="text-base sm:text-lg md:text-xl font-bold text-[#003300] mb-1 md:mb-2">{card.title}</h3>
+								<p className="text-stone-600 text-xs sm:text-sm md:text-sm">{card.description}</p>
 							</motion.div>
 						))}
 					</motion.div>
@@ -1101,25 +1082,25 @@ export default function GetStarted() {
 			{/* ============================================ */}
 			{/* SECTION 5: FEATURED CULTURE STORY */}
 			{/* ============================================ */}
-			<Section className="py-16 md:py-24 px-4 md:px-6 bg-gradient-to-br from-[#003300]/5 to-[#92D6A2]/5">
+			<Section className="py-12 md:py-24 px-3 sm:px-4 md:px-6 bg-gradient-to-br from-[#003300]/5 to-[#92D6A2]/5">
 				<div className="max-w-6xl mx-auto">
 					<motion.div
-						className="text-center mb-12"
+						className="text-center mb-8 md:mb-12"
 						variants={slideInVariants}
 						initial="hidden"
 						whileInView="visible"
 						viewport={{ once: true }}
 					>
-						<p className="text-[#004d1a] font-bold text-sm uppercase tracking-wider mb-4">Featured Experience</p>
-						<h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-headline font-bold text-[#003300]">
+						<p className="text-[#004d1a] font-bold text-xs uppercase tracking-wider mb-1 md:mb-2">Featured Experience</p>
+						<h2 className="text-xl sm:text-2xl md:text-4xl lg:text-5xl font-headline font-bold text-[#003300]">
 							The Voice of Mindanao
 						</h2>
 					</motion.div>
 
-					<div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-12 items-center">
+					<div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-12 items-center">
 						{/* Left: Image */}
 						<motion.div
-							className="rounded-xl overflow-hidden shadow-2xl"
+							className="rounded-lg sm:rounded-xl overflow-hidden shadow-2xl"
 							variants={slideInVariants}
 							initial="hidden"
 							whileInView="visible"
@@ -1128,7 +1109,7 @@ export default function GetStarted() {
 							<img
 								src="https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=600&h=600&fit=crop"
 								alt="Featured Culture"
-								className="w-full h-[250px] sm:h-[300px] md:h-[400px] lg:h-[450px] object-cover"
+								className="w-full h-[200px] sm:h-[280px] md:h-[400px] lg:h-[450px] object-cover"
 							/>
 						</motion.div>
 
@@ -1139,19 +1120,19 @@ export default function GetStarted() {
 							whileInView="visible"
 							viewport={{ once: true }}
 						>
-							<span className="text-[#004d1a] font-bold text-sm uppercase tracking-widest">Featured Story</span>
-							<h3 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-headline font-bold text-[#003300] mt-4 mb-6">
+							<span className="text-[#004d1a] font-bold text-xs uppercase tracking-widest">Featured Story</span>
+							<h3 className="text-base sm:text-lg md:text-3xl lg:text-4xl font-headline font-bold text-[#003300] mt-2 md:mt-4 mb-3 md:mb-6">
 								Kulintang: Music of the Ancestors
 							</h3>
-							<p className="text-stone-700 text-sm md:text-lg lg:text-xl mb-6 leading-relaxed">
-								The kulintang is more than brass gongs—it's the heartbeat of Mindanao, resonating through celebrations and rituals across generations. These instruments connect communities to their roots, carrying stories and traditions of ancestors.
+							<p className="text-stone-700 text-xs sm:text-sm md:text-lg lg:text-xl mb-4 md:mb-6 leading-relaxed">
+								The kulintang is more than brass gongs—it's the heartbeat of Mindanao, resonating through celebrations and rituals across generations.
 							</p>
 							<button
 								onClick={() => setShowLoginModal(true)}
-								className="px-8 py-3 bg-[#004d1a] hover:bg-[#003d15] text-white font-bold rounded-lg transition-all duration-300 inline-flex items-center gap-2"
+								className="px-6 py-2 sm:px-8 sm:py-3 bg-[#004d1a] hover:bg-[#003d15] text-white font-bold text-sm sm:text-base rounded-lg transition-all duration-300 inline-flex items-center gap-2"
 							>
 								Explore This Culture
-								<MaterialIcon icon="arrow_forward" className="text-lg" />
+								<MaterialIcon icon="arrow_forward" className="text-base md:text-lg" />
 							</button>
 						</motion.div>
 					</div>
@@ -1161,38 +1142,38 @@ export default function GetStarted() {
 			{/* ============================================ */}
 			{/* SECTION 6: SEARCH & DISCOVER */}
 			{/* ============================================ */}
-			<Section className="py-16 md:py-24 px-4 md:px-6 bg-gradient-to-b from-white to-[#003300]/5">
+			<Section className="py-12 md:py-24 px-3 sm:px-4 md:px-6 bg-gradient-to-b from-white to-[#003300]/5">
 				<div className="max-w-6xl mx-auto">
 					<motion.div
-						className="text-center mb-4"
+						className="text-center mb-3 md:mb-4"
 						variants={slideInVariants}
 						initial="hidden"
 						whileInView="visible"
 						viewport={{ once: true }}
 					>
-						<p className="text-[#004d1a] font-bold text-sm uppercase tracking-wider mb-4">Interactive Exploration</p>
-						<h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-headline font-bold text-[#003300]">
+						<p className="text-[#004d1a] font-bold text-xs uppercase tracking-wider mb-1 md:mb-2">Interactive Exploration</p>
+						<h2 className="text-xl sm:text-2xl md:text-4xl lg:text-5xl font-headline font-bold text-[#003300]">
 							Search & Discover
 						</h2>
 					</motion.div>
 
 					<motion.p
-						className="text-center text-stone-600 mb-12 text-xs sm:text-base md:text-lg lg:text-xl max-w-2xl mx-auto"
+						className="text-center text-stone-600 mb-6 md:mb-12 text-xs sm:text-sm md:text-lg lg:text-xl max-w-2xl mx-auto"
 						variants={slideInVariants}
 						initial="hidden"
 						whileInView="visible"
 						viewport={{ once: true }}
 					>
-						Find instruments, costumes, and stories that resonate with you
+						Find instruments, costumes, and stories
 					</motion.p>
 
-					<div className="relative group mb-8">
-						<div className="absolute inset-y-0 left-6 flex items-center pointer-events-none">
-							<MaterialIcon icon="search" className="text-stone-400 group-focus-within:text-[#004d1a] transition-colors text-2xl" />
+					<div className="relative group mb-6 md:mb-8">
+						<div className="absolute inset-y-0 left-3 md:left-6 flex items-center pointer-events-none">
+							<MaterialIcon icon="search" className="text-stone-400 group-focus-within:text-[#004d1a] transition-colors text-lg md:text-2xl" />
 						</div>
 						<input
-							className="w-full h-12 md:h-16 pl-20 pr-6 rounded-xl border-2 border-stone-300 focus:border-[#004d1a] focus:ring-0 text-base md:text-lg font-body transition-all bg-white placeholder-stone-400"
-							placeholder="Search instruments, costumes, or cultures..."
+							className="w-full h-10 md:h-16 pl-12 md:pl-20 pr-4 md:pr-6 rounded-lg md:rounded-xl border-2 border-stone-300 focus:border-[#004d1a] focus:ring-0 text-xs md:text-lg font-body transition-all bg-white placeholder-stone-400"
+							placeholder="Search..."
 							type="text"
 							value={searchTerm}
 							onChange={(e) => setSearchTerm(e.target.value)}
@@ -1201,18 +1182,18 @@ export default function GetStarted() {
 
 					{/* Filter Dropdowns */}
 					<motion.div
-						className="grid grid-cols-1 md:grid-cols-3 gap-4"
+						className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4"
 						variants={containerVariants}
 						initial="hidden"
 						whileInView="visible"
 						viewport={{ once: true }}
 					>
 						<motion.div variants={itemVariants}>
-							<label className="block text-sm font-semibold text-[#003300] mb-2">Culture</label>
+							<label className="block text-xs md:text-sm font-semibold text-[#003300] mb-1 md:mb-2">Culture</label>
 							<select
 								value={selectedFilters.culture}
 								onChange={(e) => setSelectedFilters({ ...selectedFilters, culture: e.target.value })}
-								className="w-full px-4 py-2 border-2 border-stone-300 rounded-lg focus:border-[#004d1a] focus:ring-0"
+								className="w-full px-3 md:px-4 py-2 text-xs md:text-sm border-2 border-stone-300 rounded-lg focus:border-[#004d1a] focus:ring-0"
 							>
 								<option value="all">All Cultures</option>
 								<option value="mindanao">Mindanao</option>
@@ -1315,29 +1296,29 @@ export default function GetStarted() {
 			{/* ============================================ */}
 			{/* SECTION 8: HOW IT WORKS */}
 			{/* ============================================ */}
-			<Section className="py-16 md:py-24 px-4 md:px-6 bg-gradient-to-b from-white to-[#003300]/5">
+			<Section className="py-12 md:py-24 px-3 sm:px-4 md:px-6 bg-gradient-to-b from-white to-[#003300]/5">
 				<div className="max-w-6xl mx-auto">
 					<motion.div
-						className="text-center mb-4"
+						className="text-center mb-3 md:mb-4"
 						variants={slideInVariants}
 						initial="hidden"
 						whileInView="visible"
 						viewport={{ once: true }}
 					>
-						<p className="text-[#004d1a] font-bold text-sm uppercase tracking-wider mb-4">Getting Started</p>
-						<h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-headline font-bold text-[#003300]">
+						<p className="text-[#004d1a] font-bold text-xs uppercase tracking-wider mb-1 md:mb-2">Getting Started</p>
+						<h2 className="text-xl sm:text-2xl md:text-4xl lg:text-5xl font-headline font-bold text-[#003300]">
 							How It Works
 						</h2>
 					</motion.div>
 
 					<motion.p
-						className="text-center text-stone-600 mb-16 text-xs sm:text-base md:text-lg lg:text-xl max-w-2xl mx-auto"
+						className="text-center text-stone-600 mb-8 md:mb-16 text-xs sm:text-sm md:text-lg lg:text-xl max-w-2xl mx-auto px-2"
 						variants={slideInVariants}
 						initial="hidden"
 						whileInView="visible"
 						viewport={{ once: true }}
 					>
-						Simple steps to explore, learn, and engage with our cultural collections
+						Simple steps to explore and engage with our heritage
 					</motion.p>
 
 					<motion.div
@@ -1354,18 +1335,18 @@ export default function GetStarted() {
 								className="relative text-center"
 							>
 								{/* Circle with step number */}
-								<div className="flex justify-center mb-6">
+								<div className="flex justify-center mb-4 md:mb-6">
 									<div className="relative">
-										<div className="w-16 h-16 md:w-20 md:h-20 rounded-full bg-gradient-to-br from-[#004d1a] to-[#003300] flex items-center justify-center">
-											<MaterialIcon icon={step.icon} className="text-white text-2xl md:text-4xl" />
+										<div className="w-12 h-12 sm:w-16 sm:h-16 md:w-20 md:h-20 rounded-full bg-gradient-to-br from-[#004d1a] to-[#003300] flex items-center justify-center">
+											<MaterialIcon icon={step.icon} className="text-white text-lg sm:text-2xl md:text-4xl" />
 										</div>
-										<div className="absolute -top-3 -right-3 w-8 h-8 rounded-full bg-[#92D6A2] flex items-center justify-center text-white font-bold text-sm">
+										<div className="absolute -top-2 -right-2 sm:-top-3 sm:-right-3 w-6 sm:w-8 h-6 sm:h-8 rounded-full bg-[#92D6A2] flex items-center justify-center text-white font-bold text-xs sm:text-sm">
 											{step.step}
 										</div>
 									</div>
 								</div>
-								<h3 className="text-lg md:text-2xl font-bold text-[#003300] mb-3">{step.title}</h3>
-								<p className="text-sm md:text-base text-stone-600 mb-6">{step.description}</p>
+								<h3 className="text-base sm:text-lg md:text-2xl font-bold text-[#003300] mb-2 md:mb-3">{step.title}</h3>
+								<p className="text-xs sm:text-sm md:text-base text-stone-600 mb-4 md:mb-6">{step.description}</p>
 								{step.step < 3 && (
 									<div className="hidden md:block absolute top-20 -right-10 text-4xl text-stone-300">
 										→
@@ -1380,33 +1361,33 @@ export default function GetStarted() {
 			{/* ============================================ */}
 			{/* SECTION 9: TESTIMONIALS */}
 			{/* ============================================ */}
-			<Section className="py-16 md:py-24 px-4 md:px-6 bg-white">
+			<Section className="py-12 md:py-24 px-3 sm:px-4 md:px-6 bg-white">
 				<div className="max-w-6xl mx-auto">
 					<motion.div
-						className="text-center mb-4"
+						className="text-center mb-3 md:mb-4"
 						variants={slideInVariants}
 						initial="hidden"
 						whileInView="visible"
 						viewport={{ once: true }}
 					>
-						<p className="text-[#004d1a] font-bold text-sm uppercase tracking-wider mb-4">Real Stories</p>
-						<h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-headline font-bold text-[#003300]">
+						<p className="text-[#004d1a] font-bold text-xs uppercase tracking-wider mb-1 md:mb-2">Real Stories</p>
+						<h2 className="text-xl sm:text-2xl md:text-4xl lg:text-5xl font-headline font-bold text-[#003300]">
 							Voices from Our Community
 						</h2>
 					</motion.div>
 
 					<motion.p
-						className="text-center text-stone-600 mb-16 text-xs sm:text-base md:text-lg lg:text-xl max-w-2xl mx-auto"
+						className="text-center text-stone-600 mb-8 md:mb-16 text-xs sm:text-sm md:text-lg lg:text-xl max-w-2xl mx-auto px-2"
 						variants={slideInVariants}
 						initial="hidden"
 						whileInView="visible"
 						viewport={{ once: true }}
 					>
-						Hear from visitors and community members about their experiences with our cultural collections
+						Hear from our community about their experiences
 					</motion.p>
 
 					<motion.div
-						className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-8"
+						className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-8"
 						variants={containerVariants}
 						initial="hidden"
 						whileInView="visible"
@@ -1417,15 +1398,15 @@ export default function GetStarted() {
 								key={idx}
 								variants={itemVariants}
 								whileHover={{ y: -10 }}
-								className="bg-white rounded-xl p-4 md:p-8 shadow-lg border-l-4 border-[#92D6A2]"
+								className="bg-white rounded-lg sm:rounded-xl p-3 sm:p-4 md:p-8 shadow-lg border-l-4 border-[#92D6A2]"
 							>
-								<p className="text-stone-700 italic mb-6 text-sm md:text-lg">"{testimonial.text}"</p>
+								<p className="text-stone-700 italic mb-3 md:mb-6 text-xs sm:text-sm md:text-lg">"{testimonial.text}"</p>
 								<div className="flex items-center gap-1 mb-2">
 									{[...Array(5)].map((_, i) => (
-										<span key={i} className="text-yellow-400">★</span>
+										<span key={i} className="text-yellow-400 text-xs md:text-base">★</span>
 									))}
 								</div>
-								<p className="font-bold text-[#003300]">{testimonial.author}</p>
+								<p className="font-bold text-[#003300] text-sm md:text-base">{testimonial.author}</p>
 								<p className="text-xs md:text-sm text-stone-500">{testimonial.role}</p>
 							</motion.div>
 						))}
@@ -1436,10 +1417,10 @@ export default function GetStarted() {
 			{/* ============================================ */}
 			{/* SECTION 10: WHY IT MATTERS (CTA) */}
 			{/* ============================================ */}
-			<Section className="py-16 md:py-32 px-4 md:px-6 bg-gradient-to-r from-[#004d1a] via-[#003300] to-[#002108] text-white">
+			<Section className="py-12 md:py-32 px-3 sm:px-4 md:px-6 bg-gradient-to-r from-[#004d1a] via-[#003300] to-[#002108] text-white">
 				<div className="max-w-4xl mx-auto text-center">
 					<motion.span
-						className="text-[#92D6A2] font-bold uppercase tracking-widest text-sm"
+						className="text-[#92D6A2] font-bold uppercase tracking-widest text-xs md:text-sm"
 						variants={itemVariants}
 						initial="hidden"
 						whileInView="visible"
@@ -1448,7 +1429,7 @@ export default function GetStarted() {
 						Our Mission
 					</motion.span>
 					<motion.h2
-						className="text-2xl sm:text-3xl md:text-5xl lg:text-6xl font-headline font-bold mt-6 mb-10"
+						className="text-lg sm:text-2xl md:text-5xl lg:text-6xl font-headline font-bold mt-3 md:mt-6 mb-6 md:mb-10"
 						variants={slideInVariants}
 						initial="hidden"
 						whileInView="visible"
@@ -1457,19 +1438,19 @@ export default function GetStarted() {
 						Preserving Heritage, Building Community
 					</motion.h2>
 					<motion.p
-						className="text-sm md:text-lg lg:text-xl text-gray-100 leading-relaxed mb-12"
+						className="text-xs sm:text-sm md:text-lg lg:text-xl text-gray-100 leading-relaxed mb-6 md:mb-12 px-2"
 						variants={itemVariants}
 						initial="hidden"
 						whileInView="visible"
 						viewport={{ once: true }}
 					>
-						Preserving culture ensures that future generations understand their identity and heritage. Every instrument, costume, and artifact tells a story of resilience, creativity, and community pride. By borrowing and experiencing these cultural treasures, we keep traditions alive and honor the wisdom of our ancestors.
+						Preserving culture ensures future generations understand their identity and heritage. By borrowing and experiencing these cultural treasures, we keep traditions alive.
 					</motion.p>
 					<motion.button
 						onClick={() => setShowLoginModal(true)}
 						whileHover={{ scale: 1.05 }}
 						whileTap={{ scale: 0.95 }}
-						className="mt-2 px-8 py-3 md:py-4 bg-[#92D6A2] hover:bg-[#ADF2BC] text-[#003300] font-bold rounded-lg text-base md:text-lg transition-all"
+						className="mt-2 px-6 sm:px-8 py-2 sm:py-3 md:py-4 bg-[#92D6A2] hover:bg-[#ADF2BC] text-[#003300] font-bold rounded-lg text-sm sm:text-base md:text-lg transition-all"
 					>
 						Start Your Journey
 					</motion.button>
