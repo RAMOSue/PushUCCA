@@ -172,8 +172,8 @@ export default function Login() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-900 via-emerald-800 to-teal-900 relative overflow-hidden">
-      {/* Animated background elements */}
-      <div className="absolute inset-0 overflow-hidden">
+      {/* Animated background elements - hidden on mobile */}
+      <div className="absolute inset-0 overflow-hidden hidden md:block">
         <motion.div
           className="absolute top-0 right-0 w-96 h-96 bg-green-600 rounded-full blur-3xl opacity-10"
           animate={{ y: [0, 30, 0], x: [0, -20, 0] }}
@@ -188,23 +188,21 @@ export default function Login() {
 
       {/* Content */}
       <div className="relative z-10 min-h-screen flex flex-col">
-        {/* Header is now handled by Navbar component */}
-        
-        {/* Login Form Container */}
-        <div className="flex-1 flex items-center justify-center px-4 py-12">
+        {/* Login Form Container - Full width on mobile, centered on desktop */}
+        <div className="flex-1 flex items-center justify-center px-3 sm:px-4 py-8 md:py-12">
           <motion.div
-            className="w-full max-w-md"
+            className="w-full max-w-sm md:max-w-md"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.2 }}
           >
             {/* Form Card */}
-            <div className="bg-white/10 backdrop-blur-xl rounded-2xl p-8 border border-white/20 shadow-2xl">
+            <div className="bg-white/10 backdrop-blur-xl rounded-2xl p-6 sm:p-8 border border-white/20 shadow-2xl">
               {/* Heading */}
-              <div className="text-center mb-8">
-                <h1 className="text-4xl font-bold text-white mb-2">Welcome Back</h1>
-                <p className="text-yellow-300 text-sm font-semibold uppercase tracking-wider">Caraga State University</p>
-                <p className="text-gray-200 text-xs mt-2">Musical Instruments & Costumes Management System</p>
+              <div className="text-center mb-6 sm:mb-8">
+                <h1 className="text-3xl sm:text-4xl font-bold text-white mb-2">Welcome Back</h1>
+                <p className="text-yellow-300 text-xs sm:text-sm font-semibold uppercase tracking-wider">Caraga State University</p>
+                <p className="text-gray-200 text-xs mt-1 sm:mt-2">Musical Instruments & Costumes Management System</p>
               </div>
 
               {/* Security Alert - Rate Limiting */}
@@ -223,13 +221,13 @@ export default function Login() {
               )}
 
               {/* Form */}
-              <form onSubmit={loginUser} className="space-y-5">
+              <form onSubmit={loginUser} className="space-y-4 sm:space-y-5">
                 {/* Email Field */}
                 <div>
-                  <label className="block text-gray-100 font-semibold text-sm mb-2">Email Address</label>
+                  <label className="block text-gray-100 font-semibold text-xs sm:text-sm mb-1 sm:mb-2">Email Address</label>
                   <input
                     type="email"
-                    className={`w-full px-4 py-3 bg-white/10 border rounded-lg text-white placeholder-gray-300 focus:outline-none focus:ring-2 transition duration-300 ${
+                    className={`w-full px-3 sm:px-4 py-2 sm:py-3 bg-white/10 border rounded-lg text-white placeholder-gray-300 focus:outline-none focus:ring-2 transition duration-300 text-sm ${
                       formErrors.email ? "border-red-500 focus:ring-red-400" : "border-white/20 focus:ring-yellow-400 focus:border-transparent"
                     }`}
                     placeholder="Enter your email..."
@@ -243,11 +241,11 @@ export default function Login() {
 
                 {/* Password Field */}
                 <div>
-                  <label className="block text-gray-100 font-semibold text-sm mb-2">Password</label>
+                  <label className="block text-gray-100 font-semibold text-xs sm:text-sm mb-1 sm:mb-2">Password</label>
                   <div className="relative">
                     <input
                       type={showPassword ? "text" : "password"}
-                      className={`w-full px-4 py-3 pr-12 bg-white/10 border rounded-lg text-white placeholder-gray-300 focus:outline-none focus:ring-2 transition duration-300 ${
+                      className={`w-full px-3 sm:px-4 py-2 sm:py-3 pr-10 sm:pr-12 bg-white/10 border rounded-lg text-white placeholder-gray-300 focus:outline-none focus:ring-2 transition duration-300 text-sm ${
                         formErrors.password ? "border-red-500 focus:ring-red-400" : "border-white/20 focus:ring-yellow-400 focus:border-transparent"
                       }`}
                       placeholder="Enter your password..."

@@ -161,8 +161,8 @@ export default function Register() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-900 via-emerald-800 to-teal-900 relative overflow-hidden">
-      {/* Animated background elements */}
-      <div className="absolute inset-0 overflow-hidden">
+      {/* Animated background elements - hidden on mobile */}
+      <div className="absolute inset-0 overflow-hidden hidden md:block">
         <motion.div
           className="absolute top-0 right-0 w-96 h-96 bg-green-600 rounded-full blur-3xl opacity-10"
           animate={{ y: [0, 30, 0], x: [0, -20, 0] }}
@@ -177,43 +177,31 @@ export default function Register() {
 
       {/* Content */}
       <div className="relative z-10 min-h-screen flex flex-col">
-        {/* Header */}
-        <motion.div
-          className="px-6 py-4 flex items-center justify-between"
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-        >
-         
-
-          
-        </motion.div>
-
-        {/* Registration Form Container */}
-        <div className="flex-1 flex items-center justify-center px-4 py-12">
+        {/* Registration Form Container - Full width on mobile, centered on desktop */}
+        <div className="flex-1 flex items-center justify-center px-3 sm:px-4 py-8 md:py-12">
           <motion.div
-            className="w-full max-w-md"
+            className="w-full max-w-sm md:max-w-md"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.2 }}
           >
             {/* Form Card */}
-            <div className="bg-white/10 backdrop-blur-xl rounded-2xl p-8 border border-white/20 shadow-2xl">
+            <div className="bg-white/10 backdrop-blur-xl rounded-2xl p-6 sm:p-8 border border-white/20 shadow-2xl">
               {/* Heading */}
-              <div className="text-center mb-8">
-                <h1 className="text-3xl font-bold text-white mb-2">
+              <div className="text-center mb-6 sm:mb-8">
+                <h1 className="text-3xl sm:text-4xl font-bold text-white mb-2">
                   Create Account
                 </h1>
-                <p className="text-yellow-300 text-sm font-semibold uppercase tracking-wider">
+                <p className="text-yellow-300 text-xs sm:text-sm font-semibold uppercase tracking-wider">
                   Join Our Community
                 </p>
-                <p className="text-gray-200 text-xs mt-2">
+                <p className="text-gray-200 text-xs mt-1 sm:mt-2">
                   Musical Instruments & Costumes Management System
                 </p>
               </div>
 
               {/* ✅ NEW: Allowed Email Domains Notice */}
-              <div className="mb-6 p-4 bg-blue-500/10 border border-blue-400/30 rounded-lg">
+              <div className="mb-4 sm:mb-6 p-3 sm:p-4 bg-blue-500/10 border border-blue-400/30 rounded-lg">
                 <p className="text-blue-200 text-xs leading-relaxed">
                   <strong>ℹ️ Email Required:</strong> You can register with{" "}
                   <strong>@carsu.edu.ph</strong> or <strong>@gmail.com</strong> email
@@ -222,10 +210,10 @@ export default function Register() {
               </div>
 
               {/* Form */}
-              <form onSubmit={registerUser} className="space-y-4">
+              <form onSubmit={registerUser} className="space-y-3 sm:space-y-4">
                 {/* Full Name Field */}
                 <div>
-                  <label className="block text-gray-100 font-semibold text-sm mb-2">
+                  <label className="block text-gray-100 font-semibold text-xs sm:text-sm mb-1 sm:mb-2">
                     Full Name
                   </label>
                   <input
@@ -236,13 +224,13 @@ export default function Register() {
                       setData({ ...data, name: e.target.value })
                     }
                     required
-                    className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition duration-300"
+                    className="w-full px-3 sm:px-4 py-2 sm:py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition duration-300 text-sm"
                   />
                 </div>
 
                 {/* Email Field with Validation */}
                 <div>
-                  <label className="block text-gray-100 font-semibold text-sm mb-2">
+                  <label className="block text-gray-100 font-semibold text-xs sm:text-sm mb-1 sm:mb-2">
                     School Email Address
                   </label>
                   <div className="relative">
@@ -254,7 +242,7 @@ export default function Register() {
                         setData({ ...data, email: e.target.value })
                       }
                       required
-                      className={`w-full px-4 py-3 pr-10 bg-white/10 border rounded-lg text-white placeholder-gray-300 focus:outline-none focus:border-transparent transition duration-300 ${
+                      className={`w-full px-3 sm:px-4 py-2 sm:py-3 pr-10 bg-white/10 border rounded-lg text-white placeholder-gray-300 focus:outline-none focus:border-transparent transition duration-300 text-sm ${
                         emailStatus
                           ? emailStatus.valid
                             ? "border-green-400 focus:ring-2 focus:ring-green-400"
@@ -276,7 +264,7 @@ export default function Register() {
                   {/* ✅ NEW: Email status message */}
                   {emailStatus && (
                     <p
-                      className={`text-xs mt-2 ${
+                      className={`text-xs mt-1 ${
                         emailStatus.valid
                           ? "text-green-300"
                           : "text-red-300"
@@ -289,7 +277,7 @@ export default function Register() {
 
                 {/* Phone Field */}
                 <div>
-                  <label className="block text-gray-100 font-semibold text-sm mb-2">
+                  <label className="block text-gray-100 font-semibold text-xs sm:text-sm mb-1 sm:mb-2">
                     Phone Number
                   </label>
                   <input
@@ -300,13 +288,13 @@ export default function Register() {
                       setData({ ...data, phone: e.target.value })
                     }
                     required
-                    className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition duration-300"
+                    className="w-full px-3 sm:px-4 py-2 sm:py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition duration-300 text-sm"
                   />
                 </div>
 
                 {/* Password Field */}
                 <div>
-                  <label className="block text-gray-100 font-semibold text-sm mb-2">
+                  <label className="block text-gray-100 font-semibold text-xs sm:text-sm mb-1 sm:mb-2">
                     Password
                   </label>
                   <div className="relative">
@@ -318,7 +306,7 @@ export default function Register() {
                         setData({ ...data, password: e.target.value })
                       }
                       required
-                      className="w-full px-4 py-3 pr-12 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition duration-300"
+                      className="w-full px-3 sm:px-4 py-2 sm:py-3 pr-10 sm:pr-12 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition duration-300 text-sm"
                     />
                     <button
                       type="button"
@@ -344,7 +332,7 @@ export default function Register() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full mt-6 px-6 py-3 bg-gradient-to-r from-yellow-400 to-yellow-500 hover:from-yellow-500 hover:to-yellow-600 text-gray-900 font-bold rounded-lg shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                  className="w-full mt-4 sm:mt-6 px-6 py-2 sm:py-3 bg-gradient-to-r from-yellow-400 to-yellow-500 hover:from-yellow-500 hover:to-yellow-600 text-gray-900 font-bold rounded-lg shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
                 >
                   {loading ? "Creating Account..." : "Create Account"}
                 </button>
