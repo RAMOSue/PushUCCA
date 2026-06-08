@@ -5,6 +5,8 @@ import { BorrowingContext } from "../../../context/borrowingContext";
 import { SidebarContext } from "../../context/SidebarContext";
 import { LoginModalContext } from "../../../context/LoginModalContext";
 import axios from "axios";
+import tokenManager from "../../utils/tokenManager";
+import { INACTIVITY_CONFIG } from "../../config/inactivityConfig";
 import { Home, LogOut, Camera, Menu, BookOpen, ShoppingCart, Smartphone, ImageIcon, X, User, ChevronDown, Bell, Settings, History, Search } from 'lucide-react';
 import NotificationBadge from "../ui/NotificationBadge";
 import { notificationService } from "../../services/notifications";
@@ -119,11 +121,31 @@ export default function Navbar() {
 
   const handleLogout = async () => {
     try {
+      // Call backend to clear cookies
       await axios.post("/api/auth/logout");
-      setUser(null);
-      navigate("/login");
+      console.log("✅ Backend logout successful");
     } catch (err) {
-      console.error("Logout failed:", err.message);
+      console.error("⚠️ Backend logout failed:", err.message);
+    } finally {
+      // Always clear local session regardless of API call success
+      // This ensures user is logged out locally even if backend fails
+      console.log("🔄 Clearing local session...");
+      
+      // Clear all stored tokens from localStorage
+      tokenManager.clearAll();
+      console.log("✅ Cleared tokenManager");
+      
+      // Clear session key from localStorage
+      localStorage.removeItem(INACTIVITY_CONFIG.SESSION_KEY);
+      console.log("✅ Cleared session storage");
+      
+      // Clear user from state
+      setUser(null);
+      console.log("✅ Cleared user state");
+      
+      // Navigate to home
+      navigate("/");
+      console.log("✅ Navigated to home");
     }
   };
 
