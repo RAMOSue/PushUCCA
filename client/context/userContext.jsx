@@ -19,8 +19,17 @@ axios.defaults.withCredentials = true;
 axios.interceptors.request.use(
   (config) => {
     const activeToken = tokenManager.getActiveTokenString();
+    const activeUser = tokenManager.getActiveUser();
+    
     if (activeToken) {
       config.headers.Authorization = `Bearer ${activeToken}`;
+      // ✅ Debug logging
+      if (config.url.includes('/api/profiles/me') || config.url.includes('/api/borrow')) {
+        console.log(`📡 [axios] ${config.method.toUpperCase()} ${config.url} - Token present for: ${activeUser?.email || 'unknown'}`);
+      }
+    } else {
+      // ✅ Debug logging when token is missing
+      console.warn(`⚠️ [axios] ${config.method.toUpperCase()} ${config.url} - No token available (activeUser: ${activeUser?.email || 'none'})`);
     }
     return config;
   },
@@ -67,8 +76,21 @@ export function UserContextProvider({ children }) {
         // Store token in tokenManager so axios interceptor can use it
         try {
           const userData = userFromURL ? JSON.parse(decodeURIComponent(userFromURL)) : null;
-          tokenManager.addToken(userData?.id || 1, userData?.email || "", tokenFromURL, userData);
-          tokenManager.setActiveToken(userData?.id || 1);
+          
+          if (!userData?.id) {
+            console.error("❌ [OAuth] No user ID in OAuth response");
+            return;
+          }
+          
+          // ✅ FIX: Clear all old tokens when logging in with new account
+          // This prevents token confusion when switching between accounts
+          tokenManager.clearAll();
+          console.log("🔄 [OAuth] Cleared old tokens for fresh login");
+          
+          // Store NEW token
+          tokenManager.addToken(userData.id, userData.email, tokenFromURL, userData);
+          tokenManager.setActiveToken(userData.id);
+          console.log(`✅ [OAuth] Token stored for user: ${userData.email} (ID: ${userData.id})`);
           
           // Store user
           setUser({
@@ -77,6 +99,9 @@ export function UserContextProvider({ children }) {
             name: userData?.name,
             role: userData?.role,
           });
+          
+          // Mark loading as complete
+          setLoading(false);
           
           // Remove token from URL for security
           window.history.replaceState({}, document.title, window.location.pathname);
