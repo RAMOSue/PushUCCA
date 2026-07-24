@@ -14,6 +14,7 @@ const {
   googleCallback,
   logoutUser,
   getAllUsers,
+  createUser,
   updateUserRole,
   updateUserDivision,
   deleteUser,
@@ -66,6 +67,7 @@ router.get(
 
 // ========== ADMIN ROUTES ==========
 router.get('/admin/users', ensureAuth, requireRole('admin'), getAllUsers);
+router.post('/admin/users', ensureAuth, requireRole('admin'), createUser);
 router.put('/admin/users/:id/role', ensureAuth, requireRole('admin'), updateUserRole);
 router.put('/admin/users/:id/division', ensureAuth, requireRole('admin'), updateUserDivision);
 router.delete('/admin/users/:id', ensureAuth, requireRole('admin'), deleteUser);

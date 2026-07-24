@@ -574,6 +574,66 @@ const getAllUsers = async (req, res) => {
   }
 };
 
+/* ---------------- CREATE USER (ADMIN) ---------------- */
+const createUser = async (req, res) => {
+  try {
+    const { name, email, password, phone, role } = req.body;
+
+    if (!name || !name.trim()) {
+      return res.status(400).json({ error: "Name is required" });
+    }
+
+    if (!email || !email.trim()) {
+      return res.status(400).json({ error: "Email is required" });
+    }
+
+    if (!password || password.length < 6) {
+      return res.status(400).json({ error: "Password must be at least 6 characters" });
+    }
+
+    const normalizedName = name.trim();
+    const normalizedEmail = email.toLowerCase().trim();
+
+    if (!isValidEmail(normalizedEmail)) {
+      return res.status(400).json({
+        error: `Only ${ALLOWED_EMAIL_DOMAINS.join(" or ")} email addresses are allowed`,
+      });
+    }
+
+    const allowedRoles = ["borrower", "staff", "admin"];
+    const normalizedRole = allowedRoles.includes(role) ? role : "borrower";
+
+    const existingUser = await pool.query(
+      "SELECT id FROM users WHERE email = $1",
+      [normalizedEmail]
+    );
+
+    if (existingUser.rows.length > 0) {
+      return res.status(400).json({ error: "Email is already registered" });
+    }
+
+    const hashedPassword = await hashPassword(password);
+
+    const newUser = await pool.query(
+      `INSERT INTO users (name, email, password, role, phone, is_verified)
+       VALUES ($1, $2, $3, $4, $5, TRUE)
+       RETURNING id, name, email, role, phone, is_verified, division_id`,
+      [normalizedName, normalizedEmail, hashedPassword, normalizedRole, phone || null]
+    );
+
+    res.status(201).json({
+      message: "User created successfully",
+      user: newUser.rows[0],
+    });
+  } catch (error) {
+    console.error("Create user error:", error.message);
+    res.status(500).json({
+      error: "Failed to create user",
+      details: error.message,
+    });
+  }
+};
+
 /* ---------------- UPDATE USER ROLE ---------------- */
 const updateUserRole = async (req, res) => {
   const { id } = req.params;
@@ -794,6 +854,7 @@ module.exports = {
   googleCallback,
   logoutUser,
   getAllUsers,
+  createUser,
   updateUserRole,
   updateUserDivision,
   deleteUser,
