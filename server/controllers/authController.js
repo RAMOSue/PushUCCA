@@ -312,6 +312,7 @@ const loginUser = async (req, res) => {
     console.log(`✅ [loginUser] Login successful for: ${emailLower}`);
     res.json({
       message: "Login successful",
+      token,
       user: {
         id: user.id,
         name: user.name,
