@@ -9,6 +9,16 @@ const { sendVerificationEmail } = require("../utils/emailService"); // ✅ impor
 /* ============ CARSU EMAIL DOMAIN VALIDATION ============ */
 const ALLOWED_EMAIL_DOMAINS = ["@carsu.edu.ph", "@gmail.com"];
 
+const isProduction = process.env.NODE_ENV === "production";
+
+const getAuthCookieOptions = () => ({
+  httpOnly: true,
+  secure: isProduction,
+  sameSite: isProduction ? "none" : "lax",
+  path: "/",
+  maxAge: 7 * 24 * 60 * 60 * 1000,
+});
+
 const isValidEmail = (email) => {
   const emailLower = email.toLowerCase();
   return ALLOWED_EMAIL_DOMAINS.some(domain => emailLower.endsWith(domain));
@@ -148,12 +158,7 @@ const verifyEmail = async (req, res) => {
       { expiresIn: "7d" } // ✅ CHANGED: Extended to 7 days for session persistence
     );
 
-    res.cookie("token", token, {
-      httpOnly: true,
-      secure: false,
-      sameSite: "lax",
-      maxAge: 7 * 24 * 60 * 60 * 1000, // ✅ CHANGED: Extended to 7 days
-    });
+    res.cookie("token", token, getAuthCookieOptions());
 
     res.json({
       message: "Email verified successfully! You are now logged in.",
@@ -288,13 +293,7 @@ const loginUser = async (req, res) => {
     console.log(`🔐 [loginUser] JWT created for user ${user.id}`);
 
     // ✅ Enhanced cookie options with explicit path
-    const cookieOptions = {
-      httpOnly: true,
-      secure: false,
-      sameSite: "lax",
-      path: "/",
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    };
+    const cookieOptions = getAuthCookieOptions();
 
     res.cookie("token", token, cookieOptions);
     console.log(`✅ [loginUser] Cookie set with options: ${JSON.stringify(cookieOptions)}`);
@@ -363,13 +362,7 @@ const googleCallback = async (req, res) => {
     );
 
     // ✅ Set cookie for server-side auth if needed
-    res.cookie("token", token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      path: "/",
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    });
+    res.cookie("token", token, getAuthCookieOptions());
 
     console.log(`🔐 [Google OAuth] Token generated for user: ${user.email}`);
 
@@ -558,8 +551,9 @@ const updateThemePreference = async (req, res) => {
 const logoutUser = (req, res) => {
   res.clearCookie("token", {
     httpOnly: true,
-    secure: false,
-    sameSite: "lax",
+    secure: isProduction,
+    sameSite: isProduction ? "none" : "lax",
+    path: "/",
   });
   res.json({ message: "Logged out successfully" });
 };
