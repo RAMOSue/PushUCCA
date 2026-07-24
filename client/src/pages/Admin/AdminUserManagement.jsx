@@ -1,11 +1,11 @@
 // client/src/pages/Admin/AdminUserManagement.jsx
 import { useContext, useEffect, useState } from "react";
-import axios from "axios";
 import { UserContext } from "../../../context/userContext";
 import PageLayout from "../../components/layout/PageLayout";
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import { Users, Mail, Shield, Trash2, Search, Building } from "lucide-react";
+import axios from "../../config/axios";
 
 export default function AdminUserManagement() {
   const { user, loading } = useContext(UserContext);
