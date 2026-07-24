@@ -10,7 +10,24 @@ function requireRole(roles = []) {
   const allowedRoles = Array.isArray(roles) ? roles : [roles];
 
   return (req, res, next) => {
-    const { token } = req.cookies;
+    const resolveToken = () => {
+      if (req.cookies?.token) {
+        return req.cookies.token;
+      }
+
+      const authHeader = req.headers.authorization;
+      if (authHeader && authHeader.startsWith('Bearer ')) {
+        return authHeader.slice(7);
+      }
+
+      return null;
+    };
+
+    if (req.user?.role && allowedRoles.includes(req.user.role)) {
+      return next();
+    }
+
+    const token = resolveToken();
 
     if (!token) {
       return res.status(401).json({ error: 'Unauthorized: No token provided' });
