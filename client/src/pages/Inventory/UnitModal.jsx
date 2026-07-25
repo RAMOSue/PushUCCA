@@ -43,9 +43,31 @@ export default function UnitModal({ isOpen, onClose, selectedItem, onUnitDeleted
     }
   }, [selectedItem]);
 
+  const resolveAssetDownloadUrl = (qrUrl) => {
+    if (!qrUrl) return null;
+    if (qrUrl.startsWith("data:")) return qrUrl;
+
+    try {
+      const parsedUrl = new URL(qrUrl);
+      const apiBase = import.meta.env.VITE_API_URL || "http://localhost:8000";
+      const pathname = parsedUrl.pathname.replace(/^\/+/, "");
+
+      if (pathname.includes("qr_codes/") || pathname.includes("uploads/")) {
+        return `${apiBase}/api/files/download?path=${encodeURIComponent(pathname)}`;
+      }
+
+      return qrUrl;
+    } catch (error) {
+      return qrUrl;
+    }
+  };
+
   const handleDownload = async (qrUrl, itemName, unitIndex, size) => {
     try {
-      const response = await fetch(qrUrl);
+      const downloadUrl = resolveAssetDownloadUrl(qrUrl);
+      if (!downloadUrl) throw new Error("No QR URL provided");
+
+      const response = await fetch(downloadUrl, { credentials: "include" });
       if (!response.ok) throw new Error(`Failed to fetch QR image: ${response.status}`);
 
       const blob = await response.blob();
@@ -532,7 +554,7 @@ export default function UnitModal({ isOpen, onClose, selectedItem, onUnitDeleted
                       {/* QR Code Display */}
                       <div className="p-3 flex flex-col items-center space-y-2">
                         <img
-                          src={unit.qr_code_url}
+                          src={resolveAssetDownloadUrl(unit.qr_code_url)}
                           alt={`QR Code - ${displayLabel}`}
                           width={100}
                           height={100}

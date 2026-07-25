@@ -12,7 +12,22 @@ const BASE_URL = process.env.BASE_URL || "http://localhost:8000";
 // Helper: convert relative path to full URL
 function toFullUrl(filePath) {
   return filePath ? `${BASE_URL}${filePath}` : null;
-} 
+}
+
+function buildPublicUrl(req, relativePath) {
+  if (!relativePath) return null;
+  if (/^https?:\/\//i.test(relativePath)) return relativePath;
+
+  const forwardedProto = req.headers["x-forwarded-proto"];
+  const protocol = forwardedProto
+    ? String(forwardedProto).split(",")[0].trim()
+    : req.protocol || "http";
+
+  const host = req.get("host") || "localhost:8000";
+  const normalizedPath = relativePath.startsWith("/") ? relativePath : `/${relativePath}`;
+
+  return `${protocol}://${host}${normalizedPath}`;
+}
 
 /*
  * Inventory Controller
@@ -331,9 +346,7 @@ const uploadImage = (req, res) => {
     if (!req.file) {
       return res.status(400).json({ error: "No file uploaded" });
     }
-    const protocol = req.protocol;
-    const host = req.get("host"); // e.g., localhost:8000
-    const fileUrl = `${protocol}://${host}/uploads/${req.file.filename}`;
+    const fileUrl = buildPublicUrl(req, `/uploads/${req.file.filename}`);
     res.json({ imageUrl: fileUrl });
   } catch (err) {
     console.error("❌ Image upload error:", err.message);
@@ -426,7 +439,7 @@ const addInventoryItem = async (req, res) => {
         const unitQrText = `UNIT-${newItem.uuid}-${label}-${i + 1}`;
         const qrCodeFileName = `${unitId}.png`;
         const qrCodePath = `qr_codes/${qrCodeFileName}`;
-        const qrCodeUrlFile = `${req.protocol}://${req.get("host")}/${qrCodePath}`;
+        const qrCodeUrlFile = buildPublicUrl(req, `/${qrCodePath}`);
 
         await QRCode.toFile(path.join(qrDir, qrCodeFileName), unitQrText);
 
@@ -1372,7 +1385,7 @@ const generateUnitsForItem = async (req, res) => {
         }
       });
 
-      const qrUrl = `${req.protocol}://${req.get("host")}/qr_codes/${qrCodeId}.png`;
+      const qrUrl = buildPublicUrl(req, `/qr_codes/${qrCodeId}.png`);
       const size = forceNoSize ? "nosize" : (sizeLabel ? sizeLabel.toLowerCase() : "nosize");
       
       // ✅ Generate unit name: "ItemName-Size-Number" (e.g., "Suyam-S-1")

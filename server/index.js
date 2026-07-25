@@ -29,6 +29,9 @@ const metricsRouter = require("./testing/metricsAPI");
 // ✅ Initialize Express
 const app = express();
 
+// ✅ Respect proxy headers so req.protocol resolves correctly behind Render / reverse proxies
+app.set("trust proxy", 1);
+
 /* -------------------- Database connectivity check -------------------- */
 pool
   .connect()

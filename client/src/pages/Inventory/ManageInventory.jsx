@@ -558,13 +558,33 @@ export default function ManageInventory() {
     setFormPanelOpen(true);
   };
 
-  const downloadQRCode = (qrCodeUrl, name) => {
-    const link = document.createElement("a");
-    link.href = qrCodeUrl;
-    link.download = `QR-${name}.png`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  const downloadQRCode = async (qrCodeUrl, name) => {
+    try {
+      const apiBase = import.meta.env.VITE_API_URL || "http://localhost:8000";
+      const resolvedUrl = qrCodeUrl?.startsWith("http")
+        ? qrCodeUrl
+        : `${apiBase}${qrCodeUrl}`;
+
+      const downloadUrl = resolvedUrl?.includes("/qr_codes/") || resolvedUrl?.includes("/uploads/")
+        ? `${apiBase}/api/files/download?path=${encodeURIComponent(new URL(resolvedUrl).pathname.replace(/^\/+/, ""))}`
+        : resolvedUrl;
+
+      const response = await fetch(downloadUrl, { credentials: "include" });
+      if (!response.ok) throw new Error(`Download failed: ${response.status}`);
+
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `QR-${name}.png`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("❌ Error downloading QR code:", error);
+      toast.error("Failed to download QR code");
+    }
   };
 
   const handleSelectGroup = (grp) => {
