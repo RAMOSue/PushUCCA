@@ -34,6 +34,12 @@ import type {
 
 type CategoryFilter = "all" | "costume" | "instrument" | "accessories";
 
+type DivisionOption = {
+  id: string | number;
+  name: string;
+  status?: string | null;
+};
+
 const CATEGORY_FILTERS: { key: CategoryFilter; label: string }[] = [
   { key: "all", label: "All" },
   { key: "costume", label: "Costume" },
@@ -58,6 +64,18 @@ function getAvailabilityCount(item: InventoryItem) {
 function getAvailabilityLabel(item: InventoryItem) {
   const count = getAvailabilityCount(item);
   return count > 0 ? `${count} avail` : "All borrowed";
+}
+
+function getItemDivisionName(item?: InventoryItem | null) {
+  if (!item) {
+    return null;
+  }
+
+  const candidate = (item as InventoryItem & { division?: { name?: string | null } | null; division_name?: string | null; divisionName?: string | null }).division?.name
+    ?? (item as InventoryItem & { division?: { name?: string | null } | null; division_name?: string | null; divisionName?: string | null }).division_name
+    ?? (item as InventoryItem & { division?: { name?: string | null } | null; division_name?: string | null; divisionName?: string | null }).divisionName;
+
+  return candidate ? String(candidate).trim() : null;
 }
 
 function getPerformanceStatus(startTime?: string | null) {
@@ -92,9 +110,11 @@ export default function AvailableItems() {
   const sheetRef = useRef<BottomSheetModal>(null);
 
   const [items, setItems] = useState<InventoryItem[]>([]);
+  const [divisions, setDivisions] = useState<DivisionOption[]>([]);
   const [recommendations, setRecommendations] = useState<InventoryRecommendation[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<CategoryFilter>("all");
+  const [selectedDivision, setSelectedDivision] = useState<string | null>(null);
   const [loadingItems, setLoadingItems] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -106,6 +126,7 @@ export default function AvailableItems() {
   const [borrowMessage, setBorrowMessage] = useState<string | null>(null);
   const [borrowing, setBorrowing] = useState(false);
   const [showCategoryMenu, setShowCategoryMenu] = useState(false);
+  const [showDivisionMenu, setShowDivisionMenu] = useState(false);
   const [isFlyingToCart, setIsFlyingToCart] = useState(false);
   const [cartOrigin, setCartOrigin] = useState<{ x: number; y: number } | null>(null);
   const cartFlyAnim = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
@@ -165,6 +186,18 @@ export default function AvailableItems() {
     }
   }, [fetchRecommendations]);
 
+  const fetchDivisions = useCallback(async () => {
+    try {
+      const { data } = await api.get<DivisionOption[]>("/api/inventory/divisions");
+      const activeDivisions = Array.isArray(data)
+        ? data.filter((division) => (division.status || "Active").toLowerCase() !== "inactive")
+        : [];
+      setDivisions(activeDivisions);
+    } catch (error: any) {
+      console.error("Error fetching divisions:", error?.response?.data || error?.message || error);
+    }
+  }, []);
+
   const fetchReservedRequest = useCallback(async () => {
     if (!user?.id || user?.role !== "borrower") {
       setBorrowRequestId(null);
@@ -190,18 +223,20 @@ export default function AvailableItems() {
     useCallback(() => {
       if (!authLoading) {
         void fetchItems();
+        void fetchDivisions();
         void fetchReservedRequest();
       }
       return undefined;
-    }, [authLoading, fetchItems, fetchReservedRequest])
+    }, [authLoading, fetchDivisions, fetchItems, fetchReservedRequest])
   );
 
   useEffect(() => {
     if (!authLoading) {
       void fetchItems();
+      void fetchDivisions();
       void fetchReservedRequest();
     }
-  }, [authLoading, fetchItems, fetchReservedRequest, user?.id, user?.role]);
+  }, [authLoading, fetchDivisions, fetchItems, fetchReservedRequest, user?.id, user?.role]);
 
   useEffect(() => {
     const subscription = DeviceEventEmitter.addListener("mobile:refresh", (payload) => {
@@ -210,11 +245,12 @@ export default function AvailableItems() {
       }
 
       void fetchItems();
+      void fetchDivisions();
       void fetchReservedRequest();
     });
 
     return () => subscription.remove();
-  }, [fetchItems, fetchReservedRequest]);
+  }, [fetchDivisions, fetchItems, fetchReservedRequest]);
 
   const handleOpenSheet = useCallback((item: InventoryItem) => {
     const availableUnits = item.units?.filter((unit) => unit.status === "available") ?? [];
@@ -402,6 +438,14 @@ export default function AvailableItems() {
       nextItems = nextItems.filter((item) => item.name?.toLowerCase().includes(searchLower));
     }
 
+    if (selectedDivision) {
+      const selectedDivisionName = selectedDivision.trim().toLowerCase();
+      nextItems = nextItems.filter((item) => {
+        const divisionName = getItemDivisionName(item)?.trim().toLowerCase();
+        return divisionName === selectedDivisionName;
+      });
+    }
+
     if (user?.role === "borrower" && recommendations.length > 0) {
       const recommendedIds = new Set(
         recommendations.map((recommendation) => recommendation.inventory_item_id)
@@ -418,7 +462,7 @@ export default function AvailableItems() {
     }
 
     return nextItems;
-  }, [items, recommendations, searchQuery, selectedCategory, user?.role]);
+  }, [items, recommendations, searchQuery, selectedCategory, selectedDivision, user?.role]);
 
   const recommendedItemIds = useMemo(() => {
     return new Set(recommendations.map((recommendation) => recommendation.inventory_item_id));
@@ -427,8 +471,9 @@ export default function AvailableItems() {
   const handleRefresh = useCallback(() => {
     setRefreshing(true);
     void fetchItems();
+    void fetchDivisions();
     void fetchReservedRequest();
-  }, [fetchItems, fetchReservedRequest]);
+  }, [fetchDivisions, fetchItems, fetchReservedRequest]);
 
   const renderItem = ({ item }: { item: InventoryItem }) => {
     const imageUrl = normalizeImageUrl(item.image_url);
@@ -439,9 +484,11 @@ export default function AvailableItems() {
     const recommendationStatus = recommendation ? getPerformanceStatus(recommendation.start_time) : null;
     const showRecommendation = Boolean(recommendation && recommendationStatus !== "past");
     const availabilityCount = getAvailabilityCount(item);
+    const divisionName = getItemDivisionName(item);
     const categoryLabel = (item.category || "Item")
       .replace(/_/g, " ")
       .replace(/\b\w/g, (char) => char.toUpperCase());
+    const cardLabel = divisionName ? `${divisionName} • ${categoryLabel}` : categoryLabel;
 
     return (
       <Pressable
@@ -487,7 +534,7 @@ export default function AvailableItems() {
 
           <View style={styles.cardBody}>
             <Text style={styles.categoryLabel} numberOfLines={1}>
-              {categoryLabel}
+              {cardLabel}
             </Text>
             <Text style={styles.itemName} numberOfLines={2}>
               {item.name}
@@ -561,11 +608,21 @@ export default function AvailableItems() {
 
           <View style={styles.filterWrap}>
             <Pressable
+              onPress={() => setShowDivisionMenu(true)}
+              style={[styles.filterButton, selectedDivision && styles.filterButtonActive]}
+            >
+              <Text style={[styles.filterButtonText, selectedDivision && styles.filterButtonTextActive]}>
+                {selectedDivision || "Division"}
+              </Text>
+              <Ionicons name="chevron-down" size={16} color={selectedDivision ? "#ffffff" : "#166534"} />
+            </Pressable>
+
+            <Pressable
               onPress={() => setShowCategoryMenu(true)}
               style={[styles.filterButton, selectedCategory !== "all" && styles.filterButtonActive]}
             >
               <Text style={[styles.filterButtonText, selectedCategory !== "all" && styles.filterButtonTextActive]}>
-                {selectedCategory === "all" ? "Filter" : CATEGORY_FILTERS.find((filter) => filter.key === selectedCategory)?.label || "Filter"}
+                {selectedCategory === "all" ? "Category" : CATEGORY_FILTERS.find((filter) => filter.key === selectedCategory)?.label || "Category"}
               </Text>
               <Ionicons name="chevron-down" size={16} color={selectedCategory !== "all" ? "#ffffff" : "#166534"} />
             </Pressable>
@@ -618,6 +675,46 @@ export default function AvailableItems() {
                 >
                   <Text style={[styles.dropdownOptionText, active && styles.dropdownOptionTextActive]}>
                     {filter.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </Pressable>
+      </Modal>
+
+      <Modal
+        transparent
+        visible={showDivisionMenu}
+        animationType="fade"
+        onRequestClose={() => setShowDivisionMenu(false)}
+      >
+        <Pressable style={styles.dropdownOverlay} onPress={() => setShowDivisionMenu(false)}>
+          <View style={styles.dropdownPanel}>
+            <Pressable
+              onPress={() => {
+                setSelectedDivision(null);
+                setShowDivisionMenu(false);
+              }}
+              style={[styles.dropdownOption, !selectedDivision && styles.dropdownOptionActive]}
+            >
+              <Text style={[styles.dropdownOptionText, !selectedDivision && styles.dropdownOptionTextActive]}>All Divisions</Text>
+            </Pressable>
+
+            {divisions.map((division) => {
+              const active = selectedDivision === division.name;
+
+              return (
+                <Pressable
+                  key={division.id}
+                  onPress={() => {
+                    setSelectedDivision(division.name);
+                    setShowDivisionMenu(false);
+                  }}
+                  style={[styles.dropdownOption, active && styles.dropdownOptionActive]}
+                >
+                  <Text style={[styles.dropdownOptionText, active && styles.dropdownOptionTextActive]}>
+                    {division.name}
                   </Text>
                 </Pressable>
               );
@@ -688,7 +785,11 @@ export default function AvailableItems() {
                   </View>
 
                   <View style={styles.sheetInfoBlock}>
-                    <Text style={styles.sheetCategory}>{selectedItem.category || "Item"}</Text>
+                    <Text style={styles.sheetCategory}>
+                      {getItemDivisionName(selectedItem)
+                        ? `${getItemDivisionName(selectedItem)} • ${selectedItem.category || "Item"}`
+                        : selectedItem.category || "Item"}
+                    </Text>
                     <Text style={styles.sheetTitle}>{selectedItem.name}</Text>
 
                     {selectedItem.description ? (
@@ -802,14 +903,14 @@ const styles = StyleSheet.create({
   },
   stickyHeader: {
     zIndex: 20,
-    paddingTop: 4,
+    paddingTop: -2,
     paddingBottom: 8,
     paddingHorizontal: 14,
     backgroundColor: "#f9fafb",
   },
   listContent: {
     paddingHorizontal: 14,
-    paddingTop: 88,
+    paddingTop: 1,
     paddingBottom: 24,
   },
   header: {
@@ -860,18 +961,18 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: 6,
     paddingHorizontal: 12,
-    paddingVertical: 9,
+    paddingVertical: 5,
     borderRadius: 999,
     backgroundColor: "#f2fdf5",
     borderWidth: 1,
     borderColor: "#166534",
-    minWidth: 104,
+    minWidth: 50,
   },
   filterButtonActive: {
     backgroundColor: "#166534",
   },
   filterButtonText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: "700",
     color: "#166534",
   },

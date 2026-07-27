@@ -15,7 +15,9 @@ export default function AvailableItems() {
   const [loadingItems, setLoadingItems] = useState(true);
   const [selectedItem, setSelectedItem] = useState(null);
   const [selectedCategory, setSelectedCategory] = useState(null);
+  const [selectedDivision, setSelectedDivision] = useState(null);
   const [selectedGroup, setSelectedGroup] = useState("Dulimbay");
+  const [divisions, setDivisions] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [showAddToCartModal, setShowAddToCartModal] = useState(false);
   const [addedItemName, setAddedItemName] = useState("");
@@ -84,9 +86,20 @@ export default function AvailableItems() {
     }
   };
 
+  const fetchDivisions = async () => {
+    try {
+      const { data } = await axios.get('/api/inventory/divisions');
+      const activeDivisions = Array.isArray(data) ? data.filter((division) => (division.status || 'Active').toLowerCase() !== 'inactive') : [];
+      setDivisions(activeDivisions);
+    } catch (error) {
+      console.error('Error fetching divisions:', error.response?.data || error.message);
+    }
+  };
+
   useEffect(() => {
     if (!loading) {
       fetchItems();
+      fetchDivisions();
     }
   }, [loading, user?.id, user?.role, refreshAvailableItems]);
 
@@ -259,6 +272,15 @@ export default function AvailableItems() {
       );
     }
 
+    if (selectedDivision) {
+      filteredItems = filteredItems.filter((it) => {
+        const divisionInfo = getInventoryDivisionInfo(it);
+        const selectedDivisionName = String(selectedDivision).trim().toLowerCase();
+        const itemDivisionName = (divisionInfo?.division_name || it.division_name || '').toString().trim().toLowerCase();
+        return itemDivisionName === selectedDivisionName;
+      });
+    }
+
     if (searchQuery.trim()) {
       const searchLower = searchQuery.toLowerCase();
       filteredItems = filteredItems.filter(it =>
@@ -316,7 +338,18 @@ export default function AvailableItems() {
                 </button>
               ))}
 
-              <div className="ml-auto flex-shrink-0">
+              <div className="ml-auto flex-shrink-0 flex gap-2">
+                <select
+                  value={selectedDivision || 'all'}
+                  onChange={(e) => setSelectedDivision(e.target.value === 'all' ? null : e.target.value)}
+                  className="px-2 sm:px-4 py-1.5 sm:py-2 bg-surface-container-low dark:bg-[#222] border border-outline-variant/30 dark:border-gray-700 rounded-lg text-xs sm:text-sm font-medium text-on-surface dark:text-white dark:placeholder-gray-400 focus:ring-2 focus:ring-primary dark:focus:ring-blue-400 focus:border-transparent"
+                >
+                  <option value="all">All Divisions</option>
+                  {divisions.map((division) => (
+                    <option key={division.id} value={division.name}>{division.name}</option>
+                  ))}
+                </select>
+
                 <select
                   value={selectedCategory || 'all'}
                   onChange={(e) => setSelectedCategory(e.target.value === 'all' ? null : e.target.value)}
@@ -375,7 +408,12 @@ export default function AvailableItems() {
                         <div className="p-2 sm:p-3 md:p-4 flex-grow flex flex-col justify-between">
                           <div>
                             <p className="text-[10px] sm:text-xs text-on-surface-variant dark:text-gray-400 uppercase tracking-wide mb-0.5 sm:mb-1">
-                              {item.category || 'Item'}
+                              {(() => {
+                                const divisionInfo = getInventoryDivisionInfo(item);
+                                const divisionName = divisionInfo?.division_name || item.division_name || null;
+                                const categoryLabel = item.category || 'Item';
+                                return divisionName ? `${divisionName} • ${categoryLabel}` : categoryLabel;
+                              })()}
                             </p>
                             <h3 className="text-xs sm:text-sm font-bold text-on-surface dark:text-white line-clamp-2 mb-1 sm:mb-2">
                               {item.name}
@@ -458,7 +496,12 @@ export default function AvailableItems() {
 
                     <div className="flex-1 min-w-0">
                       <p className="text-[8px] sm:text-[10px] uppercase tracking-widest text-on-surface-variant dark:text-gray-400 font-bold mb-0.5 sm:mb-1">
-                        {selectedItem.category || 'Item'}
+                        {(() => {
+                          const divisionInfo = getInventoryDivisionInfo(selectedItem);
+                          const divisionName = divisionInfo?.division_name || selectedItem.division_name || null;
+                          const categoryLabel = selectedItem.category || 'Item';
+                          return divisionName ? `${divisionName} • ${categoryLabel}` : categoryLabel;
+                        })()}
                       </p>
                       <h2 className="text-xs sm:text-sm font-bold text-on-surface dark:text-white mb-1 sm:mb-2 line-clamp-2">
                         {selectedItem.name}
@@ -767,6 +810,14 @@ export default function AvailableItems() {
                 (item.category || '').toLowerCase().includes(selectedCategory.toLowerCase())
               );
             }
+            if (selectedDivision) {
+              filtered = filtered.filter((item) => {
+                const divisionInfo = getInventoryDivisionInfo(item);
+                const selectedDivisionName = String(selectedDivision).trim().toLowerCase();
+                const itemDivisionName = (divisionInfo?.division_name || item.division_name || '').toString().trim().toLowerCase();
+                return itemDivisionName === selectedDivisionName;
+              });
+            }
             if (searchQuery.trim()) {
               filtered = filtered.filter(item =>
                 item.name?.toLowerCase().includes(searchQuery.toLowerCase())
@@ -845,6 +896,14 @@ export default function AvailableItems() {
                             <h3 className="text-xs sm:text-sm font-bold text-on-surface dark:text-white line-clamp-2 mb-1">
                               {item.name}
                             </h3>
+                            <p className="text-[10px] sm:text-xs text-on-surface-variant dark:text-gray-400 mb-1">
+                              {(() => {
+                                const divisionInfo = getInventoryDivisionInfo(item);
+                                const divisionName = divisionInfo?.division_name || item.division_name || null;
+                                const categoryLabel = item.category || 'Item';
+                                return divisionName ? `${divisionName} • ${categoryLabel}` : categoryLabel;
+                              })()}
+                            </p>
                             {(() => {
                               const divisionInfo = getInventoryDivisionInfo(item);
                               return divisionInfo?.division_name ? (
@@ -925,6 +984,14 @@ export default function AvailableItems() {
                     <h2 className="text-xs sm:text-sm font-bold text-on-surface dark:text-white mb-1 sm:mb-2 line-clamp-2">
                       {selectedItem.name}
                     </h2>
+                    <p className="text-[10px] sm:text-xs text-on-surface-variant dark:text-gray-400 mb-2">
+                      {(() => {
+                        const divisionInfo = getInventoryDivisionInfo(selectedItem);
+                        const divisionName = divisionInfo?.division_name || selectedItem.division_name || null;
+                        const categoryLabel = selectedItem.category || 'Item';
+                        return divisionName ? `${divisionName} • ${categoryLabel}` : categoryLabel;
+                      })()}
+                    </p>
                     
                     {/* Recommendation Badge with Event Title - Hidden if past, Red if today, Amber if upcoming */}
                     {recommendedItemIds.has(selectedItem.id) && (() => {

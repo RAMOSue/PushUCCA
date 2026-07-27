@@ -57,6 +57,56 @@ function normalizeGroup(g) {
   return VALID_GROUPS.includes(s) ? s : null;
 }
 
+function normalizeDivisionName(value) {
+  if (value == null) return null;
+  const s = String(value).trim();
+  return s ? s.toLowerCase() : null;
+}
+
+function resolveDivisionForItem(item, divisions) {
+  const divisionCandidates = [
+    item?.division?.name,
+    item?.division_name,
+    item?.divisionName,
+    item?.collection_group,
+    item?.group,
+    item?.collectionGroup,
+  ];
+
+  for (const candidate of divisionCandidates) {
+    if (!candidate) continue;
+
+    const normalizedCandidate = normalizeDivisionName(candidate);
+    const match = divisions.find((division) => normalizeDivisionName(division.name) === normalizedCandidate);
+    if (match) {
+      return {
+        id: match.id,
+        name: match.name,
+      };
+    }
+  }
+
+  const explicitName = item?.division?.name || item?.division_name || item?.divisionName || item?.collection_group || item?.group || item?.collectionGroup;
+  if (explicitName) {
+    return {
+      id: item?.division?.id ?? item?.division_id ?? null,
+      name: String(explicitName).trim(),
+    };
+  }
+
+  return null;
+}
+
+function attachDivisionInfo(item, divisions) {
+  const division = resolveDivisionForItem(item, divisions);
+  return {
+    ...item,
+    division,
+    division_id: division?.id ?? null,
+    division_name: division?.name ?? null,
+  };
+}
+
 /* -------------------------------------------------------------- */
 /* File Upload Setup                                               */
 /* -------------------------------------------------------------- */
@@ -135,10 +185,38 @@ function mapRow(row) {
 
 
 /* -------------------------------------------------------------- */
+/* GET: active divisions                                           */
+/* -------------------------------------------------------------- */
+const getInventoryDivisions = async (req, res) => {
+  try {
+    const { rows } = await pool.query(`
+      SELECT id, name, status
+      FROM divisions
+      WHERE COALESCE(status, 'Active') <> 'Inactive'
+      ORDER BY name ASC
+    `);
+
+    res.status(200).json(rows);
+  } catch (err) {
+    console.error("❌ getInventoryDivisions error:", err);
+    res.status(500).json({ error: "Failed to fetch divisions" });
+  }
+};
+
+/* -------------------------------------------------------------- */
 /* GET: all inventory                                              */
 /* -------------------------------------------------------------- */
 const getAllInventory = async (req, res) => {
   try {
+    const { rows: divisionsRows } = await pool.query(`
+      SELECT id, name
+      FROM divisions
+      WHERE COALESCE(status, 'Active') <> 'Inactive'
+      ORDER BY name ASC
+    `);
+
+    const divisions = divisionsRows || [];
+
     // Get all inventory items
     const inventoryQuery = `
       SELECT * 
@@ -179,11 +257,14 @@ const getAllInventory = async (req, res) => {
         imageUrl = toFullUrl(imageUrl);
       }
       
-      return {
-        ...item,
-        image_url: imageUrl || null,
-        units: matchingUnits
-      };
+      return attachDivisionInfo(
+        {
+          ...item,
+          image_url: imageUrl || null,
+          units: matchingUnits,
+        },
+        divisions
+      );
     });
 
     res.status(200).json(itemsWithUnits);
@@ -199,6 +280,14 @@ const getAllInventory = async (req, res) => {
 /* -------------------------------------------------------------- */
 const getAvailableInventory = async (req, res) => {
   try {
+    const { rows: divisionsRows } = await pool.query(`
+      SELECT id, name
+      FROM divisions
+      WHERE COALESCE(status, 'Active') <> 'Inactive'
+      ORDER BY name ASC
+    `);
+
+    const divisions = divisionsRows || [];
     const { group, category } = req.query;
     const values = [];
     let filters = [];
@@ -255,26 +344,29 @@ const getAvailableInventory = async (req, res) => {
           imageUrl = toFullUrl(imageUrl);
         }
         
-        itemsMap[row.item_uuid] = {
-          uuid: row.item_uuid,
-          id: row.item_id, // ✅ FIX: Use actual integer ID instead of UUID
-          name: row.name,
-          description: row.description,
-          image_url: imageUrl || null,
-          category: row.category,
-          garment_type: row.garment_type,
-          collection_group: row.collection_group,
-          accessory_type: row.accessory_type,
-          instrument_type: row.instrument_type,
-          qty_small: row.qty_small || 0,      // ✅ NEW: Size breakdown
-          qty_medium: row.qty_medium || 0,    // ✅ NEW: Size breakdown
-          qty_large: row.qty_large || 0,      // ✅ NEW: Size breakdown
-          sizes: {},              // for costumes
-          total_available: 0,     // for instruments/accessories
-          available_unit_ids: [], // all available units
-          // ✅ NEW: Include individual units array for granular selection
-          units: []
-        };
+        itemsMap[row.item_uuid] = attachDivisionInfo(
+          {
+            uuid: row.item_uuid,
+            id: row.item_id, // ✅ FIX: Use actual integer ID instead of UUID
+            name: row.name,
+            description: row.description,
+            image_url: imageUrl || null,
+            category: row.category,
+            garment_type: row.garment_type,
+            collection_group: row.collection_group,
+            accessory_type: row.accessory_type,
+            instrument_type: row.instrument_type,
+            qty_small: row.qty_small || 0,      // ✅ NEW: Size breakdown
+            qty_medium: row.qty_medium || 0,    // ✅ NEW: Size breakdown
+            qty_large: row.qty_large || 0,      // ✅ NEW: Size breakdown
+            sizes: {},              // for costumes
+            total_available: 0,     // for instruments/accessories
+            available_unit_ids: [], // all available units
+            // ✅ NEW: Include individual units array for granular selection
+            units: [],
+          },
+          divisions
+        );
       }
 
       const garmentType = row.garment_type?.toLowerCase();
@@ -1876,6 +1968,7 @@ const getAvailableUnits = async (req, res) => {
 module.exports = {
   getAllInventory,
   getAvailableInventory,
+  getInventoryDivisions,
   getItemByQRCode,
   scanByQrCode, // ✅ ADD THIS
   uploadImage,

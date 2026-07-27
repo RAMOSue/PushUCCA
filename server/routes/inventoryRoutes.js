@@ -9,6 +9,7 @@ const inventoryController = require("../controllers/inventoryController");
 const {
   getAllInventory,
   getAvailableInventory,
+  getInventoryDivisions,
   getItemByQRCode,       // Legacy image-based QR scan
   scanQRCode,            // Flexible scan (text or URL)
   scanByQrCode,          // Exact text-based QR scan
@@ -36,6 +37,7 @@ const {
 // -----------------------
 router.get("/", getAllInventory);
 router.get("/available", getAvailableInventory);
+router.get("/divisions", getInventoryDivisions);
 
 // ✅ Correct scan via unit QR code TEXT (preferred for scanner sync)
 router.get("/scan/text/:qrCodeText", scanByQrCode);
