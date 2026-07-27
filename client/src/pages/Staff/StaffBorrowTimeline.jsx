@@ -720,16 +720,6 @@ export default function StaffBorrowTimeline() {
           onPhotosSubmitted={handleManualReturnComplete}
         />
       )}
-
-      {photosViewerOpen && photosRequestId && (
-        <ViewReturnPhotosModal
-          requestId={photosRequestId}
-          onClose={() => {
-            setPhotosViewerOpen(false)
-            setPhotosRequestId(null)
-          }}
-        />
-      )}
     </PageLayout>
   )
 }
