@@ -18,13 +18,75 @@ import {
   addBorrowCartItems,
   fetchReservedBorrowCart,
   scanBorrowQrCode,
+  scanBorrowQrCodeFlexible,
   startBorrowingSession,
 } from "../../src/services/borrowCart";
 
-const SUCCESS_DISPLAY_MS = 1400;
-const STATUS_RESET_MS = 2200;
+const STATUS_RESET_MS = 1200;
 
 type ScanState = "idle" | "processing" | "success" | "error";
+
+const DEFAULT_STATUS_MESSAGE = "Align the QR code inside the frame.";
+
+function getFriendlyScanMessage(error: unknown, fallback = "Unable to connect. Please try again.") {
+  const rawMessage =
+    typeof error === "string"
+      ? error
+      : (error as { response?: { data?: { error?: string } }; message?: string } | undefined)?.response?.data?.error ||
+        (error as { response?: { data?: { error?: string } }; message?: string } | undefined)?.message ||
+        "";
+  const normalized = String(rawMessage).toLowerCase();
+
+  if (!normalized) {
+    return fallback;
+  }
+
+  if (
+    normalized.includes("already in the cart") ||
+    normalized.includes("already added") ||
+    normalized.includes("already reserved") ||
+    normalized.includes("already exists")
+  ) {
+    return "Already in your borrow cart.";
+  }
+
+  if (
+    normalized.includes("currently borrowed") ||
+    normalized.includes("not available") ||
+    normalized.includes("borrowed") ||
+    normalized.includes("reserved")
+  ) {
+    return "This item is currently borrowed.";
+  }
+
+  if (
+    normalized.includes("invalid qr") ||
+    normalized.includes("qr code not found") ||
+    normalized.includes("not recognized") ||
+    normalized.includes("not found")
+  ) {
+    return "Invalid QR Code.";
+  }
+
+  if (
+    normalized.includes("permission") ||
+    normalized.includes("camera") && normalized.includes("denied")
+  ) {
+    return "Camera permission is required.";
+  }
+
+  if (
+    normalized.includes("network") ||
+    normalized.includes("timeout") ||
+    normalized.includes("fetch") ||
+    normalized.includes("request failed") ||
+    normalized.includes("connection")
+  ) {
+    return "Unable to connect. Please try again.";
+  }
+
+  return fallback;
+}
 
 export default function ScanQrScreen() {
   const router = useRouter();
@@ -36,7 +98,8 @@ export default function ScanQrScreen() {
   const [requestId, setRequestId] = useState<string | number | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [statusKind, setStatusKind] = useState<ScanState>("idle");
-  const [statusMessage, setStatusMessage] = useState("Align the QR code inside the frame.");
+  const [statusMessage, setStatusMessage] = useState(DEFAULT_STATUS_MESSAGE);
+  const [statusDetail, setStatusDetail] = useState<string | null>(null);
   const [flashEnabled, setFlashEnabled] = useState(false);
 
   const scanLockedRef = useRef(false);
@@ -97,13 +160,14 @@ export default function ScanQrScreen() {
     };
   }, []);
 
-  const animateStatus = useCallback((kind: ScanState, message: string) => {
+  const animateStatus = useCallback((kind: ScanState, message: string, detail?: string | null) => {
     setStatusKind(kind);
     setStatusMessage(message);
+    setStatusDetail(detail ?? null);
     fadeAnim.setValue(0);
     Animated.timing(fadeAnim, {
       toValue: 1,
-      duration: 180,
+      duration: 220,
       easing: Easing.out(Easing.ease),
       useNativeDriver: true,
     }).start();
@@ -116,7 +180,8 @@ export default function ScanQrScreen() {
 
     statusTimeoutRef.current = setTimeout(() => {
       setStatusKind("idle");
-      setStatusMessage("Align the QR code inside the frame.");
+      setStatusMessage(DEFAULT_STATUS_MESSAGE);
+      setStatusDetail(null);
       fadeAnim.setValue(0);
     }, STATUS_RESET_MS);
   }, [fadeAnim]);
@@ -132,17 +197,59 @@ export default function ScanQrScreen() {
         return;
       }
 
+      const rawQr = scannedText;
+      const normalizedQr = (() => {
+        try {
+          return decodeURIComponent(rawQr).trim().replace(/\r?\n/g, "");
+        } catch {
+          return rawQr.trim().replace(/\r?\n/g, "");
+        }
+      })();
+      if (!normalizedQr) {
+        return;
+      }
+
       scanLockedRef.current = true;
       setIsProcessing(true);
       setStatusKind("processing");
       setStatusMessage("Processing scan...");
+      setStatusDetail(null);
 
       try {
-        const normalizedQr = decodeURIComponent(scannedText);
-        const scanData = await scanBorrowQrCode(normalizedQr);
+        let scanData: any = null;
 
-        if (scanData.status && scanData.status.toLowerCase() !== "available") {
-          animateStatus("error", `"${scanData.item_name ?? "Item"}" is not available.`);
+        try {
+          scanData = await scanBorrowQrCode(normalizedQr);
+        } catch (error: any) {
+          if (error?.response?.status !== 404) {
+            throw error;
+          }
+        }
+
+        if (!scanData) {
+          try {
+            scanData = await scanBorrowQrCodeFlexible(normalizedQr);
+          } catch (error: any) {
+            const status = error?.response?.status;
+            const serverMessage = error?.response?.data?.error || error?.message || "QR code not found.";
+            if (status === 404) {
+              animateStatus("error", "QR code not found.");
+            } else {
+              animateStatus("error", serverMessage);
+            }
+            await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+            return;
+          }
+        }
+
+        const payload = scanData?.data ?? scanData;
+        const itemName = String(payload?.item_name ?? payload?.name ?? "Item");
+        const unitId = payload?.unit_id ?? payload?.inventory_unit_id ?? payload?.id ?? null;
+        const itemId = payload?.item_id ?? payload?.id ?? null;
+        const statusValue = payload?.status ?? scanData?.status ?? null;
+
+        if (statusValue && String(statusValue).toLowerCase() !== "available") {
+          animateStatus("error", "This item is currently borrowed.", itemName);
           await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
           return;
         }
@@ -158,12 +265,12 @@ export default function ScanQrScreen() {
 
         const itemPayload: { unit_id?: string | number; item_id?: string | number; quantity: number } = { quantity: 1 };
 
-        if (scanData.inventory_unit_id) {
-          itemPayload.unit_id = scanData.inventory_unit_id;
-        } else if (scanData.item_id) {
-          itemPayload.item_id = scanData.item_id;
+        if (unitId) {
+          itemPayload.unit_id = unitId;
+        } else if (itemId) {
+          itemPayload.item_id = itemId;
         } else {
-          animateStatus("error", "QR code is not linked to a borrowable item.");
+          animateStatus("error", "Invalid QR Code.", "This code is not linked to a borrowable item.");
           await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
           return;
         }
@@ -180,12 +287,11 @@ export default function ScanQrScreen() {
 
         const addedCount = Array.isArray(response.items) ? response.items.length : 0;
         if (addedCount > 0) {
-          const name = String(scanData.item_name ?? scanData.inventory_unit_id ?? "Item");
-          animateStatus("success", `Added “${name}”`);
+          animateStatus("success", "Added to Borrow Cart", itemName);
           await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         } else {
           const failureMessage = response?.failed_items?.[0]?.error || response?.error || "Unable to add scanned item to cart.";
-          animateStatus("error", failureMessage);
+          animateStatus("error", getFriendlyScanMessage(failureMessage), itemName);
           await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
         }
       } catch (error: any) {
@@ -193,9 +299,9 @@ export default function ScanQrScreen() {
         const serverMessage = error?.response?.data?.error || error?.message || "Unable to scan QR code.";
 
         if (status === 404) {
-          animateStatus("error", "QR code not found.");
+          animateStatus("error", "Invalid QR Code.", "This code was not recognized.");
         } else {
-          animateStatus("error", serverMessage);
+          animateStatus("error", getFriendlyScanMessage(serverMessage), null);
         }
         await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       } finally {
@@ -235,6 +341,9 @@ export default function ScanQrScreen() {
     return statusMessage;
   }, [isProcessing, statusKind, statusMessage]);
 
+  const statusIconName = statusKind === "success" ? "checkmark-circle-outline" : statusKind === "error" ? "alert-circle-outline" : isProcessing ? "sparkles-outline" : "qr-code-outline";
+  const statusAccentStyle = statusKind === "success" ? styles.successAccent : statusKind === "error" ? styles.errorAccent : styles.infoAccent;
+
   if (!permission) {
     return (
       <SafeAreaView style={styles.screen}>
@@ -272,20 +381,21 @@ export default function ScanQrScreen() {
         flash={flashEnabled ? "on" : "off"}
         barcodeScannerSettings={{ barcodeTypes: ["qr"] }}
         onBarcodeScanned={handleBarcodeScannedEvent}
-      >
-        <SafeAreaView style={styles.safeArea}>
-          <View style={styles.topBar}>
-            <Pressable style={styles.controlButton} onPress={handleCloseScanner}>
-              <Ionicons name="close-outline" size={24} color="#ffffff" />
-            </Pressable>
-            <Text style={styles.topTitle}>Scan QR Code</Text>
-            <Pressable style={styles.controlButton} onPress={handleOpenCart}>
-              <Ionicons name="cart-outline" size={24} color="#ffffff" />
-            </Pressable>
-          </View>
+      />
 
-          <View style={styles.overlayContainer}>
-            <View style={styles.overlayTop} />
+      <SafeAreaView style={styles.safeArea}>
+        <View style={[styles.topBar, { paddingTop: insets.top + 10 }]}> 
+          <Pressable onPress={handleCloseScanner}>
+           
+          </Pressable>
+          <Text style={styles.topTitle}>Scan QR Code</Text>
+          <Pressable  onPress={handleOpenCart}>
+           
+          </Pressable>
+        </View>
+
+        <View style={styles.overlayContainer}>
+          <View style={styles.frameShell}>
             <View style={styles.scanFrame}>
               <View style={styles.cornerTopLeft} />
               <View style={styles.cornerTopRight} />
@@ -300,32 +410,29 @@ export default function ScanQrScreen() {
                 ]}
               />
             </View>
-            <Text style={styles.instructionText}>Align the QR Code inside the frame</Text>
-            <View style={styles.overlayBottom} />
           </View>
+          
+        </View>
 
-          <View style={styles.footerArea}>
-            <View style={styles.footerPanel}>
-              <Animated.Text
-                style={[
-                  styles.footerText,
-                  statusKind === "error" ? styles.errorText : statusKind === "success" ? styles.successText : null,
-                  { opacity: fadeAnim },
-                ]}
-              >
-                {scanStatusLabel}
-              </Animated.Text>
-              <View style={styles.footerActions}>
-                <Pressable style={styles.flashButton} onPress={handleToggleFlash}>
-                  <Ionicons name={flashEnabled ? "flash" : "flash-outline"} size={20} color="#0f172a" />
-                  <Text style={styles.flashButtonText}>{flashEnabled ? "Flash On" : "Flash Off"}</Text>
-                </Pressable>
-                {isProcessing ? <ActivityIndicator color="#ffffff" style={{ marginLeft: 12 }} /> : null}
-              </View>
+        <View style={[styles.footerArea, { paddingBottom: insets.bottom + 20 }]}> 
+          <View style={styles.footerPanel}>
+            <View style={[styles.statusBadge, statusAccentStyle]}>
+              <Ionicons name={statusIconName} size={18} color="#ffffff" />
+              <Animated.View style={{ flex: 1, opacity: fadeAnim }}>
+                <Text style={styles.footerText}>{scanStatusLabel}</Text>
+                {statusDetail ? <Text style={styles.footerDetail}>{statusDetail}</Text> : null}
+              </Animated.View>
+            </View>
+            <View style={styles.footerActions}>
+              <Pressable style={styles.flashButton} onPress={handleToggleFlash}>
+                <Ionicons name={flashEnabled ? "flashlight" : "flashlight-outline"} size={18} color="#0f172a" />
+                
+              </Pressable>
+              {isProcessing ? <ActivityIndicator color="#ffffff" style={{ marginLeft: 12 }} /> : null}
             </View>
           </View>
-        </SafeAreaView>
-      </CameraView>
+        </View>
+      </SafeAreaView>
 
       {statusKind === "processing" ? (
         <View style={styles.processingOverlay}>
@@ -340,65 +447,80 @@ export default function ScanQrScreen() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: "#000",
+    backgroundColor: "#020617",
   },
   camera: {
-    flex: 1,
+    ...StyleSheet.absoluteFillObject,
   },
   safeArea: {
     flex: 1,
     justifyContent: "space-between",
   },
   topBar: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 20,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 20,
-    paddingTop: 16,
+    paddingTop: 12,
   },
   controlButton: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: "rgba(15, 23, 42, 0.65)",
+    backgroundColor: "rgba(15, 23, 42, 0.72)",
     alignItems: "center",
     justifyContent: "center",
+    shadowColor: "#000",
+    shadowOpacity: 0.22,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 4,
   },
   topTitle: {
     color: "#ffffff",
     fontWeight: "900",
     fontSize: 16,
+    letterSpacing: 0.2,
   },
   overlayContainer: {
-    flex: 1,
+    ...StyleSheet.absoluteFillObject,
     justifyContent: "center",
     alignItems: "center",
-    paddingHorizontal: 32,
+    paddingHorizontal: 34,
+    paddingTop: 110,
+    paddingBottom: 160,
+    backgroundColor: "rgba(2, 6, 23, 0.58)",
   },
-  overlayTop: {
-    flex: 1,
+  frameShell: {
     width: "100%",
-    backgroundColor: "rgba(0, 0, 0, 0.48)",
-  },
-  overlayBottom: {
-    flex: 1,
-    width: "100%",
-    backgroundColor: "rgba(0, 0, 0, 0.48)",
+    maxWidth: 360,
+    aspectRatio: 1,
+    justifyContent: "center",
+    alignItems: "center",
   },
   scanFrame: {
     width: "100%",
     aspectRatio: 1,
-    borderRadius: 24,
-    borderWidth: 1.5,
-    borderColor: "rgba(255, 255, 255, 0.7)",
-    backgroundColor: "rgba(255, 255, 255, 0.04)",
+    borderRadius: 28,
+    borderWidth: 1.6,
+    borderColor: "rgba(255, 255, 255, 0.84)",
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     overflow: "hidden",
+    shadowColor: "#000",
+    shadowOpacity: 0.3,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 10 },
   },
   scanLine: {
     position: "absolute",
     left: 0,
     right: 0,
-    height: 2,
+    height: 2.2,
     backgroundColor: "#38bdf8",
     shadowColor: "#38bdf8",
     shadowOpacity: 0.9,
@@ -406,76 +528,109 @@ const styles = StyleSheet.create({
     top: 0,
   },
   instructionText: {
-    marginTop: 16,
+    marginTop: 18,
     color: "#f8fafc",
     fontSize: 14,
     fontWeight: "700",
     textAlign: "center",
+    textShadowColor: "rgba(0,0,0,0.45)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   },
   cornerTopLeft: {
     position: "absolute",
-    top: 14,
-    left: 14,
-    width: 24,
-    height: 24,
+    top: 16,
+    left: 16,
+    width: 28,
+    height: 28,
     borderTopWidth: 3,
     borderLeftWidth: 3,
     borderColor: "#38bdf8",
+    borderTopLeftRadius: 8,
   },
   cornerTopRight: {
     position: "absolute",
-    top: 14,
-    right: 14,
-    width: 24,
-    height: 24,
+    top: 16,
+    right: 16,
+    width: 28,
+    height: 28,
     borderTopWidth: 3,
     borderRightWidth: 3,
     borderColor: "#38bdf8",
+    borderTopRightRadius: 8,
   },
   cornerBottomLeft: {
     position: "absolute",
-    bottom: 14,
-    left: 14,
-    width: 24,
-    height: 24,
+    bottom: 16,
+    left: 16,
+    width: 28,
+    height: 28,
     borderBottomWidth: 3,
     borderLeftWidth: 3,
     borderColor: "#38bdf8",
+    borderBottomLeftRadius: 8,
   },
   cornerBottomRight: {
     position: "absolute",
-    bottom: 14,
-    right: 14,
-    width: 24,
-    height: 24,
+    bottom: 16,
+    right: 16,
+    width: 28,
+    height: 28,
     borderBottomWidth: 3,
     borderRightWidth: 3,
     borderColor: "#38bdf8",
+    borderBottomRightRadius: 8,
   },
   footerArea: {
-    paddingHorizontal: 20,
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    paddingHorizontal: 18,
     paddingBottom: 20,
   },
   footerPanel: {
     padding: 16,
-    borderRadius: 20,
-    backgroundColor: "rgba(15, 23, 42, 0.8)",
+    borderRadius: 24,
+    backgroundColor: "rgba(15, 23, 42, 0.86)",
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.14)",
+    shadowColor: "#000",
+    shadowOpacity: 0.24,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 8,
+  },
+  statusBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    borderRadius: 16,
+  },
+  infoAccent: {
+    backgroundColor: "rgba(37, 99, 235, 0.24)",
+  },
+  successAccent: {
+    backgroundColor: "rgba(22, 163, 74, 0.24)",
+  },
+  errorAccent: {
+    backgroundColor: "rgba(239, 68, 68, 0.24)",
   },
   footerText: {
     color: "#f8fafc",
     fontSize: 14,
-    textAlign: "center",
-    marginBottom: 10,
+    fontWeight: "800",
+    textAlign: "left",
   },
-  errorText: {
-    color: "#fecaca",
-  },
-  successText: {
-    color: "#86efac",
+  footerDetail: {
+    color: "rgba(248, 250, 252, 0.84)",
+    fontSize: 12,
+    marginTop: 2,
   },
   footerActions: {
+    marginTop: 12,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
@@ -496,7 +651,7 @@ const styles = StyleSheet.create({
   },
   processingOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(2, 6, 23, 0.65)",
+    backgroundColor: "rgba(2, 6, 23, 0.7)",
     alignItems: "center",
     justifyContent: "center",
     gap: 12,

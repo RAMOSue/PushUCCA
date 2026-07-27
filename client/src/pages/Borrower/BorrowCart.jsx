@@ -7,6 +7,7 @@ import { UserContext } from "../../../context/userContext";
 import BorrowPhotoCaptureModal from "../../components/modals/BorrowPhotoCaptureModal";
 import PageLayout from "../../components/layout/PageLayout";
 import { Trash2, ArrowLeft, Calendar, ShoppingBag, Minus, Plus, Package } from "lucide-react";
+import { getInventoryDivisionInfo } from "../../utils/inventoryDivisionStorage";
 
 export default function BorrowCart() {
   const { cart, setCart, removeFromCart, submitBorrowRequest, requestId, refreshAvailableItemsFromServer, saveCartQuantity, unreserveUnits, addToCart } = useContext(BorrowingContext);
@@ -528,6 +529,14 @@ export default function BorrowCart() {
                           <p className="text-[10px] sm:text-xs text-on-surface-variant dark:text-gray-400 mt-0.5 sm:mt-1 capitalize">
                             {item.category}
                           </p>
+                          {(() => {
+                            const divisionInfo = getInventoryDivisionInfo(item);
+                            return divisionInfo?.division_name ? (
+                              <p className="text-[10px] sm:text-xs font-medium text-primary dark:text-blue-400 mt-0.5">
+                                {divisionInfo.division_name}
+                              </p>
+                            ) : null;
+                          })()}
                         </div>
 
                         {/* Quantity Controls */}

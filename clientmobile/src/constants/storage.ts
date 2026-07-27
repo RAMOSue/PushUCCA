@@ -1,0 +1,1 @@
+export const AUTH_TOKEN_KEY = "ucca_mobile_auth_token";

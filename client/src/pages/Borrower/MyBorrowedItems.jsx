@@ -6,6 +6,7 @@ import { BorrowingContext } from "../../../context/borrowingContext";
 import { CheckCircle, Clock, AlertCircle, AlertTriangle, X, ChevronLeft, ChevronRight, Search, Package } from "lucide-react";
 import PageLayout from "../../components/layout/PageLayout";
 import ReturnModal from "../../components/modals/ReturnModal";
+import { getInventoryDivisionInfo } from "../../utils/inventoryDivisionStorage";
 
 export default function MyBorrowedItems() {
   const { user } = useContext(UserContext);
@@ -634,6 +635,12 @@ export default function MyBorrowedItems() {
                         <div key={`${request.request_id}-${item.unit_id || item.id}-${idx}`} className="flex justify-between items-center text-[9px] sm:text-xs border-b border-outline-variant/20 dark:border-gray-700 py-1 sm:py-1.5 hover:bg-surface-container-high dark:hover:bg-[#222] transition-colors">
                           <span className="truncate flex-1 font-medium text-on-surface dark:text-white">
                             {idx + 1}. {item.unit_number || item.item_name || item.name || "N/A"}
+                            {(() => {
+                              const divisionInfo = getInventoryDivisionInfo(item);
+                              return divisionInfo?.division_name ? (
+                                <span className="ml-2 text-[8px] sm:text-[9px] text-primary dark:text-blue-400">[{divisionInfo.division_name}]</span>
+                              ) : null;
+                            })()}
                           </span>
                           <span className="text-on-surface-variant dark:text-gray-400 ml-1 sm:ml-2 whitespace-nowrap text-right text-[8px] sm:text-[9px]">
                             {item.size || "—"}

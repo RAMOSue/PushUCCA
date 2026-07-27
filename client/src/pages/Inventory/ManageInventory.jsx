@@ -5,6 +5,7 @@ import toast from "react-hot-toast";
 import UnitModal from "./UnitModal";
 import PageLayout from "../../components/layout/PageLayout";
 import { Package, GridIcon, Music, AlertTriangle, Search, Filter, Plus, QrCode, ChevronRight, ChevronDown, Edit2, Trash2 } from "lucide-react";
+import { getInventoryDivisionInfo, setInventoryDivisionAssignment } from "../../utils/inventoryDivisionStorage";
 
 /* -------------------------------------------------------------- */
 /* Static Dropdown Option Values                                  */
@@ -93,6 +94,8 @@ function buildEmptyItem(group = "") {
     qty_medium: "",
     qty_large: "",
     image_url: "",
+    division_id: "",
+    division_name: "",
   };
 }
 
@@ -133,6 +136,8 @@ export default function ManageInventory() {
   const [filterCategory, setFilterCategory] = useState(null);
   const [formPanelOpen, setFormPanelOpen] = useState(false);
   const [expandedItems, setExpandedItems] = useState({});
+  const [divisions, setDivisions] = useState([]);
+  const [divisionLoading, setDivisionLoading] = useState(false);
 
   /* ------------------------------------------------------------ */
   const rebuildIndigenousAndDanceMaps = useCallback((data) => {
@@ -193,9 +198,25 @@ export default function ManageInventory() {
     }
   }, [rebuildIndigenousAndDanceMaps]);
 
+  const fetchDivisions = useCallback(async () => {
+    try {
+      setDivisionLoading(true);
+      const res = await axios.get("/api/master-list/units");
+      const activeDivisions = Array.isArray(res.data)
+        ? res.data.filter((d) => d.status?.toLowerCase() === "active")
+        : [];
+      setDivisions(activeDivisions);
+    } catch (err) {
+      console.error("❌ Failed to fetch divisions:", err.message);
+    } finally {
+      setDivisionLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     fetchItems();
-  }, [fetchItems]);
+    fetchDivisions();
+  }, [fetchItems, fetchDivisions]);
 
   /* ------------------------------------------------------------ */
   const activeFieldDefs = useMemo(() => {
@@ -303,6 +324,12 @@ export default function ManageInventory() {
 
     if (!newItem.name?.trim()) {
       toast.error("Item name required.");
+      return;
+    }
+
+    const selectedDivision = divisions.find((d) => String(d.id) === String(newItem.division_id));
+    if (!selectedDivision) {
+      toast.error("Please select a division for this item.");
       return;
     }
 
@@ -438,6 +465,10 @@ export default function ManageInventory() {
         }
 
         toast.success(`Updated quantity for ${existingItem.name}`);
+        setInventoryDivisionAssignment(existingItem.uuid || existingItem.id, {
+          division_id: selectedDivision.id,
+          division_name: selectedDivision.name,
+        });
 
         // ✅ Always use UUID (server ensures this is the `id` field)
         await axios.post(`/api/inventory/${existingItem.id}/generate-units`, {
@@ -454,6 +485,10 @@ export default function ManageInventory() {
         });
         await axios.put(`/api/inventory/${editingItem.uuid}`, payload, { withCredentials: true });
         toast.success("Item updated successfully");
+        setInventoryDivisionAssignment(editingItem.uuid || editingItem.id, {
+          division_id: selectedDivision.id,
+          division_name: selectedDivision.name,
+        });
 
         // ✅ Generate units for edited item (if quantities changed)
         if (category === "costume" || category === "instrument") {
@@ -474,6 +509,10 @@ export default function ManageInventory() {
         }
 
         toast.success("Item added successfully");
+        setInventoryDivisionAssignment(newItemId, {
+          division_id: selectedDivision.id,
+          division_name: selectedDivision.name,
+        });
 
         // ✅ DO NOT call generate-units here - addInventoryItem already creates all units
         // Calling it again would double the units (10 small qty becomes 20 units)
@@ -537,6 +576,8 @@ export default function ManageInventory() {
         ? "instrument"
         : item.category;
 
+    const savedDivision = getInventoryDivisionInfo(item);
+
     setNewItem({
       ...buildEmptyItem(grp),
       ...item,
@@ -552,6 +593,8 @@ export default function ManageInventory() {
       indigenous_dance: item.indigenous_dance || "",
       region: item.region || "",
       description: item.description || "", // ✅ ADDED: Include description
+      division_id: savedDivision?.division_id || item.division_id || "",
+      division_name: savedDivision?.division_name || item.division_name || "",
     });
     setPreviewImage(item.image_url || null);
     setShowAdvanced(true);
@@ -750,6 +793,14 @@ export default function ManageInventory() {
 
                           {/* Line 2: Dance + Qty Info */}
                           <div className="flex items-center gap-2 text-[10px] text-on-surface-variant dark:text-gray-400">
+                            {(() => {
+                              const divisionInfo = getInventoryDivisionInfo(item);
+                              return divisionInfo?.division_name ? (
+                                <span className="inline-flex items-center rounded-full border border-primary/20 bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary dark:border-blue-400/20 dark:bg-blue-500/10 dark:text-blue-300">
+                                  {divisionInfo.division_name}
+                                </span>
+                              ) : null;
+                            })()}
                             {item.indigenous_dance && (
                               <>
                                 <span className="font-medium text-on-surface dark:text-white">{item.indigenous_dance}</span>
@@ -802,6 +853,12 @@ export default function ManageInventory() {
                             {item.description && (
                               <p className="text-sm text-on-surface dark:text-white">Notes: <span className="font-medium">{item.description}</span></p>
                             )}
+                            {(() => {
+                              const divisionInfo = getInventoryDivisionInfo(item);
+                              return divisionInfo?.division_name ? (
+                                <p className="text-sm text-on-surface dark:text-white">Division: <span className="font-medium">{divisionInfo.division_name}</span></p>
+                              ) : null;
+                            })()}
                             {item.instrument_classification && (
                               <p className="text-sm text-on-surface dark:text-white">Classification: <span className="font-medium">{item.instrument_classification}</span></p>
                             )}
@@ -937,6 +994,23 @@ export default function ManageInventory() {
                           </select>
                         </div>
                       )}
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="font-headline text-sm font-semibold text-primary dark:text-blue-400">Division *</label>
+                      <select
+                        value={newItem.division_id || ""}
+                        onChange={(e) => setNewItem({ ...newItem, division_id: e.target.value, division_name: divisions.find((d) => String(d.id) === String(e.target.value))?.name || "" })}
+                        className="w-full bg-surface-container-low dark:bg-[#222] border-none rounded-lg px-3 py-2.5 text-xs dark:text-white focus:ring-1 focus:ring-primary"
+                        required
+                        disabled={divisionLoading}
+                      >
+                        <option value="">Select division</option>
+                        {divisions.map((division) => (
+                          <option key={division.id} value={division.id}>{division.name}</option>
+                        ))}
+                      </select>
+                      {divisionLoading && <p className="text-[10px] text-on-surface-variant dark:text-gray-400">Loading divisions…</p>}
                     </div>
 
                     {/* Quantity Fields */}

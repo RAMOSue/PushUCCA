@@ -11,6 +11,7 @@ import PageLayout from "../../components/layout/PageLayout"
 import { UserContext } from "../../../context/userContext"
 import { BorrowingContext } from "../../../context/borrowingContext"
 import StaffReturnPhotoCaptureModal from "../../components/modals/StaffReturnPhotoCaptureModal"
+import { getInventoryDivisionInfo } from "../../utils/inventoryDivisionStorage"
 
 dayjs.extend(utc)
 dayjs.extend(timezone)
@@ -623,7 +624,15 @@ export default function StaffBorrowTimeline() {
                                 <div className="mt-2 space-y-1.5">
                                   {req.items.slice(0, 3).map((item, idx) => (
                                     <div key={idx} className="flex items-center justify-between gap-2 text-xs">
-                                      <span className="truncate text-on-surface dark:text-gray-200">{item.item_name}</span>
+                                      <span className="truncate text-on-surface dark:text-gray-200">
+                                        {item.item_name}
+                                        {(() => {
+                                          const divisionInfo = getInventoryDivisionInfo(item);
+                                          return divisionInfo?.division_name ? (
+                                            <span className="ml-2 text-[10px] text-primary dark:text-blue-400">[{divisionInfo.division_name}]</span>
+                                          ) : null;
+                                        })()}
+                                      </span>
                                       <span className="font-semibold text-primary">×{item.borrowed_quantity}</span>
                                     </div>
                                   ))}

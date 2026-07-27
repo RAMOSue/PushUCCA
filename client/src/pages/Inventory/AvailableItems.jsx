@@ -8,6 +8,7 @@ import PageLayout from '../../components/layout/PageLayout.jsx';
 import AddToCartModal from '../../components/modals/AddToCartModal.jsx';
 import { UserContext } from '../../../context/userContext.jsx';
 import { BorrowingContext } from '../../../context/borrowingContext.jsx';
+import { getInventoryDivisionInfo } from '../../utils/inventoryDivisionStorage.js';
 
 export default function AvailableItems() {
   const [items, setItems] = useState([]);
@@ -379,6 +380,14 @@ export default function AvailableItems() {
                             <h3 className="text-xs sm:text-sm font-bold text-on-surface dark:text-white line-clamp-2 mb-1 sm:mb-2">
                               {item.name}
                             </h3>
+                            {(() => {
+                              const divisionInfo = getInventoryDivisionInfo(item);
+                              return divisionInfo?.division_name ? (
+                                <span className="inline-flex items-center rounded-full border border-primary/20 bg-primary/10 px-2 py-0.5 text-[9px] sm:text-[10px] font-medium text-primary dark:border-blue-400/20 dark:bg-blue-500/10 dark:text-blue-300 mb-1">
+                                  {divisionInfo.division_name}
+                                </span>
+                              ) : null;
+                            })()}
                           </div>
 
                           <div className="flex items-center justify-between">
@@ -454,6 +463,14 @@ export default function AvailableItems() {
                       <h2 className="text-xs sm:text-sm font-bold text-on-surface dark:text-white mb-1 sm:mb-2 line-clamp-2">
                         {selectedItem.name}
                       </h2>
+                      {(() => {
+                        const divisionInfo = getInventoryDivisionInfo(selectedItem);
+                        return divisionInfo?.division_name ? (
+                          <div className="inline-flex items-center rounded-full border border-primary/20 bg-primary/10 px-2 py-1 text-[9px] sm:text-[10px] font-medium text-primary dark:border-blue-400/20 dark:bg-blue-500/10 dark:text-blue-300 mb-2">
+                            {divisionInfo.division_name}
+                          </div>
+                        ) : null;
+                      })()}
                       
                       {/* Recommendation Badge with Event Title */}
                       {recommendedItemIds.has(selectedItem.id) && (
@@ -828,6 +845,14 @@ export default function AvailableItems() {
                             <h3 className="text-xs sm:text-sm font-bold text-on-surface dark:text-white line-clamp-2 mb-1">
                               {item.name}
                             </h3>
+                            {(() => {
+                              const divisionInfo = getInventoryDivisionInfo(item);
+                              return divisionInfo?.division_name ? (
+                                <span className="inline-flex items-center rounded-full border border-primary/20 bg-primary/10 px-2 py-0.5 text-[9px] sm:text-[10px] font-medium text-primary dark:border-blue-400/20 dark:bg-blue-500/10 dark:text-blue-300 mb-2">
+                                  {divisionInfo.division_name}
+                                </span>
+                              ) : null;
+                            })()}
                             <p className={`text-[9px] sm:text-xs font-medium ${isAvailable ? 'text-primary dark:text-blue-400' : 'text-error/70 dark:text-red-400/70'}`}>
                               {isAvailable ? `${availCount} avail` : 'All borrowed'}
                             </p>

@@ -8,6 +8,7 @@ import BorrowPhotoCaptureModal from "../../components/modals/BorrowPhotoCaptureM
 import PageLayout from "../../components/layout/PageLayout";
 import SideNavbar from "../../components/navigation/SideNavbar";
 import { Plus, Minus, Trash2, ArrowLeft, Calendar, ShoppingBag } from "lucide-react";
+import { getInventoryDivisionInfo } from "../../utils/inventoryDivisionStorage";
 
 export default function StaffBorrowCart() {
   const { cart, setCart, removeFromCart, unreserveUnits, submitBorrowRequest, requestId, refreshAvailableItemsFromServer, saveCartQuantity, addToCart } = useContext(BorrowingContext);
