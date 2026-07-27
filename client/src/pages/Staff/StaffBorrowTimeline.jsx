@@ -1,7 +1,6 @@
 "use client"
 
 import { useState, useEffect, useContext } from "react"
-import { useLocation } from "react-router-dom"
 import axios from "axios"
 import toast from "react-hot-toast"
 import { Search, ChevronRight, Package, Hand } from "lucide-react"
@@ -12,7 +11,6 @@ import PageLayout from "../../components/layout/PageLayout"
 import { UserContext } from "../../../context/userContext"
 import { BorrowingContext } from "../../../context/borrowingContext"
 import StaffReturnPhotoCaptureModal from "../../components/modals/StaffReturnPhotoCaptureModal"
-import ViewReturnPhotosModal from "../../components/modals/ViewReturnPhotosModal"
 
 dayjs.extend(utc)
 dayjs.extend(timezone)
@@ -20,14 +18,11 @@ dayjs.extend(timezone)
 export default function StaffBorrowTimeline() {
   const { user } = useContext(UserContext)
   const { refreshAfterReturn } = useContext(BorrowingContext)
-  const location = useLocation()
 
   // ========== STATE MANAGEMENT ==========
   const [requests, setRequests] = useState([])
   const [loading, setLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState({})
-  const [expandedRequest, setExpandedRequest] = useState(null)
-  const [requestPhotos, setRequestPhotos] = useState({})
   const [groupedRequests, setGroupedRequests] = useState([])
   const [filter, setFilter] = useState("all")
   const [filterDropdownOpen, setFilterDropdownOpen] = useState(false)
@@ -36,13 +31,11 @@ export default function StaffBorrowTimeline() {
   const [divisions, setDivisions] = useState([])
   const [selectedDivision, setSelectedDivision] = useState(null)
   const [borrowerProfiles, setBorrowerProfiles] = useState({})
-  const [dueDates, setDueDates] = useState({})
-  
+  const [dueDates] = useState({})
+
   // Staff photo capture for manual return
   const [staffPhotoCaptureOpen, setStaffPhotoCaptureOpen] = useState(false)
   const [selectedRequestForPhotos, setSelectedRequestForPhotos] = useState(null)
-  const [photosViewerOpen, setPhotosViewerOpen] = useState(false)
-  const [photosRequestId, setPhotosRequestId] = useState(null)
 
   // ========== HELPER FUNCTIONS ==========
   const formatDate = (dateString) => {
@@ -70,35 +63,46 @@ export default function StaffBorrowTimeline() {
     return getDaysFromToday(dueDate) < 0
   }
 
-  const getStatusConfig = (status) => {
-    const configs = {
-      pending: { bgColor: "bg-warning/15 dark:bg-orange-900/30", textColor: "text-warning" },
-      approved: { bgColor: "bg-primary/15 dark:bg-blue-900/30", textColor: "text-primary" },
-      pending_return: { bgColor: "bg-warning/15 dark:bg-orange-900/30", textColor: "text-warning" },
-      returned: { bgColor: "bg-primary/15 dark:bg-blue-900/30", textColor: "text-primary" },
-      declined: { bgColor: "bg-error/15 dark:bg-red-900/30", textColor: "text-error" },
+  const getStatusMeta = (status) => {
+    const meta = {
+      pending: {
+        label: "Pending Approval",
+        title: "Pending",
+        description: "Awaiting staff review",
+        badgeClass: "bg-amber-500/15 text-amber-700 dark:text-amber-300",
+        dotColor: "#f59e0b",
+      },
+      approved: {
+        label: "Approved",
+        title: "Approved",
+        description: "Ready for handoff",
+        badgeClass: "bg-sky-500/15 text-sky-700 dark:text-sky-300",
+        dotColor: "#3b82f6",
+      },
+      pending_return: {
+        label: "Pending Return",
+        title: "Pending Return",
+        description: "Awaiting return confirmation",
+        badgeClass: "bg-violet-500/15 text-violet-700 dark:text-violet-300",
+        dotColor: "#8b5cf6",
+      },
+      returned: {
+        label: "Completed",
+        title: "Returned",
+        description: "Return completed",
+        badgeClass: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300",
+        dotColor: "#22c55e",
+      },
+      declined: {
+        label: "Declined",
+        title: "Declined",
+        description: "Request was rejected",
+        badgeClass: "bg-rose-500/15 text-rose-700 dark:text-rose-300",
+        dotColor: "#dc2626",
+      },
     }
-    return configs[status] || configs.pending
-  }
 
-  const getProgress = (status) => {
-    const progressMap = {
-      pending: 25,
-      approved: 50,
-      pending_return: 75,
-      returned: 100,
-      declined: 0,
-    }
-    return progressMap[status] || 0
-  }
-
-  const formatRelativeDays = (days) => {
-    if (days === null) return ""
-    if (days === 0) return "Due today"
-    if (days === 1) return "Due tomorrow"
-    if (days > 0) return `Due in ${days}d`
-    if (days === -1) return "Overdue 1d"
-    return `Overdue ${Math.abs(days)}d`
+    return meta[status] || meta.pending
   }
 
   const isDeclined = (request) => {
@@ -106,14 +110,7 @@ export default function StaffBorrowTimeline() {
   }
 
   const getStatusLabel = (status) => {
-    const labels = {
-      pending: "Pending Approval",
-      approved: "Approved",
-      pending_return: "Pending Review",
-      returned: "Completed",
-      declined: "Declined",
-    }
-    return labels[status] || status
+    return getStatusMeta(status).label
   }
 
   // ========== DATA FETCHING ==========
@@ -161,15 +158,6 @@ export default function StaffBorrowTimeline() {
     }
   }
 
-  const fetchPhotosForRequest = async (requestId) => {
-    try {
-      const res = await axios.get(`/api/borrow/photos/${requestId}`)
-      setRequestPhotos((prev) => ({ ...prev, [requestId]: res.data }))
-    } catch (err) {
-      console.error("Failed to fetch photos:", err.message)
-    }
-  }
-
   useEffect(() => {
     fetchRequests()
     fetchBorrowerProfiles()
@@ -201,53 +189,43 @@ export default function StaffBorrowTimeline() {
   }, [filter, requests, searchQuery, selectedDivision])
 
   const groupAndSortRequests = (filtered) => {
-    // Organize into 7 sections
-    const sections = {
-      overdue: { title: "🔴 Overdue", requests: [], emoji: "🔴" },
-      dueToday: { title: "🟡 Due Today", requests: [], emoji: "🟡" },
-      dueSoon: { title: "🟠 Due Soon", requests: [], emoji: "🟠" },
-      toReturn: { title: "🔵 To Return", requests: [], emoji: "🔵" },
-      pending: { title: "⚪ Pending Approval", requests: [], emoji: "⚪" },
-      pendingReview: { title: "⚫ Pending Review", requests: [], emoji: "⚫" },
-      completed: { title: "🟢 Completed", requests: [], emoji: "🟢" },
-    }
+    const columns = [
+      { key: "pending", title: "Pending", description: "Awaiting approval", badgeClass: "bg-amber-500/15 text-amber-700 dark:text-amber-300", dotColor: "#f59e0b", requests: [] },
+      { key: "approved", title: "Approved", description: "Ready for release", badgeClass: "bg-sky-500/15 text-sky-700 dark:text-sky-300", dotColor: "#3b82f6", requests: [] },
+      { key: "pending_return", title: "Pending Return", description: "Awaiting confirmation", badgeClass: "bg-violet-500/15 text-violet-700 dark:text-violet-300", dotColor: "#8b5cf6", requests: [] },
+      { key: "returned", title: "Returned", description: "Completed borrows", badgeClass: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300", dotColor: "#22c55e", requests: [] },
+      { key: "declined", title: "Declined", description: "Rejected requests", badgeClass: "bg-rose-500/15 text-rose-700 dark:text-rose-300", dotColor: "#dc2626", requests: [] },
+    ]
+
+    const columnMap = new Map(columns.map((column) => [column.key, column]))
 
     for (const req of filtered) {
-      const daysFromToday = getDaysFromToday(req.due_date)
       const isDeclinedReq = isDeclined(req)
 
       if (req.status === "declined" || isDeclinedReq) {
-        sections.pending.requests.push(req)
+        columnMap.get("declined").requests.push(req)
       } else if (req.status === "pending") {
-        sections.pending.requests.push(req)
-      } else if (req.status === "pending_return") {
-        sections.pendingReview.requests.push(req)
-      } else if (req.status === "returned") {
-        sections.completed.requests.push(req)
+        columnMap.get("pending").requests.push(req)
       } else if (req.status === "approved") {
-        if (isOverdue(req.due_date, "approved")) {
-          sections.overdue.requests.push(req)
-        } else if (daysFromToday === 0) {
-          sections.dueToday.requests.push(req)
-        } else if (daysFromToday > 0 && daysFromToday <= 3) {
-          sections.dueSoon.requests.push(req)
-        } else if (daysFromToday > 3) {
-          sections.toReturn.requests.push(req)
-        }
+        columnMap.get("approved").requests.push(req)
+      } else if (req.status === "pending_return") {
+        columnMap.get("pending_return").requests.push(req)
+      } else if (req.status === "returned") {
+        columnMap.get("returned").requests.push(req)
+      } else {
+        columnMap.get("pending").requests.push(req)
       }
     }
 
-    // Sort within each section by due date (urgent first)
-    Object.values(sections).forEach((section) => {
-      section.requests.sort((a, b) => {
-        const daysA = getDaysFromToday(a.due_date) || 999
-        const daysB = getDaysFromToday(b.due_date) || 999
-        return daysA - daysB
+    columns.forEach((column) => {
+      column.requests.sort((a, b) => {
+        const dateA = new Date(a.due_date || a.request_date || a.approved_at || a.created_at || 0).getTime()
+        const dateB = new Date(b.due_date || b.request_date || b.approved_at || b.created_at || 0).getTime()
+        return dateA - dateB
       })
     })
 
-    // Return only non-empty sections in order
-    return Object.values(sections).filter((section) => section.requests.length > 0)
+    return columns.filter((column) => column.requests.length > 0)
   }
 
   // ========== ACTION HANDLERS ==========
@@ -454,12 +432,11 @@ export default function StaffBorrowTimeline() {
 
         {/* ========== MAIN CONTENT ==========*/}
         <div className="px-6 md:px-8 lg:px-12 space-y-4 bg-surface dark:bg-[#171717]">
-          {/* Search Bar */}
           <div className="flex items-center gap-3 bg-surface-container-low dark:bg-[#222] rounded-lg px-3 py-2.5 border border-transparent dark:border-gray-700 hover:border-primary/20 dark:hover:border-blue-400/30 focus-within:ring-2 focus-within:ring-primary dark:focus-within:ring-blue-400 focus-within:border-transparent dark:focus-within:border-transparent transition shadow-sm">
             <Search className="w-4 h-4 text-on-surface-variant dark:text-gray-400 flex-shrink-0" />
             <input
               type="text"
-              placeholder="Search items or request ID..."
+              placeholder="Search borrower, division, or item..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="flex-1 bg-transparent focus:outline-none text-xs text-on-surface dark:text-white dark:placeholder-gray-500"
@@ -474,8 +451,7 @@ export default function StaffBorrowTimeline() {
             )}
           </div>
 
-          {/* Filters */}
-          <div className="flex gap-2 flex-wrap items-center mb-8">
+          <div className="flex gap-2 flex-wrap items-center mb-2">
             <button
               onClick={() => setSelectedDivision(null)}
               className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
@@ -562,298 +538,169 @@ export default function StaffBorrowTimeline() {
             </div>
           </div>
 
-          {/* SECTIONS */}
           {groupedRequests.length === 0 ? (
-            <div className="py-16 text-center">
+            <div className="py-16 text-center rounded-2xl border border-dashed border-outline-variant/40 dark:border-gray-700 bg-surface-container-low/50 dark:bg-[#1f1f1f]">
               <Package className="w-12 h-12 text-on-surface-variant/30 dark:text-gray-600 mx-auto mb-4" />
               <p className="text-on-surface-variant dark:text-gray-400 text-sm">You're all caught up 🎉</p>
               <p className="text-on-surface-variant dark:text-gray-400 text-xs mt-2">No borrow requests to review</p>
             </div>
           ) : (
-            <div className="space-y-8">
-              {groupedRequests.map((section) => (
-                <div key={section.title} className="space-y-4">
-                  {/* Section Header */}
-                  <div className="flex items-center gap-4 pt-6 pb-2">
-                    <h2 className="text-lg font-bold text-on-surface dark:text-white whitespace-nowrap">
-                      {section.title}
-                    </h2>
-                    <div className="flex-1 h-px bg-outline-variant/20 dark:bg-gray-700"></div>
-                    <span className="text-xs font-semibold text-on-surface-variant dark:text-gray-400 whitespace-nowrap">
-                      {section.requests.length} {section.requests.length === 1 ? "item" : "items"}
-                    </span>
-                  </div>
+            <div className="flex gap-4 overflow-x-auto pb-4">
+              {groupedRequests.map((column) => {
+                const columnMeta = getStatusMeta(column.key)
+                return (
+                  <div
+                    key={column.key}
+                    className="min-w-[290px] max-w-[320px] flex-1 rounded-2xl border border-outline-variant/20 dark:border-gray-700 bg-surface-container-low/70 dark:bg-[#1d1d1d] shadow-sm"
+                  >
+                    <div className="sticky top-0 z-10 rounded-t-2xl border-b border-outline-variant/20 dark:border-gray-700 bg-surface-container-low/95 dark:bg-[#1d1d1d]/95 px-4 py-3 backdrop-blur">
+                      <div className="flex items-center justify-between gap-2">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: column.dotColor }} />
+                            <h2 className="text-sm font-semibold text-on-surface dark:text-white">{column.title}</h2>
+                          </div>
+                          <p className="text-[11px] text-on-surface-variant dark:text-gray-400 mt-1">{column.description}</p>
+                        </div>
+                        <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${column.badgeClass}`}>
+                          {column.requests.length}
+                        </span>
+                      </div>
+                    </div>
 
-                  {/* Request Cards */}
-                  <div className="space-y-3">
-                    {section.requests.map((req) => {
-                      const isExpanded = expandedRequest === req.id
-                      const statusConfig = getStatusConfig(req.status)
-                      const daysFromToday = getDaysFromToday(req.due_date)
-                      const isDeclinedReq = isDeclined(req)
+                    <div className="max-h-[70vh] overflow-y-auto p-3 space-y-3">
+                      {column.requests.map((req) => {
+                        const isDeclinedReq = isDeclined(req)
+                        const daysFromToday = getDaysFromToday(req.due_date)
+                        const statusMeta = getStatusMeta(req.status)
 
-                      return (
-                        <div
-                          key={req.id}
-                          className="bg-surface-container-low dark:bg-[#1a1a1a] rounded-lg border border-outline-variant/20 dark:border-gray-700 overflow-hidden shadow-sm hover:shadow-md dark:hover:shadow-black/40 transition-all duration-200"
-                        >
-                          <button
-                            onClick={() => setExpandedRequest(isExpanded ? null : req.id)}
-                            className="w-full p-1.5 md:p-2 flex items-center gap-2 hover:bg-surface-container-high dark:hover:bg-[#222] transition-colors text-left"
+                        return (
+                          <div
+                            key={req.id}
+                            className="rounded-xl border border-outline-variant/20 dark:border-gray-700 bg-surface-container-lowest dark:bg-[#171717] p-3 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
                           >
-                            {/* Borrower Avatar - Smaller */}
-                            <div className="flex-shrink-0 w-12 h-12 rounded-full bg-primary/15 dark:bg-blue-900/30 flex items-center justify-center border-2 border-primary/30 dark:border-blue-500/30 bg-surface-container-high dark:bg-[#222] shadow-sm overflow-hidden">
-                              {borrowerProfiles[req.borrower_id] ? (
-                                <img
-                                  src={borrowerProfiles[req.borrower_id]}
-                                  alt={req.borrower_name}
-                                  className="w-full h-full object-cover"
-                                />
-                              ) : (
-                                <span className="text-sm font-bold text-primary">
-                                  {req.borrower_name?.charAt(0) || "?"}
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: statusMeta.dotColor }} />
+                                  <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-on-surface-variant dark:text-gray-400">
+                                    {req.request_id || `REQ-${req.id}`}
+                                  </p>
+                                </div>
+                                <h3 className="mt-2 text-sm font-semibold text-on-surface dark:text-white truncate">
+                                  {req.borrower_name || "Unknown borrower"}
+                                </h3>
+                              </div>
+                              <span className={`rounded-full px-2 py-1 text-[10px] font-semibold ${statusMeta.badgeClass}`}>
+                                {statusMeta.title}
+                              </span>
+                            </div>
+
+                            <div className="mt-3 space-y-2 text-xs text-on-surface-variant dark:text-gray-400">
+                              <div className="flex items-center justify-between">
+                                <span>Requested</span>
+                                <span className="font-medium text-on-surface dark:text-gray-200">
+                                  {formatDate(req.request_date || req.created_at)}
                                 </span>
+                              </div>
+                              <div className="flex items-center justify-between">
+                                <span>Items</span>
+                                <span className="font-medium text-on-surface dark:text-gray-200">{req.quantity || req.items?.length || 0}</span>
+                              </div>
+                              {req.due_date && (
+                                <div className="flex items-center justify-between">
+                                  <span>Due</span>
+                                  <span className="font-medium text-on-surface dark:text-gray-200">
+                                    {dayjs(req.due_date).tz("Asia/Manila").format("MMM DD, YYYY")}
+                                  </span>
+                                </div>
                               )}
                             </div>
 
-                            {/* Borrower Name + Timeline Bar Inline */}
-                            <div className="flex-1 min-w-0 flex flex-col justify-center" style={{ height: "56px" }}>
-                              {/* Borrower Name - Above Line */}
-                              <div className="flex items-center gap-2 flex-wrap mb-1">
-                                <span className="text-xs font-bold text-on-surface dark:text-white truncate">
-                                  {req.borrower_name || "Unknown"}
-                                </span>
-                              </div>
-
-                              {/* Mini Timeline Bar - SAME AS BORROWER SIDE */}
-                              <div className="relative w-full h-6 flex items-center">
-                                {/* Thin dashed line baseline */}
-                                <div className="absolute top-1/2 left-0 w-full h-[1px] -translate-y-1/2">
-                                  <div className="w-full h-full border-t border-dashed border-gray-300 dark:border-gray-600"></div>
-                                </div>
-
-                                {/* Solid progress bar colored by status */}
-                                <div
-                                  className="absolute top-1/2 left-0 h-[1px] -translate-y-1/2 transition-all duration-500"
-                                  style={{
-                                    width: `${getProgress(req.status)}%`,
-                                    backgroundColor: req.status === "declined" ? "#dc2626" : 
-                                                    req.status === "pending" ? "#f59e0b" :
-                                                    req.status === "approved" ? "#3b82f6" :
-                                                    req.status === "pending_return" ? "#eab308" :
-                                                    req.status === "returned" ? "#22c55e" : "#6b7280"
-                                  }}
-                                ></div>
-
-                                {/* Status dot with label above and date below */}
-                                <div
-                                  className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 flex flex-col items-center"
-                                  style={{ left: `${getProgress(req.status)}%` }}
-                                >
-                                  {/* Status label above dot */}
-                                  <div className="flex items-center gap-0.5 mb-0.5">
-                                    <p className={`text-[9px] font-bold uppercase ${
-                                      req.status === "declined" ? "text-red-600 dark:text-red-400" :
-                                      req.status === "pending" ? "text-orange-600 dark:text-orange-400" :
-                                      req.status === "approved" ? "text-blue-600 dark:text-blue-400" :
-                                      req.status === "pending_return" ? "text-amber-600 dark:text-amber-400" :
-                                      req.status === "returned" ? "text-green-600 dark:text-green-400" : "text-gray-600 dark:text-gray-400"
-                                    } whitespace-nowrap`}>
-                                      {getStatusLabel(req.status)}
-                                    </p>
-                                  </div>
-
-                                  {/* Colored dot */}
-                                  <div
-                                    className="w-2.5 h-2.5 rounded-full shadow-sm border-2 border-surface-container-low dark:border-[#222]"
-                                    style={{
-                                      backgroundColor: req.status === "declined" ? "#dc2626" : 
-                                                      req.status === "pending" ? "#f59e0b" :
-                                                      req.status === "approved" ? "#3b82f6" :
-                                                      req.status === "pending_return" ? "#eab308" :
-                                                      req.status === "returned" ? "#22c55e" : "#6b7280"
-                                    }}
-                                  ></div>
-
-                                  {/* Date below dot */}
-                                  <p className="text-[8px] text-on-surface-variant dark:text-gray-500 whitespace-nowrap mt-0.5">
-                                    {req.approved_at ? new Date(req.approved_at).toLocaleDateString() : 
-                                     req.request_date ? new Date(req.request_date).toLocaleDateString() : "N/A"}
-                                  </p>
+                            {req.items?.length > 0 && (
+                              <div className="mt-3 rounded-lg border border-outline-variant/20 dark:border-gray-700 bg-surface-container-low/70 dark:bg-[#222] p-2">
+                                <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-on-surface-variant dark:text-gray-400">Items</p>
+                                <div className="mt-2 space-y-1.5">
+                                  {req.items.slice(0, 3).map((item, idx) => (
+                                    <div key={idx} className="flex items-center justify-between gap-2 text-xs">
+                                      <span className="truncate text-on-surface dark:text-gray-200">{item.item_name}</span>
+                                      <span className="font-semibold text-primary">×{item.borrowed_quantity}</span>
+                                    </div>
+                                  ))}
+                                  {req.items.length > 3 && (
+                                    <p className="text-[10px] text-on-surface-variant dark:text-gray-400">+{req.items.length - 3} more</p>
+                                  )}
                                 </div>
                               </div>
+                            )}
 
-                              {/* Due Date Info Below Progress Bar */}
-                              <p className={`text-[8px] font-semibold ${
-                                req.status === "returned" ? "text-green-600 dark:text-green-400" :
-                                req.status === "declined" ? "text-red-600 dark:text-red-400" :
-                                "text-on-surface-variant dark:text-gray-400"
-                              } whitespace-normal mt-1`}>
-                                {req.status === "returned" ? "Return confirmed. Thank you!" :
-                                 req.status === "declined" ? "Request declined" :
-                                 daysFromToday === 0 ? "Due: Today" :
-                                 daysFromToday > 0 ? `Due: ${daysFromToday}d` :
-                                 `Overdue: ${Math.abs(daysFromToday)}d`}
-                              </p>
-                            </div>
-
-                            {/* Item Count Badge + Chevron */}
-                            <div className="flex items-center gap-1.5 flex-shrink-0">
-                              <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-surface-container-lowest dark:bg-[#222] text-on-surface dark:text-gray-300 border border-outline-variant/20 dark:border-gray-700">
-                                {req.quantity}
-                              </span>
-                              <ChevronRight
-                                className={`w-4 h-4 text-on-surface-variant dark:text-gray-400 transition-transform ${isExpanded ? "rotate-90" : ""}`}
-                              />
-                            </div>
-                          </button>
-
-                          {/* Expanded Content */}
-                          <div
-                            className={`overflow-hidden transition-all duration-300 ease-in-out ${
-                              isExpanded ? "max-h-full" : "max-h-0"
-                            }`}
-                          >
-                            <div className="border-t border-outline-variant/20 dark:border-gray-700 p-3 md:p-4 bg-surface-container-lowest/50 dark:bg-[#1a1a1a]/80 grid grid-cols-2 gap-4">
-                              {/* Photos */}
-                              <div className="flex flex-col gap-2">
-                                {requestPhotos[req.id] && requestPhotos[req.id].length > 0 ? (
-                                  <div className="grid grid-cols-2 gap-2">
-                                    {requestPhotos[req.id].slice(0, 4).map((photo, idx) => (
-                                      <img
-                                        key={idx}
-                                        src={photo.photo_url}
-                                        alt="Request photo"
-                                        className="w-full h-24 object-cover rounded-lg border border-outline-variant/20 dark:border-gray-700"
-                                      />
-                                    ))}
-                                    {requestPhotos[req.id].length > 4 && (
-                                      <div className="w-full h-24 bg-surface-container-high dark:bg-[#2a2a2a] rounded-lg border border-outline-variant/20 dark:border-gray-700 flex items-center justify-center">
-                                        <p className="text-xs font-bold text-on-surface-variant dark:text-gray-400">
-                                          +{requestPhotos[req.id].length - 4}
-                                        </p>
-                                      </div>
-                                    )}
-                                  </div>
-                                ) : (
-                                  <p className="text-xs text-on-surface-variant dark:text-gray-400 py-4 text-center">
-                                    No photos
-                                  </p>
-                                )}
+                            {isDeclinedReq && req.return_decline_reason && (
+                              <div className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-2 text-[11px] text-rose-700 dark:border-rose-800 dark:bg-rose-900/20 dark:text-rose-300">
+                                {req.return_decline_reason}
                               </div>
+                            )}
 
-                              {/* Actions & Details */}
-                              <div className="space-y-4">
-                                {/* Decline Reason Warning */}
-                                {isDeclinedReq && req.return_decline_reason && (
-                                  <div className="px-3 py-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-                                    <p className="text-xs text-red-700 dark:text-red-400">
-                                      <span className="font-bold">Decline Reason:</span> {req.return_decline_reason}
-                                    </p>
-                                  </div>
-                                )}
-
-                                {/* Action Buttons */}
+                            <div className="mt-3 flex items-center justify-between gap-2">
+                              <div className="text-[10px] font-medium text-on-surface-variant dark:text-gray-400">
+                                {daysFromToday === 0 ? "Due today" : daysFromToday > 0 ? `Due in ${daysFromToday}d` : `Overdue ${Math.abs(daysFromToday)}d`}
+                              </div>
+                              <div className="flex items-center gap-1.5">
                                 {req.status === "pending" && (
-                                  <div className="flex gap-2 flex-col">
+                                  <>
                                     <button
                                       onClick={() => handleApprove(req.id, true)}
                                       disabled={actionLoading[req.id]}
-                                      className="w-full px-3 py-2 bg-primary dark:bg-blue-600 text-on-primary dark:text-white rounded-lg font-medium text-xs hover:bg-primary-container dark:hover:bg-blue-700 transition-all disabled:opacity-50"
+                                      className="rounded-md bg-primary px-2.5 py-1.5 text-[11px] font-semibold text-on-primary transition hover:bg-primary/90 disabled:opacity-50"
                                     >
-                                      {actionLoading[req.id] ? "Approving..." : "Approve"}
+                                      {actionLoading[req.id] ? "..." : "Approve"}
                                     </button>
                                     <button
                                       onClick={() => handleDecline(req.id)}
                                       disabled={actionLoading[req.id]}
-                                      className="w-full px-3 py-2 bg-surface-container-low dark:bg-[#2a2a2a] border border-outline-variant/20 dark:border-gray-700 text-on-surface dark:text-white rounded-lg font-medium text-xs hover:bg-surface-container-high dark:hover:bg-[#333] transition-all disabled:opacity-50"
+                                      className="rounded-md border border-outline-variant/30 px-2.5 py-1.5 text-[11px] font-semibold text-on-surface dark:text-white transition hover:bg-surface-container-high"
                                     >
-                                      {actionLoading[req.id] ? "Declining..." : "Decline"}
+                                      {actionLoading[req.id] ? "..." : "Decline"}
                                     </button>
-                                  </div>
-                                )}
-
-                                {req.status === "pending_return" && (
-                                  <div className="flex gap-2 flex-col">
-                                    <button
-                                      onClick={() => handleApproveReturn(req)}
-                                      disabled={actionLoading[req.id]}
-                                      className="w-full px-3 py-2 bg-primary dark:bg-blue-600 text-on-primary dark:text-white rounded-lg font-medium text-xs hover:bg-primary-container dark:hover:bg-blue-700 transition-all disabled:opacity-50"
-                                    >
-                                      {actionLoading[req.id] ? "Approving..." : "Approve Return"}
-                                    </button>
-                                    <button
-                                      onClick={() => handleDeclineReturn(req)}
-                                      disabled={actionLoading[`decline-${req.id}`]}
-                                      className="w-full px-3 py-2 bg-surface-container-low dark:bg-[#2a2a2a] border border-outline-variant/20 dark:border-gray-700 text-on-surface dark:text-white rounded-lg font-medium text-xs hover:bg-surface-container-high dark:hover:bg-[#333] transition-all disabled:opacity-50"
-                                    >
-                                      {actionLoading[`decline-${req.id}`] ? "Declining..." : "Decline Return"}
-                                    </button>
-                                  </div>
+                                  </>
                                 )}
 
                                 {req.status === "approved" && (
                                   <button
                                     onClick={() => handleManualReturn(req)}
                                     disabled={actionLoading[`manual-${req.id}`]}
-                                    className="w-full px-3 py-2 bg-primary dark:bg-blue-600 text-on-primary dark:text-white rounded-lg font-medium text-xs hover:bg-primary-container dark:hover:bg-blue-700 transition-all disabled:opacity-50 flex items-center justify-center gap-1.5"
+                                    className="rounded-md bg-primary px-2.5 py-1.5 text-[11px] font-semibold text-on-primary transition hover:bg-primary/90 disabled:opacity-50"
                                   >
-                                    <Hand className="w-3.5 h-3.5" />
-                                    {actionLoading[`manual-${req.id}`] ? "Processing..." : "Mark as Received"}
+                                    {actionLoading[`manual-${req.id}`] ? "..." : "Receive"}
                                   </button>
                                 )}
 
-                                {/* Items List */}
-                                <div className="space-y-1">
-                                  <p className="text-xs font-bold text-on-surface-variant dark:text-gray-400 uppercase tracking-wide">
-                                    Items
-                                  </p>
-                                  {req.items.map((item, idx) => (
-                                    <div
-                                      key={idx}
-                                      className="flex items-center justify-between text-xs p-1.5 rounded-lg bg-surface-container-low/50 dark:bg-[#1a1a1a]/50"
+                                {req.status === "pending_return" && (
+                                  <>
+                                    <button
+                                      onClick={() => handleApproveReturn(req)}
+                                      disabled={actionLoading[req.id]}
+                                      className="rounded-md bg-primary px-2.5 py-1.5 text-[11px] font-semibold text-on-primary transition hover:bg-primary/90 disabled:opacity-50"
                                     >
-                                      <div className="flex items-center gap-1.5 flex-1 min-w-0">
-                                        <Package className="w-3 h-3 text-on-surface-variant/50 dark:text-gray-600 flex-shrink-0" />
-                                        <div className="min-w-0">
-                                          <p className="font-medium text-on-surface dark:text-white truncate">
-                                            {item.item_name}
-                                          </p>
-                                          <p className="text-xs text-on-surface-variant dark:text-gray-400">
-                                            {item.category}
-                                          </p>
-                                        </div>
-                                      </div>
-                                      <span className="text-xs font-bold text-primary ml-1 flex-shrink-0">
-                                        ×{item.borrowed_quantity}
-                                      </span>
-                                    </div>
-                                  ))}
-                                </div>
-
-                                {/* Dates */}
-                                {req.due_date && (
-                                  <div className="pt-2 border-t border-outline-variant/20 dark:border-gray-700">
-                                    <p className="text-xs text-on-surface-variant dark:text-gray-400">
-                                      Due: {dayjs(req.due_date).tz("Asia/Manila").format("MMM DD, YYYY")}
-                                    </p>
-                                  </div>
-                                )}
-
-                                {req.status === "returned" && (
-                                  <div className="pt-2 border-t border-outline-variant/20 dark:border-gray-700">
-                                    <p className="text-xs text-primary dark:text-blue-400">✓ Return completed</p>
-                                  </div>
+                                      {actionLoading[req.id] ? "..." : "Approve"}
+                                    </button>
+                                    <button
+                                      onClick={() => handleDeclineReturn(req)}
+                                      disabled={actionLoading[`decline-${req.id}`]}
+                                      className="rounded-md border border-outline-variant/30 px-2.5 py-1.5 text-[11px] font-semibold text-on-surface dark:text-white transition hover:bg-surface-container-high"
+                                    >
+                                      {actionLoading[`decline-${req.id}`] ? "..." : "Decline"}
+                                    </button>
+                                  </>
                                 )}
                               </div>
                             </div>
                           </div>
-                        </div>
-                      )
-                    })}
+                        )
+                      })}
+                    </div>
                   </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           )}
         </div>
