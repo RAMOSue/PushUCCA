@@ -54,6 +54,45 @@ function toFullUrl(filePath) {
   return filePath;
 }
 
+function buildProfileResponse(profile) {
+  if (!profile) return null;
+
+  return {
+    id: profile.id ?? null,
+    name: profile.name ?? null,
+    email: profile.email ?? null,
+    phone: profile.phone ?? null,
+    role: profile.role ?? null,
+    division_id: profile.division_id ?? null,
+    department_name: profile.department_name ?? null,
+    department_description: profile.department_description ?? null,
+    profile_pic_url: profile.profile_pic_url ? toFullUrl(profile.profile_pic_url) : null,
+    birth_certificate_url: profile.birth_certificate_url ? toFullUrl(profile.birth_certificate_url) : null,
+    class_schedule_url: profile.class_schedule_url ? toFullUrl(profile.class_schedule_url) : null,
+    id_front_url: profile.id_front_url ? toFullUrl(profile.id_front_url) : null,
+    id_back_url: profile.id_back_url ? toFullUrl(profile.id_back_url) : null,
+    date_of_birth: profile.date_of_birth ?? null,
+    citizenship: profile.citizenship ?? null,
+    religion: profile.religion ?? null,
+    marital_status: profile.marital_status ?? null,
+    college: profile.college ?? null,
+    program: profile.program ?? null,
+    current_address: profile.current_address ?? null,
+    height: profile.height ?? null,
+    weight: profile.weight ?? null,
+    eye_color: profile.eye_color ?? null,
+    mother_full_name: profile.mother_full_name ?? null,
+    mother_birthday: profile.mother_birthday ?? null,
+    father_full_name: profile.father_full_name ?? null,
+    father_birthday: profile.father_birthday ?? null,
+    emergency_contact_name: profile.emergency_contact_name ?? null,
+    emergency_contact_mobile: profile.emergency_contact_mobile ?? null,
+    emergency_contact_relationship: profile.emergency_contact_relationship ?? null,
+    emergency_contact_occupation: profile.emergency_contact_occupation ?? null,
+    updated_at: profile.updated_at || new Date().toISOString(),
+  };
+}
+
 // Helper: Backwards-compatible profile query
 // Tries to include division info, falls back if column doesn't exist
 async function getProfileWithDivision(userId) {
@@ -63,7 +102,11 @@ async function getProfileWithDivision(userId) {
       SELECT u.id, u.name, u.email, u.phone, u.role, u.division_id,
              d.name as department_name, d.description as department_description,
              p.profile_pic_url, p.birth_certificate_url, p.class_schedule_url,
-             p.id_front_url, p.id_back_url, p.updated_at
+             p.id_front_url, p.id_back_url, p.updated_at,
+             p.date_of_birth, p.citizenship, p.religion, p.marital_status,
+             p.college, p.program, p.current_address, p.height, p.weight, p.eye_color,
+             p.mother_full_name, p.mother_birthday, p.father_full_name, p.father_birthday,
+             p.emergency_contact_name, p.emergency_contact_mobile, p.emergency_contact_relationship, p.emergency_contact_occupation
       FROM users u
       LEFT JOIN user_profiles p ON u.id = p.user_id
       LEFT JOIN divisions d ON u.division_id = d.id
@@ -78,7 +121,11 @@ async function getProfileWithDivision(userId) {
       const qWithoutDivision = `
         SELECT u.id, u.name, u.email, u.phone, u.role,
                p.profile_pic_url, p.birth_certificate_url, p.class_schedule_url,
-               p.id_front_url, p.id_back_url, p.updated_at
+               p.id_front_url, p.id_back_url, p.updated_at,
+               p.date_of_birth, p.citizenship, p.religion, p.marital_status,
+               p.college, p.program, p.current_address, p.height, p.weight, p.eye_color,
+               p.mother_full_name, p.mother_birthday, p.father_full_name, p.father_birthday,
+               p.emergency_contact_name, p.emergency_contact_mobile, p.emergency_contact_relationship, p.emergency_contact_occupation
         FROM users u
         LEFT JOIN user_profiles p ON u.id = p.user_id
         WHERE u.id = $1;
@@ -97,7 +144,11 @@ async function getAllProfilesWithDivisions() {
       SELECT u.id, u.name, u.email, u.phone, u.role, u.division_id,
              d.name as department_name, d.description as department_description,
              p.profile_pic_url, p.birth_certificate_url, p.class_schedule_url,
-             p.id_front_url, p.id_back_url, p.updated_at
+             p.id_front_url, p.id_back_url, p.updated_at,
+             p.date_of_birth, p.citizenship, p.religion, p.marital_status,
+             p.college, p.program, p.current_address, p.height, p.weight, p.eye_color,
+             p.mother_full_name, p.mother_birthday, p.father_full_name, p.father_birthday,
+             p.emergency_contact_name, p.emergency_contact_mobile, p.emergency_contact_relationship, p.emergency_contact_occupation
       FROM users u
       LEFT JOIN user_profiles p ON u.id = p.user_id
       LEFT JOIN divisions d ON u.division_id = d.id
@@ -111,7 +162,11 @@ async function getAllProfilesWithDivisions() {
       const qWithoutDivision = `
         SELECT u.id, u.name, u.email, u.phone, u.role,
                p.profile_pic_url, p.birth_certificate_url, p.class_schedule_url,
-               p.id_front_url, p.id_back_url, p.updated_at
+               p.id_front_url, p.id_back_url, p.updated_at,
+               p.date_of_birth, p.citizenship, p.religion, p.marital_status,
+               p.college, p.program, p.current_address, p.height, p.weight, p.eye_color,
+               p.mother_full_name, p.mother_birthday, p.father_full_name, p.father_birthday,
+               p.emergency_contact_name, p.emergency_contact_mobile, p.emergency_contact_relationship, p.emergency_contact_occupation
         FROM users u
         LEFT JOIN user_profiles p ON u.id = p.user_id
         ORDER BY u.id;
@@ -196,14 +251,7 @@ exports.uploadProfile = [
 
       res.json({
         success: true,
-        profile: {
-          ...profile,
-          profile_pic_url: toFullUrl(profile.profile_pic_url),
-          birth_certificate_url: toFullUrl(profile.birth_certificate_url),
-          class_schedule_url: toFullUrl(profile.class_schedule_url),
-          id_front_url: toFullUrl(profile.id_front_url),
-          id_back_url: toFullUrl(profile.id_back_url),
-        },
+        profile: buildProfileResponse(profile),
       });
     } catch (err) {
       console.error("uploadProfile error:", err);
@@ -259,22 +307,7 @@ exports.getMyProfile = async (req, res) => {
       profile = user;
     }
 
-    res.json({
-      id: profile.id,
-      name: profile.name,
-      email: profile.email,
-      phone: profile.phone || null,
-      role: profile.role,
-      division_id: profile.division_id || null,
-      department_name: profile.department_name || null,
-      department_description: profile.department_description || null,
-      profile_pic_url: profile.profile_pic_url ? toFullUrl(profile.profile_pic_url) : null,
-      birth_certificate_url: profile.birth_certificate_url ? toFullUrl(profile.birth_certificate_url) : null,
-      class_schedule_url: profile.class_schedule_url ? toFullUrl(profile.class_schedule_url) : null,
-      id_front_url: profile.id_front_url ? toFullUrl(profile.id_front_url) : null,
-      id_back_url: profile.id_back_url ? toFullUrl(profile.id_back_url) : null,
-      updated_at: profile.updated_at || new Date().toISOString(),
-    });
+    res.json(buildProfileResponse(profile));
   } catch (err) {
     console.error("❌ getMyProfile error:", err.message);
     res.status(500).json({ error: "Failed to fetch profile" });
@@ -289,52 +322,134 @@ exports.updateProfileInfo = async (req, res) => {
     const userId = req.user?.id;
     if (!userId) return res.status(400).json({ error: "Missing user id" });
 
-    const { name, phone, division_id } = req.body;
+    const {
+      name,
+      phone,
+      division_id,
+      date_of_birth,
+      citizenship,
+      religion,
+      marital_status,
+      college,
+      program,
+      current_address,
+      height,
+      weight,
+      eye_color,
+      mother_full_name,
+      mother_birthday,
+      father_full_name,
+      father_birthday,
+      emergency_contact_name,
+      emergency_contact_mobile,
+      emergency_contact_relationship,
+      emergency_contact_occupation,
+    } = req.body;
 
-    // Build dynamic UPDATE query
-    const updateFields = [];
-    const updateValues = [];
+    const userUpdates = [];
+    const userValues = [];
     let paramCount = 1;
 
-    if (name && typeof name === "string" && name.trim()) {
-      updateFields.push(`name = $${paramCount}`);
-      updateValues.push(name.trim());
+    if (name !== undefined) {
+      const normalizedName = typeof name === "string" ? name.trim() : name;
+      userUpdates.push(`name = $${paramCount}`);
+      userValues.push(normalizedName || null);
       paramCount++;
     }
 
-    if (phone && typeof phone === "string" && phone.trim()) {
-      updateFields.push(`phone = $${paramCount}`);
-      updateValues.push(phone.trim());
+    if (phone !== undefined) {
+      const normalizedPhone = typeof phone === "string" ? phone.trim() : phone;
+      userUpdates.push(`phone = $${paramCount}`);
+      userValues.push(normalizedPhone || null);
       paramCount++;
     }
 
-    if (division_id && !isNaN(parseInt(division_id, 10))) {
-      updateFields.push(`division_id = $${paramCount}`);
-      updateValues.push(parseInt(division_id, 10));
+    if (division_id !== undefined) {
+      const normalizedDivision = division_id === "" || division_id === null ? null : parseInt(division_id, 10);
+      if (division_id !== "" && division_id !== null && Number.isNaN(normalizedDivision)) {
+        return res.status(400).json({ error: "division_id must be a number" });
+      }
+      userUpdates.push(`division_id = $${paramCount}`);
+      userValues.push(normalizedDivision ?? null);
       paramCount++;
     }
 
-    // Only run UPDATE if there are fields to update
-    if (updateFields.length > 0) {
-      updateValues.push(userId);
-      const updateQuery = `UPDATE users SET ${updateFields.join(", ")} WHERE id = $${paramCount}`;
-      await pool.query(updateQuery, updateValues);
+    if (userUpdates.length > 0) {
+      userValues.push(userId);
+      const updateQuery = `UPDATE users SET ${userUpdates.join(", ")} WHERE id = $${paramCount}`;
+      await pool.query(updateQuery, userValues);
     }
 
-    // Fetch and return updated profile
+    const profileUpdates = [];
+    const profileValues = [];
+    let profileParamCount = 1;
+
+    const fieldMap = [
+      ["date_of_birth", date_of_birth],
+      ["citizenship", citizenship],
+      ["religion", religion],
+      ["marital_status", marital_status],
+      ["college", college],
+      ["program", program],
+      ["current_address", current_address],
+      ["height", height],
+      ["weight", weight],
+      ["eye_color", eye_color],
+      ["mother_full_name", mother_full_name],
+      ["mother_birthday", mother_birthday],
+      ["father_full_name", father_full_name],
+      ["father_birthday", father_birthday],
+      ["emergency_contact_name", emergency_contact_name],
+      ["emergency_contact_mobile", emergency_contact_mobile],
+      ["emergency_contact_relationship", emergency_contact_relationship],
+      ["emergency_contact_occupation", emergency_contact_occupation],
+    ];
+
+    for (const [column, value] of fieldMap) {
+      if (value === undefined) continue;
+
+      let normalizedValue = value;
+      if (typeof value === "string") {
+        normalizedValue = value.trim();
+      }
+
+      if (column === "height" || column === "weight") {
+        if (normalizedValue === "" || normalizedValue === null || normalizedValue === undefined) {
+          normalizedValue = null;
+        } else {
+          const parsedNumber = Number(normalizedValue);
+          if (Number.isNaN(parsedNumber)) {
+            return res.status(400).json({ error: `${column} must be a valid number` });
+          }
+          normalizedValue = parsedNumber;
+        }
+      } else if (column.includes("birthday") || column === "date_of_birth") {
+        if (normalizedValue === "" || normalizedValue === null || normalizedValue === undefined) {
+          normalizedValue = null;
+        } else if (Number.isNaN(Date.parse(normalizedValue))) {
+          return res.status(400).json({ error: `${column} must be a valid date` });
+        }
+      } else if (normalizedValue === "") {
+        normalizedValue = null;
+      }
+
+      profileUpdates.push(`${column} = $${profileParamCount}`);
+      profileValues.push(normalizedValue);
+      profileParamCount++;
+    }
+
+    if (profileUpdates.length > 0) {
+      profileValues.push(userId);
+      const updateQuery = `UPDATE user_profiles SET ${profileUpdates.join(", ")} WHERE user_id = $${profileParamCount}`;
+      await pool.query(updateQuery, profileValues);
+    }
+
     const profile = await getProfileWithDivision(userId);
     if (!profile) return res.status(404).json({ error: "Profile not found" });
 
     res.json({
       success: true,
-      profile: {
-        ...profile,
-        profile_pic_url: toFullUrl(profile.profile_pic_url),
-        birth_certificate_url: toFullUrl(profile.birth_certificate_url),
-        class_schedule_url: toFullUrl(profile.class_schedule_url),
-        id_front_url: toFullUrl(profile.id_front_url),
-        id_back_url: toFullUrl(profile.id_back_url),
-      },
+      profile: buildProfileResponse(profile),
     });
   } catch (err) {
     console.error("updateProfileInfo error:", err);
@@ -348,14 +463,7 @@ exports.updateProfileInfo = async (req, res) => {
 exports.getAllProfiles = async (req, res) => {
   try {
     const rows = await getAllProfilesWithDivisions();
-    const profiles = rows.map(p => ({
-      ...p,
-      profile_pic_url: toFullUrl(p.profile_pic_url),
-      birth_certificate_url: toFullUrl(p.birth_certificate_url),
-      class_schedule_url: toFullUrl(p.class_schedule_url),
-      id_front_url: toFullUrl(p.id_front_url),
-      id_back_url: toFullUrl(p.id_back_url),
-    }));
+    const profiles = rows.map((p) => buildProfileResponse(p));
     res.json(profiles);
   } catch (err) {
     console.error("getAllProfiles error:", err);
@@ -374,14 +482,7 @@ exports.getProfileById = async (req, res) => {
     const profile = await getProfileWithDivision(id);
     if (!profile) return res.status(404).json({ error: "Profile not found" });
 
-    res.json({
-      ...profile,
-      profile_pic_url: toFullUrl(profile.profile_pic_url),
-      birth_certificate_url: toFullUrl(profile.birth_certificate_url),
-      class_schedule_url: toFullUrl(profile.class_schedule_url),
-      id_front_url: toFullUrl(profile.id_front_url),
-      id_back_url: toFullUrl(profile.id_back_url),
-    });
+    res.json(buildProfileResponse(profile));
   } catch (err) {
     console.error("getProfileById error:", err);
     res.status(500).json({ error: "Failed to fetch profile" });

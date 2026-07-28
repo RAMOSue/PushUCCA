@@ -21,9 +21,11 @@ export default function BorrowerProfileFacebook() {
   const [editingName, setEditingName] = useState(false);
   const [editingPhone, setEditingPhone] = useState(false);
   const [editingDivision, setEditingDivision] = useState(false);
+  const [editingProfile, setEditingProfile] = useState(false);
   const [tempName, setTempName] = useState("");
   const [tempPhone, setTempPhone] = useState("");
   const [tempDivision, setTempDivision] = useState(null);
+  const [tempProfile, setTempProfile] = useState({});
   const [uploadingPic, setUploadingPic] = useState(false);
   const [uploadingDoc, setUploadingDoc] = useState(null);
   const [previewModal, setPreviewModal] = useState({ isOpen: false, imageUrl: "", fileName: "" });
@@ -38,17 +40,71 @@ export default function BorrowerProfileFacebook() {
     id_back: useRef(),
   };
 
+  const fetchProfile = async () => {
+    if (!user?.id) return;
+    try {
+      const { data } = await axios.get("/api/profiles/me", { withCredentials: true });
+      const profileData = data.profile || data;
+      setProfile(profileData);
+      setPreviewUrl(profileData.profile_pic_url || "");
+      setTempName(profileData.name || "");
+      setTempPhone(profileData.phone || "");
+      setTempDivision(profileData.division_id || null);
+      setTempProfile({
+        date_of_birth: profileData.date_of_birth || "",
+        citizenship: profileData.citizenship || "",
+        religion: profileData.religion || "",
+        marital_status: profileData.marital_status || "",
+        college: profileData.college || "",
+        program: profileData.program || "",
+        current_address: profileData.current_address || "",
+        height: profileData.height || "",
+        weight: profileData.weight || "",
+        eye_color: profileData.eye_color || "",
+        mother_full_name: profileData.mother_full_name || "",
+        mother_birthday: profileData.mother_birthday || "",
+        father_full_name: profileData.father_full_name || "",
+        father_birthday: profileData.father_birthday || "",
+        emergency_contact_name: profileData.emergency_contact_name || "",
+        emergency_contact_mobile: profileData.emergency_contact_mobile || "",
+        emergency_contact_relationship: profileData.emergency_contact_relationship || "",
+        emergency_contact_occupation: profileData.emergency_contact_occupation || "",
+      });
+    } catch (err) {
+      console.error("Failed to fetch profile", err);
+    }
+  };
+
   // ===== FETCH DATA =====
   useEffect(() => {
     const init = async () => {
       if (!user?.id) return;
-      // ✅ Use user data from context initially
       setProfile(user);
       setPreviewUrl(user.profile_pic_url || "");
       setTempName(user.name || "");
       setTempPhone(user.phone || "");
       setTempDivision(user.division_id || null);
-      // Still fetch divisions
+      setTempProfile({
+        date_of_birth: user.date_of_birth || "",
+        citizenship: user.citizenship || "",
+        religion: user.religion || "",
+        marital_status: user.marital_status || "",
+        college: user.college || "",
+        program: user.program || "",
+        current_address: user.current_address || "",
+        height: user.height || "",
+        weight: user.weight || "",
+        eye_color: user.eye_color || "",
+        mother_full_name: user.mother_full_name || "",
+        mother_birthday: user.mother_birthday || "",
+        father_full_name: user.father_full_name || "",
+        father_birthday: user.father_birthday || "",
+        emergency_contact_name: user.emergency_contact_name || "",
+        emergency_contact_mobile: user.emergency_contact_mobile || "",
+        emergency_contact_relationship: user.emergency_contact_relationship || "",
+        emergency_contact_occupation: user.emergency_contact_occupation || "",
+      });
+      await fetchProfile();
       await fetchDivisions();
       setLoading(false);
     };
@@ -158,6 +214,18 @@ export default function BorrowerProfileFacebook() {
     }
   };
 
+  const saveExtendedProfile = async () => {
+    try {
+      const { data } = await axios.patch("/api/profiles/me", tempProfile, { withCredentials: true });
+      setProfile(data.profile || data);
+      setEditingProfile(false);
+      toast.success("Profile updated");
+    } catch (err) {
+      console.error("Profile save failed", err);
+      toast.error("Failed to update profile");
+    }
+  };
+
   const handleDocumentFileChange = (e) => {
     const { name, files: selectedFiles } = e.target;
     if (selectedFiles.length > 0) {
@@ -206,6 +274,62 @@ export default function BorrowerProfileFacebook() {
     const division = divisions.find(d => d.id === tempDivision);
     return division?.name || "Not assigned";
   };
+
+  const profileSections = [
+    {
+      title: "Personal Information",
+      fields: [
+        { label: "Full Name", key: "name", value: profile?.name || "" },
+        { label: "Date of Birth", key: "date_of_birth", value: profile?.date_of_birth || "" },
+        { label: "Citizenship", key: "citizenship", value: profile?.citizenship || "" },
+        { label: "Religion", key: "religion", value: profile?.religion || "" },
+        { label: "Marital Status", key: "marital_status", value: profile?.marital_status || "" },
+      ],
+    },
+    {
+      title: "Contact Information",
+      fields: [
+        { label: "Email", key: "email", value: profile?.email || "" },
+        { label: "Phone Number", key: "phone", value: profile?.phone || "" },
+        { label: "Current Address", key: "current_address", value: profile?.current_address || "" },
+      ],
+    },
+    {
+      title: "Academic Information",
+      fields: [
+        { label: "College", key: "college", value: profile?.college || "" },
+        { label: "Program / Course", key: "program", value: profile?.program || "" },
+        { label: "Division", key: "division_id", value: profile?.division_id || "" },
+        { label: "Role", key: "role", value: profile?.role || "" },
+      ],
+    },
+    {
+      title: "Physical Information",
+      fields: [
+        { label: "Height", key: "height", value: profile?.height || "" },
+        { label: "Weight", key: "weight", value: profile?.weight || "" },
+        { label: "Eye Color", key: "eye_color", value: profile?.eye_color || "" },
+      ],
+    },
+    {
+      title: "Parents",
+      fields: [
+        { label: "Mother's Full Name", key: "mother_full_name", value: profile?.mother_full_name || "" },
+        { label: "Mother's Birthday", key: "mother_birthday", value: profile?.mother_birthday || "" },
+        { label: "Father's Full Name", key: "father_full_name", value: profile?.father_full_name || "" },
+        { label: "Father's Birthday", key: "father_birthday", value: profile?.father_birthday || "" },
+      ],
+    },
+    {
+      title: "Emergency Contact",
+      fields: [
+        { label: "Emergency Contact Name", key: "emergency_contact_name", value: profile?.emergency_contact_name || "" },
+        { label: "Mobile Number", key: "emergency_contact_mobile", value: profile?.emergency_contact_mobile || "" },
+        { label: "Relationship", key: "emergency_contact_relationship", value: profile?.emergency_contact_relationship || "" },
+        { label: "Occupation", key: "emergency_contact_occupation", value: profile?.emergency_contact_occupation || "" },
+      ],
+    },
+  ];
 
   const getDocumentStatus = (fieldName) => {
     const url = profile?.[`${fieldName}_url`];
