@@ -911,7 +911,7 @@ const approveBorrowRequest = async (req, res) => {
       const itemsArray = typeof items === 'string' ? JSON.parse(items) : items;
       // pass related request id so UI can deep-link to their approved request
       try {
-        const sendResult = await notifications.sendBorrowApproved(borrower_id, itemsArray, id);
+        const sendResult = await notifications.sendBorrowApproved(borrower_id, itemsArray, id, req.user?.id);
         // If initial send failed (no active subscriptions or transient failures), attempt a resend
         if (!sendResult || sendResult.success === false) {
           console.warn(`⚠️ Initial push send to borrower ${borrower_id} failed or queued; attempting resend.`);
@@ -1016,7 +1016,7 @@ const declineBorrowRequest = async (req, res) => {
       const itemsArray = typeof items === 'string' ? JSON.parse(items) : items;
       // pass related request id so UI can deep-link
       try {
-        const sendResult = await notifications.sendBorrowDeclined(borrower_id, itemsArray, req.body?.reason || 'No reason provided', id);
+        const sendResult = await notifications.sendBorrowDeclined(borrower_id, itemsArray, req.body?.reason || 'No reason provided', id, req.user?.id);
         // If initial send failed (no active subscriptions), attempt a resend
         if (!sendResult || sendResult.success === false) {
           console.warn(`⚠️ Initial push send to borrower ${borrower_id} for decline failed or queued; attempting resend.`);
@@ -1163,7 +1163,7 @@ const returnBorrowedItems = async (req, res) => {
 
         // Notify borrower that their return was processed/approved
         try {
-          const sendResult = await notifications.sendReturnApproved(borrower_id, itemsArray);
+          const sendResult = await notifications.sendReturnApproved(borrower_id, itemsArray, req.user?.id);
           // If initial send failed (no active subscriptions), attempt a resend
           if (!sendResult || sendResult.success === false) {
             console.warn(`⚠️ Initial push send to borrower ${borrower_id} for return approved failed or queued; attempting resend.`);
@@ -2391,7 +2391,7 @@ const approveReturn = async (req, res) => {
 
     // Send notification to borrower that return was approved ✅ Successfully Returned
     if (notifications && notifications.sendReturnApproved) {
-      await notifications.sendReturnApproved(borrowerId, items);
+      await notifications.sendReturnApproved(borrowerId, items, req.user?.id);
     }
 
     res.json({
@@ -2479,7 +2479,7 @@ const declineReturn = async (req, res) => {
 
     // Send notification to borrower that return was declined
     if (notifications && notifications.sendReturnDeclined) {
-      await notifications.sendReturnDeclined(borrowerId, items, reason);
+      await notifications.sendReturnDeclined(borrowerId, items, reason, req.user?.id);
     }
 
     res.json({
@@ -2570,7 +2570,7 @@ const staffManualReturn = async (req, res) => {
 
     // Send notification to borrower about manual return (optional)
     if (notifications && notifications.sendReturnApproved) {
-      await notifications.sendReturnApproved(borrower_id, items);
+      await notifications.sendReturnApproved(borrower_id, items, req.user?.id);
     }
 
     res.json({

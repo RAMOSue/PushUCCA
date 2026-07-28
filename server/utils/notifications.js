@@ -12,6 +12,51 @@ const NotificationTypes = {
     RETURN_REQUEST: 'return_request'
 };
 
+const SERVER_URL = process.env.SERVER_URL || 'http://localhost:8000';
+
+function toFullUrl(filePath) {
+    if (!filePath) return null;
+    if (typeof filePath !== 'string') return null;
+    if (filePath.startsWith('http')) return filePath;
+    if (!filePath.startsWith('/')) {
+        filePath = `/${filePath}`;
+    }
+    return `${SERVER_URL}${filePath}`;
+}
+
+async function getNotificationActorMeta(actorUserId) {
+    if (!actorUserId) {
+        return {};
+    }
+
+    try {
+        const result = await db.query(
+            `SELECT u.id, u.name, p.profile_pic_url
+             FROM users u
+             LEFT JOIN user_profiles p ON u.id = p.user_id
+             WHERE u.id = $1`,
+            [actorUserId]
+        );
+
+        const row = result.rows[0];
+        if (!row) {
+            return {};
+        }
+
+        const profileUrl = toFullUrl(row.profile_pic_url);
+        return {
+            actorId: row.id,
+            staffName: row.name || null,
+            senderName: row.name || null,
+            staffProfileUrl: profileUrl,
+            senderProfileUrl: profileUrl,
+        };
+    } catch (err) {
+        console.warn('⚠️ Failed to load notification actor metadata:', err.message || err);
+        return {};
+    }
+}
+
 const notifications = {
     // Borrower -> Staff notifications
     // relatedRequest is optional - pass the borrowing request id so notifications can be correlated
@@ -109,10 +154,12 @@ const notifications = {
     },
 
     // Staff -> Borrower notifications
-    sendBorrowApproved: async (borrowerId, items, relatedRequest = null) => {
+    sendBorrowApproved: async (borrowerId, items, relatedRequest = null, actorUserId = null) => {
         const itemNames = items.map(item => item.name).join(', ');
         const origin = process.env.CLIENT_ORIGIN || 'http://localhost:5173';
         const path = `/my-borrowed-items?requestId=${relatedRequest || ''}`;
+        const actorMeta = await getNotificationActorMeta(actorUserId);
+
         // Return the send result so callers can inspect success/failure
         return await notificationController.sendPushToUser({
             userId: borrowerId,
@@ -123,15 +170,18 @@ const notifications = {
                 url: `${origin}${path}`,
                 path,
                 items: items.map(i => i.id),
-                requestId: relatedRequest
+                requestId: relatedRequest,
+                ...actorMeta,
             }
         });
     },
 
-    sendBorrowDeclined: async (borrowerId, items, reason, relatedRequest = null) => {
+    sendBorrowDeclined: async (borrowerId, items, reason, relatedRequest = null, actorUserId = null) => {
         const itemNames = items.map(item => item.name).join(', ');
         const origin = process.env.CLIENT_ORIGIN || 'http://localhost:5173';
         const path = `/my-borrowed-items?requestId=${relatedRequest || ''}`;
+        const actorMeta = await getNotificationActorMeta(actorUserId);
+
         return await notificationController.sendPushToUser({
             userId: borrowerId,
             title: 'Borrow Request Declined',
@@ -141,16 +191,19 @@ const notifications = {
                 url: `${origin}${path}`,
                 path,
                 items: items.map(i => i.id),
-                requestId: relatedRequest
+                requestId: relatedRequest,
+                ...actorMeta,
             },
             relatedRequest: relatedRequest
         });
     },
 
-    sendReturnApproved: async (borrowerId, items) => {
+    sendReturnApproved: async (borrowerId, items, actorUserId = null) => {
         const itemNames = items.map(item => item.name).join(', ');
         const origin = process.env.CLIENT_ORIGIN || 'http://localhost:5173';
         const path = '/my-borrowed-items';
+        const actorMeta = await getNotificationActorMeta(actorUserId);
+
         return await notificationController.sendPushToUser({
             userId: borrowerId,
             title: 'Items Returned',
@@ -159,15 +212,18 @@ const notifications = {
             data: {
                 url: `${origin}${path}`,
                 path,
-                items: items.map(i => i.id)
+                items: items.map(i => i.id),
+                ...actorMeta,
             }
         });
     },
 
-    sendReturnDeclined: async (borrowerId, items, reason) => {
+    sendReturnDeclined: async (borrowerId, items, reason, actorUserId = null) => {
         const itemNames = items.map(item => item.name).join(', ');
         const origin = process.env.CLIENT_ORIGIN || 'http://localhost:5173';
         const path = '/my-borrowed-items';
+        const actorMeta = await getNotificationActorMeta(actorUserId);
+
         await notificationController.sendPushToUser({
             userId: borrowerId,
             title: 'Return Declined',
@@ -176,7 +232,8 @@ const notifications = {
             data: {
                 url: `${origin}${path}`,
                 path,
-                items: items.map(i => i.id)
+                items: items.map(i => i.id),
+                ...actorMeta,
             }
         });
     },

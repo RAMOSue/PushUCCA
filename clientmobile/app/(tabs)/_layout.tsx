@@ -5,43 +5,38 @@ import { Tabs, useFocusEffect, useRouter, useSegments } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import CartBadge from "../../src/components/navigation/CartBadge";
 import { fetchReservedBorrowCart } from "../../src/services/borrowCart";
-import { fetchUnreadNotificationCount } from "../../src/services/notifications";
+import { fetchUnreadNotificationCount, markAllNotificationsAsRead } from "../../src/services/notifications";
 import { useAuth } from "../../src/hooks/useAuth";
 
 const MOBILE_APP_LOGO = require("../../assets/images/icon.png");
 
-const TabsHeader = memo(function TabsHeader() {
+type TabsHeaderProps = {
+  cartCount: number;
+  onCartCountChange?: (count: number) => void;
+  onAnimationStateChange?: (state: { isFlying: boolean; preview: { uri?: string; icon?: string } | null; fromX: number; fromY: number; destX: number; destY: number } | null) => void;
+};
+
+const TabsHeader = memo(function TabsHeader({ cartCount, onCartCountChange, onAnimationStateChange }: TabsHeaderProps) {
   const router = useRouter();
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
-  const [cartCount, setCartCount] = useState(0);
-  const [notificationCount, setNotificationCount] = useState(0);
-  const [isFlyingToCart, setIsFlyingToCart] = useState(false);
   const cartPulse = useRef(new Animated.Value(1)).current;
-  const cartFlyAnim = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
   const cartButtonRef = useRef<View | null>(null);
 
   const fetchCounts = useCallback(async () => {
     if (!user?.id) {
-      setCartCount(0);
-      setNotificationCount(0);
+      onCartCountChange?.(0);
       return;
     }
 
     try {
-      const [cart, unread] = await Promise.all([
-        fetchReservedBorrowCart(user.id),
-        fetchUnreadNotificationCount(),
-      ]);
-
-      setCartCount(Array.isArray(cart.items) ? cart.items.length : 0);
-      setNotificationCount(unread || 0);
+      const cart = await fetchReservedBorrowCart(user.id);
+      onCartCountChange?.(Array.isArray(cart.items) ? cart.items.length : 0);
     } catch (error) {
       console.error("Error fetching tab header counts:", error);
-      setCartCount(0);
-      setNotificationCount(0);
+      onCartCountChange?.(0);
     }
-  }, [user?.id]);
+  }, [onCartCountChange, user?.id]);
 
   useFocusEffect(
     useCallback(() => {
@@ -54,7 +49,7 @@ const TabsHeader = memo(function TabsHeader() {
   }, [fetchCounts]);
 
   useEffect(() => {
-    const subscription = DeviceEventEmitter.addListener("cart:animate", (payload) => {
+    const animateSubscription = DeviceEventEmitter.addListener("cart:animate", (payload) => {
       const fromX = payload?.fromX ?? 0;
       const fromY = payload?.fromY ?? 0;
 
@@ -62,56 +57,33 @@ const TabsHeader = memo(function TabsHeader() {
         const destX = x + width / 2 - 18;
         const destY = y + height / 2 - 18;
 
-        setIsFlyingToCart(true);
-        cartFlyAnim.setValue({ x: fromX - destX, y: fromY - destY });
-
-        Animated.parallel([
-          Animated.timing(cartFlyAnim, {
-            toValue: { x: 0, y: 0 },
-            duration: 650,
-            useNativeDriver: true,
-          }),
-          Animated.sequence([
-            Animated.timing(cartPulse, { toValue: 1.18, duration: 140, useNativeDriver: true }),
-            Animated.timing(cartPulse, { toValue: 1, duration: 180, useNativeDriver: true }),
-          ]),
-        ]).start(() => {
-          setIsFlyingToCart(false);
-          cartFlyAnim.setValue({ x: 0, y: 0 });
+        onAnimationStateChange?.({
+          isFlying: true,
+          preview: payload?.imageUri ? { uri: payload.imageUri } : payload?.previewIcon ? { icon: payload.previewIcon } : null,
+          fromX,
+          fromY,
+          destX,
+          destY,
         });
+
+        Animated.sequence([
+          Animated.timing(cartPulse, { toValue: 1.12, duration: 120, useNativeDriver: true }),
+          Animated.timing(cartPulse, { toValue: 1, duration: 160, useNativeDriver: true }),
+        ]).start();
       });
     });
 
-    return () => subscription.remove();
-  }, [cartFlyAnim, cartPulse]);
+    return () => {
+      animateSubscription.remove();
+    };
+  }, [cartPulse, onAnimationStateChange]);
 
   const handleCartPress = useCallback(() => {
     router.push("/(tabs)/borrow-cart");
   }, [router]);
 
-  const handleNotificationsPress = useCallback(() => {
-    router.push("/(tabs)/notifications");
-  }, [router]);
-
   return (
     <View style={[styles.headerShell, { paddingTop: insets.top }]}>
-      {isFlyingToCart ? (
-        <Animated.View
-          pointerEvents="none"
-          style={[
-            styles.flyingCart,
-            {
-              transform: [
-                { translateX: cartFlyAnim.x },
-                { translateY: cartFlyAnim.y },
-              ],
-            },
-          ]}
-        >
-          <Ionicons name="cart-outline" size={20} color="#ffffff" />
-        </Animated.View>
-      ) : null}
-
       <View style={styles.headerContent}>
         <View style={styles.brandBlock}>
           <Image source={MOBILE_APP_LOGO} style={styles.logo} resizeMode="contain" />
@@ -138,6 +110,20 @@ export default function TabsLayout() {
   const router = useRouter();
   const segments = useSegments();
   const insets = useSafeAreaInsets();
+  const { user } = useAuth();
+  const [cartCount, setCartCount] = useState(0);
+  const [notificationCount, setNotificationCount] = useState(0);
+  const [flightAnimation, setFlightAnimation] = useState<{
+    isFlying: boolean;
+    preview: { uri?: string; icon?: string } | null;
+    fromX: number;
+    fromY: number;
+    destX: number;
+    destY: number;
+  } | null>(null);
+  const cartFlyAnim = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
+  const cartFlyScale = useRef(new Animated.Value(1.6)).current;
+  const cartFlyOpacity = useRef(new Animated.Value(1)).current;
 
   const isScannerOpen = segments[segments.length - 1] === "scan-qr";
 
@@ -149,6 +135,67 @@ export default function TabsLayout() {
 
     router.push("/(tabs)/scan-qr");
   }, [isScannerOpen, router]);
+
+  const fetchNotificationCount = useCallback(async () => {
+    if (!user?.id) {
+      setNotificationCount(0);
+      return;
+    }
+
+    try {
+      const count = await fetchUnreadNotificationCount();
+      setNotificationCount(count);
+    } catch (error) {
+      console.error("Error fetching unread notification count:", error);
+      setNotificationCount(0);
+    }
+  }, [user?.id]);
+
+  useEffect(() => {
+    void fetchNotificationCount();
+  }, [fetchNotificationCount]);
+
+  useFocusEffect(
+    useCallback(() => {
+      void fetchNotificationCount();
+    }, [fetchNotificationCount])
+  );
+
+  useEffect(() => {
+    if (!flightAnimation?.isFlying) {
+      return;
+    }
+
+    cartFlyAnim.setValue({ x: 0, y: 0 });
+    cartFlyScale.setValue(1.8);
+    cartFlyOpacity.setValue(1);
+
+    Animated.parallel([
+      Animated.timing(cartFlyAnim, {
+        toValue: {
+          x: flightAnimation.destX - flightAnimation.fromX,
+          y: flightAnimation.destY - flightAnimation.fromY,
+        },
+        duration: 650,
+        useNativeDriver: true,
+      }),
+      Animated.timing(cartFlyScale, {
+        toValue: 0.35,
+        duration: 650,
+        useNativeDriver: true,
+      }),
+      Animated.timing(cartFlyOpacity, {
+        toValue: 0,
+        duration: 650,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      setFlightAnimation(null);
+      cartFlyAnim.setValue({ x: 0, y: 0 });
+      cartFlyScale.setValue(0.95);
+      cartFlyOpacity.setValue(1);
+    });
+  }, [cartFlyAnim, cartFlyOpacity, cartFlyScale, flightAnimation]);
 
   const tabBarStyle = useMemo(
     () => ({
@@ -170,7 +217,32 @@ export default function TabsLayout() {
 
   return (
     <View style={styles.shell}>
-      <TabsHeader />
+      {flightAnimation?.isFlying ? (
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            styles.flyingOverlay,
+            {
+              left: flightAnimation.fromX,
+              top: flightAnimation.fromY,
+              transform: [
+                { translateX: cartFlyAnim.x },
+                { translateY: cartFlyAnim.y },
+                { scale: cartFlyScale },
+              ],
+              opacity: cartFlyOpacity,
+            },
+          ]}
+        >
+          {flightAnimation.preview?.uri ? (
+            <Image source={{ uri: flightAnimation.preview.uri }} style={styles.flyingPreviewImage} resizeMode="cover" />
+          ) : (
+            <Ionicons name={flightAnimation.preview?.icon === "musical-notes" ? "musical-notes" : "shirt"} size={20} color="#ffffff" />
+          )}
+        </Animated.View>
+      ) : null}
+
+      <TabsHeader cartCount={cartCount} onCartCountChange={setCartCount} onAnimationStateChange={setFlightAnimation} />
       <Tabs
         screenOptions={{
           headerShown: false,
@@ -242,14 +314,31 @@ export default function TabsLayout() {
           name="notifications"
           options={{
             title: "Alerts",
+            tabBarBadge: notificationCount > 0 ? String(notificationCount > 99 ? "99+" : notificationCount) : undefined,
+            tabBarBadgeStyle: {
+              backgroundColor: "#ef4444",
+              color: "#ffffff",
+            },
             tabBarItemStyle: {
-            marginLeft: 40,
-            marginTop: 6 // adjust this value
+              marginLeft: 40,
+              marginTop: 6, // adjust this value
             },
             tabBarIcon: ({ color, size }) => (
               <Ionicons name="notifications-outline" size={24} color={color} />
             ),
           }}
+          listeners={() => ({
+            tabPress: async () => {
+              setNotificationCount(0);
+
+              try {
+                await markAllNotificationsAsRead();
+                DeviceEventEmitter.emit("mobile:refresh", { screen: "notifications" });
+              } catch (error) {
+                console.error("Error marking notifications as read on tab press:", error);
+              }
+            },
+          })}
         />
 
         <Tabs.Screen
@@ -346,22 +435,25 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     position: "relative",
   },
-  flyingCart: {
+  flyingOverlay: {
     position: "absolute",
-    left: 0,
-    top: 0,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     backgroundColor: "#166534",
     alignItems: "center",
     justifyContent: "center",
-    zIndex: 60,
-    elevation: 60,
+    zIndex: 120,
+    elevation: 120,
     shadowColor: "#000000",
     shadowOpacity: 0.2,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 4 },
+    overflow: "hidden",
+  },
+  flyingPreviewImage: {
+    width: "100%",
+    height: "100%",
   },
   fabContainer: {
     position: "absolute",

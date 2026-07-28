@@ -6,7 +6,6 @@ import {
   DeviceEventEmitter,
   FlatList,
   Image,
-  Modal,
   Pressable,
   StyleSheet,
   Text,
@@ -38,6 +37,13 @@ type DivisionOption = {
   id: string | number;
   name: string;
   status?: string | null;
+};
+
+type FilterButtonLayout = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
 };
 
 const CATEGORY_FILTERS: { key: CategoryFilter; label: string }[] = [
@@ -104,6 +110,30 @@ function getPerformanceStatus(startTime?: string | null) {
   return "upcoming";
 }
 
+function getDateKey(value?: string | null) {
+  if (!value) {
+    return null;
+  }
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+
+  const year = parsed.getFullYear();
+  const month = String(parsed.getMonth() + 1).padStart(2, "0");
+  const day = String(parsed.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
+
+function formatMonthLabel(value: Date) {
+  return value.toLocaleDateString("en-US", {
+    month: "long",
+    year: "numeric",
+  });
+}
+
 export default function AvailableItems() {
   const { user, isLoading: authLoading } = useAuth();
   const params = useLocalSearchParams<{ search?: string }>();
@@ -127,10 +157,19 @@ export default function AvailableItems() {
   const [borrowing, setBorrowing] = useState(false);
   const [showCategoryMenu, setShowCategoryMenu] = useState(false);
   const [showDivisionMenu, setShowDivisionMenu] = useState(false);
-  const [isFlyingToCart, setIsFlyingToCart] = useState(false);
+  const [activeFilterMenu, setActiveFilterMenu] = useState<"division" | "category" | null>(null);
+  const [divisionButtonLayout, setDivisionButtonLayout] = useState<FilterButtonLayout | null>(null);
+  const [categoryButtonLayout, setCategoryButtonLayout] = useState<FilterButtonLayout | null>(null);
   const [cartOrigin, setCartOrigin] = useState<{ x: number; y: number } | null>(null);
-  const cartFlyAnim = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
+  const [calendarExpanded, setCalendarExpanded] = useState(false);
+  const [selectedPerformanceDate, setSelectedPerformanceDate] = useState<string | null>(null);
+  const [calendarMonth, setCalendarMonth] = useState(new Date());
   const cardRefs = useRef<Record<string, View | null>>({});
+  const divisionButtonRef = useRef<View | null>(null);
+  const categoryButtonRef = useRef<View | null>(null);
+  const [optimisticBorrowedUnitIds, setOptimisticBorrowedUnitIds] = useState<Set<string | number>>(new Set());
+  const calendarHeight = useRef(new Animated.Value(0)).current;
+  const calendarOpacity = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     const initialSearch = params.search;
@@ -168,8 +207,13 @@ export default function AvailableItems() {
     }
   }, [user?.id, user?.role]);
 
-  const fetchItems = useCallback(async () => {
-    setLoadingItems(true);
+  const fetchItems = useCallback(async (options?: { showLoader?: boolean }) => {
+    const showLoader = options?.showLoader ?? true;
+
+    if (showLoader) {
+      setLoadingItems(true);
+    }
+
     setErrorMessage(null);
 
     try {
@@ -181,7 +225,9 @@ export default function AvailableItems() {
       setErrorMessage("Unable to load available items.");
       setItems([]);
     } finally {
-      setLoadingItems(false);
+      if (showLoader) {
+        setLoadingItems(false);
+      }
       setRefreshing(false);
     }
   }, [fetchRecommendations]);
@@ -222,7 +268,7 @@ export default function AvailableItems() {
   useFocusEffect(
     useCallback(() => {
       if (!authLoading) {
-        void fetchItems();
+        void fetchItems({ showLoader: false });
         void fetchDivisions();
         void fetchReservedRequest();
       }
@@ -232,7 +278,7 @@ export default function AvailableItems() {
 
   useEffect(() => {
     if (!authLoading) {
-      void fetchItems();
+      void fetchItems({ showLoader: true });
       void fetchDivisions();
       void fetchReservedRequest();
     }
@@ -244,13 +290,28 @@ export default function AvailableItems() {
         return;
       }
 
-      void fetchItems();
+      void fetchItems({ showLoader: false });
       void fetchDivisions();
       void fetchReservedRequest();
     });
 
     return () => subscription.remove();
   }, [fetchDivisions, fetchItems, fetchReservedRequest]);
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(calendarHeight, {
+        toValue: calendarExpanded ? 320 : 0,
+        duration: 220,
+        useNativeDriver: false,
+      }),
+      Animated.timing(calendarOpacity, {
+        toValue: calendarExpanded ? 1 : 0,
+        duration: 220,
+        useNativeDriver: false,
+      }),
+    ]).start();
+  }, [calendarExpanded, calendarHeight, calendarOpacity]);
 
   const handleOpenSheet = useCallback((item: InventoryItem) => {
     const availableUnits = item.units?.filter((unit) => unit.status === "available") ?? [];
@@ -271,22 +332,6 @@ export default function AvailableItems() {
     setBorrowMessage(null);
     setBorrowing(false);
   }, []);
-
-  const animateCartToTopBar = useCallback((origin?: { x: number; y: number } | null) => {
-    const startPoint = origin ?? cartOrigin ?? { x: 24, y: 140 };
-    setCartOrigin(startPoint);
-    setIsFlyingToCart(true);
-    cartFlyAnim.setValue({ x: 0, y: 0 });
-
-    Animated.timing(cartFlyAnim, {
-      toValue: { x: 24, y: 28 },
-      duration: 650,
-      useNativeDriver: true,
-    }).start(() => {
-      setIsFlyingToCart(false);
-      cartFlyAnim.setValue({ x: 0, y: 0 });
-    });
-  }, [cartFlyAnim, cartOrigin]);
 
   const availableSheetUnits = useMemo(() => {
     if (!selectedItem) {
@@ -332,6 +377,34 @@ export default function AvailableItems() {
     });
   }, []);
 
+  const applyOptimisticBorrowState = useCallback((itemId: string | number, unitIds: Array<string | number>, isOptimistic: boolean) => {
+    const nextStatus = isOptimistic ? "borrowed" : "available";
+
+    setItems((previous) =>
+      previous.map((entry) => {
+        if (entry.id !== itemId) {
+          return entry;
+        }
+
+        return {
+          ...entry,
+          units: (entry.units ?? []).map((unit) => (unitIds.includes(unit.id) ? { ...unit, status: nextStatus } : unit)),
+        };
+      })
+    );
+
+    setSelectedItem((previous) => {
+      if (!previous || previous.id !== itemId) {
+        return previous;
+      }
+
+      return {
+        ...previous,
+        units: (previous.units ?? []).map((unit) => (unitIds.includes(unit.id) ? { ...unit, status: nextStatus } : unit)),
+      };
+    });
+  }, []);
+
   const handleBorrow = useCallback(async () => {
     if (!selectedItem || !user?.id) {
       return;
@@ -346,6 +419,30 @@ export default function AvailableItems() {
 
     setBorrowing(true);
     setBorrowMessage(null);
+
+    const optimisticUnitIds = unitsToBorrow.map((unit) => unit.id);
+    const preview = selectedItem.image_url
+      ? { uri: normalizeImageUrl(selectedItem.image_url) ?? undefined }
+      : {
+          icon: selectedItem.category?.toLowerCase() === "instrument" ? "musical-notes" : "shirt",
+        };
+
+    applyOptimisticBorrowState(selectedItem.id, optimisticUnitIds, true);
+    setOptimisticBorrowedUnitIds((previous) => {
+      const next = new Set(previous);
+      optimisticUnitIds.forEach((unitId) => next.add(unitId));
+      return next;
+    });
+    DeviceEventEmitter.emit("cart:updated", { countDelta: unitsToBorrow.length });
+    const startPoint = cartOrigin ?? { x: 24, y: 140 };
+    DeviceEventEmitter.emit("cart:animate", {
+      fromX: startPoint.x,
+      fromY: startPoint.y,
+      imageUri: preview.uri ?? null,
+      previewIcon: preview.icon ?? null,
+      countDelta: unitsToBorrow.length,
+    });
+    setSelectedUnits([]);
 
     try {
       const response = await api.post("/api/borrow/cart", {
@@ -366,18 +463,13 @@ export default function AvailableItems() {
       }
 
       if (responseItems.length > 0) {
-        await fetchItems();
-        await fetchReservedRequest();
+        void fetchItems({ showLoader: false });
+        void fetchReservedRequest();
 
         const successLabel = responseItems.length === 1 ? "1 unit added to cart." : `${responseItems.length} units added to cart.`;
         const failureLabel = failedItems.length > 0 ? ` ${failedItems.length} unit(s) could not be reserved.` : "";
 
-        Alert.alert("Borrow request updated", `${successLabel}${failureLabel}`);
-        animateCartToTopBar(cartOrigin);
-        DeviceEventEmitter.emit("cart:animate", {
-          fromX: cartOrigin?.x ?? 24,
-          fromY: cartOrigin?.y ?? 140,
-        });
+        setBorrowMessage(`${successLabel}${failureLabel}`);
         DeviceEventEmitter.emit("mobile:refresh", { screen: "all" });
         sheetRef.current?.dismiss();
         return;
@@ -387,6 +479,13 @@ export default function AvailableItems() {
         ? failedItems.map((entry: { error?: string }) => entry.error || "Unavailable").join("\n")
         : response.data?.error || "Unable to reserve selected units.";
 
+      applyOptimisticBorrowState(selectedItem.id, optimisticUnitIds, false);
+      setOptimisticBorrowedUnitIds((previous) => {
+        const next = new Set(previous);
+        optimisticUnitIds.forEach((unitId) => next.delete(unitId));
+        return next;
+      });
+      DeviceEventEmitter.emit("cart:updated", { countDelta: -unitsToBorrow.length });
       setBorrowMessage(failureText);
     } catch (error: any) {
       const failedItems = error?.response?.data?.failed_items;
@@ -394,11 +493,18 @@ export default function AvailableItems() {
         ? failedItems.map((entry: { error?: string }) => entry.error || "Unavailable").join("\n")
         : error?.response?.data?.error || error?.message || "Unable to reserve selected units.";
 
+      applyOptimisticBorrowState(selectedItem.id, optimisticUnitIds, false);
+      setOptimisticBorrowedUnitIds((previous) => {
+        const next = new Set(previous);
+        optimisticUnitIds.forEach((unitId) => next.delete(unitId));
+        return next;
+      });
+      DeviceEventEmitter.emit("cart:updated", { countDelta: -unitsToBorrow.length });
       setBorrowMessage(failureText);
     } finally {
       setBorrowing(false);
     }
-  }, [animateCartToTopBar, availableSheetUnits, borrowRequestId, cartOrigin, fetchItems, fetchReservedRequest, selectedItem, selectedUnits, user?.id]);
+  }, [applyOptimisticBorrowState, availableSheetUnits, borrowRequestId, cartOrigin, fetchItems, fetchReservedRequest, selectedItem, selectedUnits, user?.id]);
 
   const renderSheetFooter = useCallback(
     (footerProps: BottomSheetFooterProps) => (
@@ -424,6 +530,57 @@ export default function AvailableItems() {
     [borrowMessage, borrowing, handleBorrow, selectedItem, selectedUnits.length]
   );
 
+  const performanceDateKeys = useMemo(() => {
+    const nextSet = new Set<string>();
+
+    recommendations.forEach((recommendation) => {
+      const dateKey = getDateKey(recommendation.start_time);
+      if (dateKey) {
+        nextSet.add(dateKey);
+      }
+    });
+
+    return nextSet;
+  }, [recommendations]);
+
+  const calendarDays = useMemo(() => {
+    const year = calendarMonth.getFullYear();
+    const month = calendarMonth.getMonth();
+    const firstDay = new Date(year, month, 1);
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const leadingDays = firstDay.getDay();
+    const totalCells = Math.ceil((leadingDays + daysInMonth) / 7) * 7;
+    const todayKey = getDateKey(new Date());
+    const selectedKey = selectedPerformanceDate;
+
+    const cells = [] as Array<{
+      dateKey: string;
+      day: number;
+      isCurrentMonth: boolean;
+      isToday: boolean;
+      isSelected: boolean;
+      hasPerformance: boolean;
+    }>;
+
+    for (let index = 0; index < totalCells; index += 1) {
+      const dayOffset = index - leadingDays + 1;
+      const date = new Date(year, month, dayOffset);
+      const isCurrentMonth = date.getMonth() === month;
+      const dateKey = getDateKey(date);
+
+      cells.push({
+        dateKey: dateKey ?? "",
+        day: date.getDate(),
+        isCurrentMonth,
+        isToday: dateKey === todayKey,
+        isSelected: dateKey === selectedKey,
+        hasPerformance: Boolean(dateKey && performanceDateKeys.has(dateKey)),
+      });
+    }
+
+    return cells;
+  }, [calendarMonth, performanceDateKeys, selectedPerformanceDate]);
+
   const filteredItems = useMemo(() => {
     let nextItems = [...items];
 
@@ -446,6 +603,18 @@ export default function AvailableItems() {
       });
     }
 
+    if (selectedPerformanceDate) {
+      const matchingItemIds = new Set<string | number>();
+
+      recommendations.forEach((recommendation) => {
+        if (getDateKey(recommendation.start_time) === selectedPerformanceDate) {
+          matchingItemIds.add(recommendation.inventory_item_id);
+        }
+      });
+
+      nextItems = nextItems.filter((item) => matchingItemIds.has(item.id));
+    }
+
     if (user?.role === "borrower" && recommendations.length > 0) {
       const recommendedIds = new Set(
         recommendations.map((recommendation) => recommendation.inventory_item_id)
@@ -462,7 +631,7 @@ export default function AvailableItems() {
     }
 
     return nextItems;
-  }, [items, recommendations, searchQuery, selectedCategory, selectedDivision, user?.role]);
+  }, [items, recommendations, searchQuery, selectedCategory, selectedDivision, selectedPerformanceDate, user?.role]);
 
   const recommendedItemIds = useMemo(() => {
     return new Set(recommendations.map((recommendation) => recommendation.inventory_item_id));
@@ -470,10 +639,274 @@ export default function AvailableItems() {
 
   const handleRefresh = useCallback(() => {
     setRefreshing(true);
-    void fetchItems();
+    void fetchItems({ showLoader: false });
     void fetchDivisions();
     void fetchReservedRequest();
   }, [fetchDivisions, fetchItems, fetchReservedRequest]);
+
+  const toggleCalendar = useCallback(() => {
+    setCalendarExpanded((previous) => !previous);
+  }, []);
+
+  const goToPreviousMonth = useCallback(() => {
+    setCalendarMonth((previous) => new Date(previous.getFullYear(), previous.getMonth() - 1, 1));
+  }, []);
+
+  const goToNextMonth = useCallback(() => {
+    setCalendarMonth((previous) => new Date(previous.getFullYear(), previous.getMonth() + 1, 1));
+  }, []);
+
+  const handleDatePress = useCallback((dateKey: string) => {
+    setSelectedPerformanceDate((previous) => (previous === dateKey ? null : dateKey));
+  }, []);
+
+  const clearDateFilter = useCallback(() => {
+    setSelectedPerformanceDate(null);
+  }, []);
+
+  const renderListHeader = () => (
+    <View style={styles.listHeaderContainer}>
+      <View style={styles.header}>
+        <View style={styles.searchBox}>
+          <Ionicons name="search-outline" size={18} color="#9ca3af" />
+          <TextInput
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            placeholder="Search items..."
+            placeholderTextColor="#d1d5db"
+            style={styles.searchInput}
+            returnKeyType="search"
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
+          {searchQuery ? (
+            <Pressable onPress={() => setSearchQuery("")} hitSlop={10}>
+              <Ionicons name="close-circle" size={18} color="#9ca3af" />
+            </Pressable>
+          ) : null}
+        </View>
+
+        <View style={styles.filterWrap}>
+          <View style={styles.filterButtonShell}>
+            <Pressable
+              ref={divisionButtonRef}
+              onLayout={(event) => {
+                const { x, y, width, height } = event.nativeEvent.layout;
+                setDivisionButtonLayout({ x, y, width, height });
+              }}
+              onPress={() => {
+                if (activeFilterMenu === "division") {
+                  setActiveFilterMenu(null);
+                  setShowDivisionMenu(false);
+                  return;
+                }
+
+                setActiveFilterMenu("division");
+                setShowDivisionMenu(true);
+                setShowCategoryMenu(false);
+              }}
+              style={[styles.filterButton, selectedDivision && styles.filterButtonActive]}
+            >
+              <Text style={[styles.filterButtonText, selectedDivision && styles.filterButtonTextActive]}>
+                {selectedDivision || "Division"}
+              </Text>
+              <Ionicons name="chevron-down" size={16} color={selectedDivision ? "#ffffff" : "#166534"} />
+            </Pressable>
+          </View>
+
+          <View style={styles.filterButtonShell}>
+            <Pressable
+              ref={categoryButtonRef}
+              onLayout={(event) => {
+                const { x, y, width, height } = event.nativeEvent.layout;
+                setCategoryButtonLayout({ x, y, width, height });
+              }}
+              onPress={() => {
+                if (activeFilterMenu === "category") {
+                  setActiveFilterMenu(null);
+                  setShowCategoryMenu(false);
+                  return;
+                }
+
+                setActiveFilterMenu("category");
+                setShowCategoryMenu(true);
+                setShowDivisionMenu(false);
+              }}
+              style={[styles.filterButton, selectedCategory !== "all" && styles.filterButtonActive]}
+            >
+              <Text style={[styles.filterButtonText, selectedCategory !== "all" && styles.filterButtonTextActive]}>
+                {selectedCategory === "all" ? "Category" : CATEGORY_FILTERS.find((filter) => filter.key === selectedCategory)?.label || "Category"}
+              </Text>
+              <Ionicons name="chevron-down" size={16} color={selectedCategory !== "all" ? "#ffffff" : "#166534"} />
+            </Pressable>
+          </View>
+
+          <View style={styles.filterButtonShell}>
+            <Pressable
+              onPress={toggleCalendar}
+              style={[styles.filterButton, calendarExpanded && styles.filterButtonActive]}
+            >
+              <Ionicons name="calendar-outline" size={16} color={calendarExpanded ? "#ffffff" : "#166534"} />
+              <Text style={[styles.filterButtonText, calendarExpanded && styles.filterButtonTextActive]}>Calendar</Text>
+            </Pressable>
+          </View>
+        </View>
+      </View>
+
+      <Animated.View
+        style={[
+          styles.calendarContainer,
+          {
+            height: calendarHeight,
+            opacity: calendarOpacity,
+          },
+        ]}
+      >
+        <View style={styles.calendarCard}>
+          <View style={styles.calendarHeaderRow}>
+            <Pressable onPress={goToPreviousMonth} style={styles.calendarNavButton}>
+              <Ionicons name="chevron-back" size={16} color="#166534" />
+            </Pressable>
+
+            <Text style={styles.calendarMonthLabel}>{formatMonthLabel(calendarMonth)}</Text>
+
+            <Pressable onPress={goToNextMonth} style={styles.calendarNavButton}>
+              <Ionicons name="chevron-forward" size={16} color="#166534" />
+            </Pressable>
+          </View>
+
+          {selectedPerformanceDate ? (
+            <Pressable onPress={clearDateFilter} style={styles.clearFilterButton}>
+              <Text style={styles.clearFilterText}>Show all</Text>
+            </Pressable>
+          ) : null}
+
+          <View style={styles.weekdayRow}>
+            {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
+              <Text key={day} style={styles.weekdayText}>{day}</Text>
+            ))}
+          </View>
+
+          <View style={styles.calendarGrid}>
+            {calendarDays.map((day) => {
+              const dayStyle = [styles.dayCell];
+              if (!day.isCurrentMonth) {
+                dayStyle.push(styles.dayCellMuted);
+              }
+              if (day.isToday) {
+                dayStyle.push(styles.dayCellToday);
+              }
+              if (day.isSelected) {
+                dayStyle.push(styles.dayCellSelected);
+              }
+
+              return (
+                <Pressable
+                  key={`${day.dateKey}-${day.day}`}
+                  onPress={() => day.dateKey && handleDatePress(day.dateKey)}
+                  style={dayStyle}
+                  disabled={!day.dateKey}
+                >
+                  <Text style={[styles.dayText, !day.isCurrentMonth && styles.dayTextMuted, day.isSelected && styles.dayTextSelected]}>
+                    {day.day}
+                  </Text>
+                  {day.hasPerformance ? <Ionicons name="star" size={8} color={day.isSelected ? "#ffffff" : "#f59e0b"} /> : null}
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+      </Animated.View>
+
+      {showDivisionMenu && divisionButtonLayout ? (
+        <View
+          pointerEvents="box-none"
+          style={[
+            styles.dropdownPanel,
+            {
+              top: divisionButtonLayout.y + divisionButtonLayout.height + 55,
+              left: divisionButtonLayout.x + 135,
+            },
+          ]}
+        >
+          <Pressable
+            onPress={() => {
+              setSelectedDivision(null);
+              setShowDivisionMenu(false);
+              setActiveFilterMenu(null);
+            }}
+            style={[styles.dropdownOption, !selectedDivision && styles.dropdownOptionActive]}
+          >
+            <Text style={[styles.dropdownOptionText, !selectedDivision && styles.dropdownOptionTextActive]}>All Divisions</Text>
+          </Pressable>
+
+          {divisions.map((division) => {
+            const active = selectedDivision === division.name;
+
+            return (
+              <Pressable
+                key={division.id}
+                onPress={() => {
+                  setSelectedDivision(division.name);
+                  setShowDivisionMenu(false);
+                  setActiveFilterMenu(null);
+                }}
+                style={[styles.dropdownOption, active && styles.dropdownOptionActive]}
+              >
+                <Text style={[styles.dropdownOptionText, active && styles.dropdownOptionTextActive]}>
+                  {division.name}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      ) : null}
+
+      {showCategoryMenu && categoryButtonLayout ? (
+        <View
+          pointerEvents="box-none"
+          style={[
+            styles.dropdownPanel,
+            {
+              top: categoryButtonLayout.y + categoryButtonLayout.height + 55,
+              left: categoryButtonLayout.x + 235 ,
+            },
+          ]}
+        >
+          {CATEGORY_FILTERS.map((filter) => {
+            const active = selectedCategory === filter.key;
+
+            return (
+              <Pressable
+                key={filter.key}
+                onPress={() => {
+                  setSelectedCategory(filter.key);
+                  setShowCategoryMenu(false);
+                  setActiveFilterMenu(null);
+                }}
+                style={[styles.dropdownOption, active && styles.dropdownOptionActive]}
+              >
+                <Text style={[styles.dropdownOptionText, active && styles.dropdownOptionTextActive]}>
+                  {filter.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      ) : null}
+
+      {(showCategoryMenu || showDivisionMenu) ? (
+        <Pressable
+          style={styles.dropdownOverlay}
+          onPress={() => {
+            setShowCategoryMenu(false);
+            setShowDivisionMenu(false);
+            setActiveFilterMenu(null);
+          }}
+        />
+      ) : null}
+    </View>
+  );
 
   const renderItem = ({ item }: { item: InventoryItem }) => {
     const imageUrl = normalizeImageUrl(item.image_url);
@@ -585,55 +1018,15 @@ export default function AvailableItems() {
 
   return (
     <SafeAreaView style={styles.screen}>
-      <View style={styles.stickyHeader}>
-        <View style={styles.header}>
-          <View style={styles.searchBox}>
-            <Ionicons name="search-outline" size={18} color="#9ca3af" />
-            <TextInput
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              placeholder="Search items..."
-              placeholderTextColor="#d1d5db"
-              style={styles.searchInput}
-              returnKeyType="search"
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-            {searchQuery ? (
-              <Pressable onPress={() => setSearchQuery("")} hitSlop={10}>
-                <Ionicons name="close-circle" size={18} color="#9ca3af" />
-              </Pressable>
-            ) : null}
-          </View>
-
-          <View style={styles.filterWrap}>
-            <Pressable
-              onPress={() => setShowDivisionMenu(true)}
-              style={[styles.filterButton, selectedDivision && styles.filterButtonActive]}
-            >
-              <Text style={[styles.filterButtonText, selectedDivision && styles.filterButtonTextActive]}>
-                {selectedDivision || "Division"}
-              </Text>
-              <Ionicons name="chevron-down" size={16} color={selectedDivision ? "#ffffff" : "#166534"} />
-            </Pressable>
-
-            <Pressable
-              onPress={() => setShowCategoryMenu(true)}
-              style={[styles.filterButton, selectedCategory !== "all" && styles.filterButtonActive]}
-            >
-              <Text style={[styles.filterButtonText, selectedCategory !== "all" && styles.filterButtonTextActive]}>
-                {selectedCategory === "all" ? "Category" : CATEGORY_FILTERS.find((filter) => filter.key === selectedCategory)?.label || "Category"}
-              </Text>
-              <Ionicons name="chevron-down" size={16} color={selectedCategory !== "all" ? "#ffffff" : "#166534"} />
-            </Pressable>
-          </View>
-        </View>
+      <View style={styles.headerSurface}>
+        {renderListHeader()}
       </View>
 
       <FlatList
         data={filteredItems}
         keyExtractor={(item) => String(item.id)}
         renderItem={renderItem}
+        keyboardShouldPersistTaps="handled"
         numColumns={2}
         columnWrapperStyle={styles.columnWrapper}
         contentContainerStyle={styles.listContent}
@@ -642,103 +1035,18 @@ export default function AvailableItems() {
         ListEmptyComponent={
           <View style={styles.emptyState}>
             <Ionicons name="search-outline" size={44} color="#d1d5db" />
-            <Text style={styles.stateTitle}>No items found</Text>
+            <Text style={styles.stateTitle}>{selectedPerformanceDate ? "No performances scheduled on this date." : "No items found"}</Text>
             <Text style={styles.stateText}>
-              {searchQuery.trim()
-                ? "Try a different search term or category filter."
-                : "There are no available items to show right now."}
+              {selectedPerformanceDate
+                ? "Try another day or clear the filter to see the full list."
+                : searchQuery.trim()
+                  ? "Try a different search term or category filter."
+                  : "There are no available items to show right now."}
             </Text>
           </View>
         }
         showsVerticalScrollIndicator={false}
       />
-
-      <Modal
-        transparent
-        visible={showCategoryMenu}
-        animationType="fade"
-        onRequestClose={() => setShowCategoryMenu(false)}
-      >
-        <Pressable style={styles.dropdownOverlay} onPress={() => setShowCategoryMenu(false)}>
-          <View style={styles.dropdownPanel}>
-            {CATEGORY_FILTERS.map((filter) => {
-              const active = selectedCategory === filter.key;
-
-              return (
-                <Pressable
-                  key={filter.key}
-                  onPress={() => {
-                    setSelectedCategory(filter.key);
-                    setShowCategoryMenu(false);
-                  }}
-                  style={[styles.dropdownOption, active && styles.dropdownOptionActive]}
-                >
-                  <Text style={[styles.dropdownOptionText, active && styles.dropdownOptionTextActive]}>
-                    {filter.label}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-        </Pressable>
-      </Modal>
-
-      <Modal
-        transparent
-        visible={showDivisionMenu}
-        animationType="fade"
-        onRequestClose={() => setShowDivisionMenu(false)}
-      >
-        <Pressable style={styles.dropdownOverlay} onPress={() => setShowDivisionMenu(false)}>
-          <View style={styles.dropdownPanel}>
-            <Pressable
-              onPress={() => {
-                setSelectedDivision(null);
-                setShowDivisionMenu(false);
-              }}
-              style={[styles.dropdownOption, !selectedDivision && styles.dropdownOptionActive]}
-            >
-              <Text style={[styles.dropdownOptionText, !selectedDivision && styles.dropdownOptionTextActive]}>All Divisions</Text>
-            </Pressable>
-
-            {divisions.map((division) => {
-              const active = selectedDivision === division.name;
-
-              return (
-                <Pressable
-                  key={division.id}
-                  onPress={() => {
-                    setSelectedDivision(division.name);
-                    setShowDivisionMenu(false);
-                  }}
-                  style={[styles.dropdownOption, active && styles.dropdownOptionActive]}
-                >
-                  <Text style={[styles.dropdownOptionText, active && styles.dropdownOptionTextActive]}>
-                    {division.name}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-        </Pressable>
-      </Modal>
-
-      {isFlyingToCart ? (
-        <Animated.View
-          pointerEvents="none"
-          style={[
-            styles.flyingCart,
-            {
-              transform: [
-                { translateX: cartFlyAnim.x },
-                { translateY: cartFlyAnim.y },
-              ],
-            },
-          ]}
-        >
-          <Ionicons name="cart-outline" size={22} color="#ffffff" />
-        </Animated.View>
-      ) : null}
 
       <BottomSheetModal
         ref={sheetRef}
@@ -901,22 +1209,124 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#f9fafb",
   },
-  stickyHeader: {
+  headerSurface: {
     zIndex: 20,
-    paddingTop: -2,
-    paddingBottom: 8,
-    paddingHorizontal: 14,
     backgroundColor: "#f9fafb",
+    paddingTop: -2,
+    paddingBottom: 4,
+    paddingHorizontal: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: "#f3f4f6",
+  },
+  listHeaderContainer: {
+    backgroundColor: "#f9fafb",
+    position: "relative",
   },
   listContent: {
     paddingHorizontal: 14,
-    paddingTop: 1,
+    paddingTop: 12,
     paddingBottom: 24,
+  },
+  calendarContainer: {
+    overflow: "hidden",
+    paddingHorizontal: 14,
+    paddingTop: 4,
+  },
+  calendarCard: {
+    width: "108%",
+    alignSelf: "center",
+    backgroundColor: "#ffffff",
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "#e5e7eb",
+    paddingHorizontal: 12,
+    paddingTop: 12,
+    paddingBottom: 0,
+  },
+  calendarHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 8,
+  },
+  calendarNavButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 999,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#f8fafc",
+  },
+  calendarMonthLabel: {
+    fontSize: 14,
+    fontWeight: "800",
+    color: "#111827",
+  },
+  clearFilterButton: {
+    alignSelf: "flex-start",
+    marginBottom: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 999,
+    backgroundColor: "#eff6ff",
+  },
+  clearFilterText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#2563eb",
+  },
+  weekdayRow: {
+    flexDirection: "row",
+    marginBottom: 6,
+  },
+  weekdayText: {
+    flex: 1,
+    textAlign: "center",
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#64748b",
+    textTransform: "uppercase",
+  },
+  calendarGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+  },
+  dayCell: {
+    width: "14.2857%",
+    aspectRatio: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 10,
+    marginVertical: 2,
+  },
+  dayCellMuted: {
+    opacity: 0.45,
+  },
+  dayCellToday: {
+    borderWidth: 1,
+    borderColor: "#bfdbfe",
+    backgroundColor: "#eff6ff",
+  },
+  dayCellSelected: {
+    backgroundColor: "#166534",
+  },
+  dayText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#111827",
+  },
+  dayTextMuted: {
+    color: "#64748b",
+  },
+  dayTextSelected: {
+    color: "#ffffff",
   },
   header: {
     gap: 8,
     marginTop: 2,
     marginBottom: 2,
+    position: "relative",
+    zIndex: 2,
   },
   title: {
     fontSize: 30,
@@ -940,11 +1350,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
     minHeight: 44,
-    shadowColor: "#000000",
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 1,
+    shadowColor: "transparent",
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 0,
   },
   searchInput: {
     flex: 1,
@@ -953,7 +1363,14 @@ const styles = StyleSheet.create({
     paddingVertical: 0,
   },
   filterWrap: {
-    alignItems: "flex-end",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    flexWrap: "wrap",
+    alignSelf: "flex-end", 
+  },
+  filterButtonShell: {
+    alignSelf: "flex-start",
   },
   filterButton: {
     flexDirection: "row",
@@ -961,15 +1378,16 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: 6,
     paddingHorizontal: 12,
-    paddingVertical: 5,
+    paddingVertical: 6,
     borderRadius: 999,
-    backgroundColor: "#f2fdf5",
+    backgroundColor: "#f8fafc",
     borderWidth: 1,
-    borderColor: "#166534",
+    borderColor: "#d1d5db",
     minWidth: 50,
   },
   filterButtonActive: {
     backgroundColor: "#166534",
+    borderColor: "#166534",
   },
   filterButtonText: {
     fontSize: 12,
@@ -980,24 +1398,28 @@ const styles = StyleSheet.create({
     color: "#ffffff",
   },
   dropdownOverlay: {
-    flex: 1,
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     backgroundColor: "rgba(15, 23, 42, 0.16)",
+    zIndex: 10,
   },
   dropdownPanel: {
     position: "absolute",
-    top: 96,
-    right: 14,
     backgroundColor: "#ffffff",
     borderRadius: 12,
     borderWidth: 1,
     borderColor: "#e5e7eb",
     paddingVertical: 6,
-    minWidth: 148,
-    shadowColor: "#000000",
-    shadowOpacity: 0.08,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 4,
+    minWidth: 80,
+    shadowColor: "transparent",
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 0,
+    zIndex: 30,
   },
   dropdownOption: {
     paddingHorizontal: 12,
@@ -1031,6 +1453,11 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 4 },
+    overflow: "hidden",
+  },
+  flyingPreviewImage: {
+    width: "100%",
+    height: "100%",
   },
   columnWrapper: {
     gap: 10,

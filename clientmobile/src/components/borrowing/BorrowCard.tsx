@@ -35,64 +35,83 @@ const BorrowCard = memo(function BorrowCard({
   onPress,
   onReturnPress,
   onViewPhotosPress,
+  highlighted = false,
 }: {
   record: BorrowHistoryRecord;
   onPress: (record: BorrowHistoryRecord) => void;
   onReturnPress?: (record: BorrowHistoryRecord) => void;
   onViewPhotosPress?: (record: BorrowHistoryRecord) => void;
+  highlighted?: boolean;
 }) {
   const firstItem = record.items?.[0];
   const imageUrl = useMemo(() => normalizeImageUrl(firstItem?.image_url || null), [firstItem?.image_url]);
+  const itemName = firstItem?.item_name || firstItem?.name || "Borrow record";
+  const category = firstItem?.category || firstItem?.garment_type || "Item";
+  const quantity = record.items?.length ?? 0;
 
   return (
-    <Pressable onPress={() => onPress(record)} style={styles.card}>
-      <View style={styles.topRow}>
+    <Pressable
+      onPress={() => onPress(record)}
+      style={({ pressed }) => [
+        styles.card,
+        highlighted && styles.cardHighlighted,
+        pressed && styles.cardPressed,
+      ]}
+    >
+      <View style={styles.receiptHeader}>
+        <View style={styles.headerMain}>
+          <Text style={styles.requestId}>Req #{String(record.request_id)}</Text>
+          <Text style={styles.itemName} numberOfLines={2}>
+            {itemName}
+          </Text>
+          <Text style={styles.category} numberOfLines={1}>
+            {category}
+          </Text>
+        </View>
+        <View style={styles.headerBadgeWrap}>
+          <BorrowStatusBadge status={record.status} />
+          {record.is_overdue ? <Text style={styles.overdueText}>Overdue</Text> : null}
+        </View>
+      </View>
+
+      <View style={styles.receiptBody}>
         <View style={styles.imageWrap}>
           {imageUrl ? (
             <Image source={{ uri: imageUrl }} style={styles.image} resizeMode="cover" />
           ) : (
             <View style={styles.imageFallback}>
-              <Ionicons name="cube-outline" size={26} color="#94a3b8" />
+              <Ionicons name="cube-outline" size={24} color="#94a3b8" />
             </View>
           )}
         </View>
 
-        <View style={styles.contentWrap}>
-          <Text style={styles.itemName} numberOfLines={2}>
-            {firstItem?.item_name || firstItem?.name || "Borrow record"}
-          </Text>
-          <Text style={styles.category} numberOfLines={1}>
-            {firstItem?.category || firstItem?.garment_type || "Item"}
-          </Text>
-          <View style={styles.badgeRow}>
-            <BorrowStatusBadge status={record.status} />
-            {record.is_overdue ? <Text style={styles.overdueText}>Overdue</Text> : null}
+        <View style={styles.detailsWrap}>
+          <View style={styles.detailRow}>
+            <Text style={styles.detailLabel}>Borrowed</Text>
+            <Text style={styles.detailValue}>{formatDate(record.request_date || record.created_at)}</Text>
+          </View>
+          <View style={styles.detailRow}>
+            <Text style={styles.detailLabel}>Due</Text>
+            <Text style={styles.detailValue}>{formatDate(record.due_date)}</Text>
+          </View>
+          <View style={styles.detailRow}>
+            <Text style={styles.detailLabel}>Returned</Text>
+            <Text style={styles.detailValue}>{formatDate(record.returned_at)}</Text>
+          </View>
+          <View style={styles.detailRow}>
+            <Text style={styles.detailLabel}>Qty</Text>
+            <Text style={styles.detailValue}>{quantity}</Text>
           </View>
         </View>
       </View>
 
-      <View style={styles.metaGrid}>
-        <View style={styles.metaCell}>
-          <Text style={styles.metaLabel}>Borrowed</Text>
-          <Text style={styles.metaValue}>{formatDate(record.request_date || record.created_at)}</Text>
-        </View>
-        <View style={styles.metaCell}>
-          <Text style={styles.metaLabel}>Due</Text>
-          <Text style={styles.metaValue}>{formatDate(record.due_date)}</Text>
-        </View>
-        <View style={styles.metaCell}>
-          <Text style={styles.metaLabel}>Returned</Text>
-          <Text style={styles.metaValue}>{formatDate(record.returned_at)}</Text>
-        </View>
-      </View>
+      <View style={styles.divider} />
 
-      <View style={styles.unitRow}>
-        <Text style={styles.unitText} numberOfLines={1}>
-          Units: {record.items.length}
-        </Text>
-        <Text style={styles.unitText} numberOfLines={1}>
+      <View style={styles.footerRow}>
+        <Text style={styles.footerText} numberOfLines={1}>
           {record.items.map((item) => item.unit_number || item.unit_id || item.id).filter(Boolean).join(", ") || "No unit details"}
         </Text>
+        <Text style={styles.footerAccent}>Receipt</Text>
       </View>
 
       <View style={styles.actionRow}>
@@ -126,15 +145,59 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 3 },
     elevation: 2,
   },
-  topRow: {
+  cardHighlighted: {
+    borderColor: "#2563eb",
+    backgroundColor: "#eff6ff",
+  },
+  cardPressed: {
+    opacity: 0.92,
+  },
+  receiptHeader: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: 10,
+  },
+  headerMain: {
+    flex: 1,
+    gap: 4,
+  },
+  requestId: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: "#64748b",
+    textTransform: "uppercase",
+    letterSpacing: 0.6,
+  },
+  itemName: {
+    fontSize: 16,
+    fontWeight: "900",
+    color: "#0f172a",
+    lineHeight: 22,
+  },
+  category: {
+    fontSize: 12,
+    color: "#64748b",
+    fontWeight: "700",
+  },
+  headerBadgeWrap: {
+    alignItems: "flex-end",
+    gap: 4,
+  },
+  overdueText: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: "#dc2626",
+  },
+  receiptBody: {
     flexDirection: "row",
     gap: 12,
     alignItems: "center",
   },
   imageWrap: {
-    width: 70,
-    height: 70,
-    borderRadius: 16,
+    width: 72,
+    height: 72,
+    borderRadius: 14,
     overflow: "hidden",
     backgroundColor: "#f8fafc",
   },
@@ -148,63 +211,52 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: "#f8fafc",
   },
-  contentWrap: {
+  detailsWrap: {
     flex: 1,
     gap: 6,
   },
-  itemName: {
-    fontSize: 16,
-    fontWeight: "900",
-    color: "#0f172a",
-  },
-  category: {
-    fontSize: 12,
-    color: "#64748b",
-    fontWeight: "700",
-  },
-  badgeRow: {
+  detailRow: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "space-between",
     gap: 8,
-    flexWrap: "wrap",
   },
-  overdueText: {
+  detailLabel: {
     fontSize: 11,
-    fontWeight: "800",
-    color: "#dc2626",
-  },
-  metaGrid: {
-    flexDirection: "row",
-    gap: 8,
-  },
-  metaCell: {
-    flex: 1,
-    backgroundColor: "#f8fafc",
-    borderRadius: 12,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    borderWidth: 1,
-    borderColor: "#e2e8f0",
-  },
-  metaLabel: {
-    fontSize: 10,
     fontWeight: "800",
     color: "#64748b",
     textTransform: "uppercase",
-    marginBottom: 4,
+    letterSpacing: 0.4,
   },
-  metaValue: {
+  detailValue: {
     fontSize: 12,
     fontWeight: "700",
     color: "#0f172a",
+    flexShrink: 1,
+    textAlign: "right",
   },
-  unitRow: {
-    gap: 4,
+  divider: {
+    height: 1,
+    backgroundColor: "#e2e8f0",
   },
-  unitText: {
+  footerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+  },
+  footerText: {
     fontSize: 12,
-    color: "#475569",
     fontWeight: "700",
+    color: "#475569",
+    flex: 1,
+  },
+  footerAccent: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: "#2563eb",
+    textTransform: "uppercase",
+    letterSpacing: 0.6,
   },
   actionRow: {
     flexDirection: "row",
