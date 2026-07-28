@@ -346,7 +346,7 @@ export default function Register() {
 
                 {/* Google Register */}
                 <a
-                  href={`${import.meta.env.VITE_API_URL || "http://localhost:8000"}/api/auth/google`}
+                  href={`${import.meta.env.VITE_API_URL || window.location.origin}/api/auth/google`}
                   className="w-full px-6 py-3 bg-white/10 hover:bg-white/20 border border-white/30 text-white font-semibold rounded-lg transition-all duration-300 flex items-center justify-center gap-2 text-sm"
                 >
                   <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">

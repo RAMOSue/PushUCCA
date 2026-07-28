@@ -603,7 +603,7 @@ export default function ManageInventory() {
 
   const downloadQRCode = async (qrCodeUrl, name) => {
     try {
-      const apiBase = import.meta.env.VITE_API_URL || "http://localhost:8000";
+      const apiBase = import.meta.env.VITE_API_URL || window.location.origin;
       const resolvedUrl = qrCodeUrl?.startsWith("http")
         ? qrCodeUrl
         : `${apiBase}${qrCodeUrl}`;
@@ -738,7 +738,7 @@ export default function ManageInventory() {
               <div className="space-y-2">
                 {filteredItems.map((item) => {
                   const isExpanded = expandedItems[item.uuid];
-                  const itemImage = item.image_url?.startsWith('http') ? item.image_url : item.image_url ? `${import.meta.env.VITE_API_URL || "http://localhost:8000"}${item.image_url}` : null;
+                  const itemImage = item.image_url?.startsWith('http') ? item.image_url : item.image_url ? `${import.meta.env.VITE_API_URL || window.location.origin}${item.image_url}` : null;
                   const totalQty = item.category === "costume" && item.garment_type?.toLowerCase() !== "accessory"
                     ? (item.qty_small || 0) + (item.qty_medium || 0) + (item.qty_large || 0)
                     : item.quantity || 0;

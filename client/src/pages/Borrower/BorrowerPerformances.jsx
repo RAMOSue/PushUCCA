@@ -680,7 +680,7 @@ export default function BorrowerPerformances() {
                                         <div className="w-8 h-8 flex-shrink-0 rounded-full bg-gray-200 dark:bg-gray-800 flex items-center justify-center overflow-hidden">
                                           {item.image_url ? (
                                             <img
-                                              src={item.image_url?.startsWith('http') ? item.image_url : `${import.meta.env.VITE_API_URL || "http://localhost:8000"}${item.image_url}`}
+                                              src={item.image_url?.startsWith('http') ? item.image_url : `${import.meta.env.VITE_API_URL || window.location.origin}${item.image_url}`}
                                               alt={item.name}
                                               className="w-full h-full object-cover"
                                             />
@@ -861,7 +861,7 @@ export default function BorrowerPerformances() {
                     <div className="w-24 h-24 flex-shrink-0">
                       {selectedItemForCart.image_url ? (
                         <img
-                          src={selectedItemForCart.image_url?.startsWith('http') ? selectedItemForCart.image_url : `${import.meta.env.VITE_API_URL || "http://localhost:8000"}${selectedItemForCart.image_url}`}
+                          src={selectedItemForCart.image_url?.startsWith('http') ? selectedItemForCart.image_url : `${import.meta.env.VITE_API_URL || window.location.origin}${selectedItemForCart.image_url}`}
                           alt={selectedItemForCart.name}
                           className="w-full h-full object-cover rounded-xl"
                         />

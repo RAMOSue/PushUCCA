@@ -8,8 +8,8 @@
 import axios from "axios";
 import tokenManager from "../utils/tokenManager";
 
-// Get API URL from env or default to localhost
-const apiURL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+// Get API URL from env or default to current origin
+const apiURL = import.meta.env.VITE_API_URL || window.location.origin;
 
 // Configure axios globally
 axios.defaults.baseURL = apiURL;

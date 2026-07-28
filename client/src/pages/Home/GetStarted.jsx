@@ -297,7 +297,7 @@ export default function GetStarted() {
 		const fetchSlideImages = async () => {
 			try {
 				setSlideshowLoading(true);
-				const res = await axios.get(`${import.meta.env.VITE_API_URL || "http://localhost:8000"}/api/master-list/slideshow-images`);
+				const res = await axios.get(`${import.meta.env.VITE_API_URL || window.location.origin}/api/master-list/slideshow-images`);
 				const images = Array.isArray(res.data) ? res.data : [];
 				setSlideImages(images.length > 0 ? images : culturalNarratives);
 			} catch (err) {
@@ -457,7 +457,7 @@ export default function GetStarted() {
 		setIsLoading(true);
 		try {
 			const res = await axios.post(
-					`${import.meta.env.VITE_API_URL || "http://localhost:8000"}/api/auth/login`,
+					`${import.meta.env.VITE_API_URL || window.location.origin}/api/auth/login`,
 			);
 
 			if (res.data.error) {
@@ -526,7 +526,7 @@ export default function GetStarted() {
 
 		setIsLoading(true);
 		try {
-			const res = await axios.post(`${import.meta.env.VITE_API_URL || "http://localhost:8000"}/api/auth/register`, {
+			const res = await axios.post(`${import.meta.env.VITE_API_URL || window.location.origin}/api/auth/register`, {
 				name,
 				email: email.toLowerCase().trim(),
 				password,
@@ -1382,7 +1382,7 @@ export default function GetStarted() {
 								</div>
 
 								<a
-									href={`${import.meta.env.VITE_API_URL || "http://localhost:8000"}/api/auth/google`}
+									href={`${import.meta.env.VITE_API_URL || window.location.origin}/api/auth/google`}
 									className="w-full px-6 py-3 bg-gray-100 hover:bg-gray-200 border border-gray-300 text-gray-900 font-semibold rounded-lg transition-all duration-300 flex items-center justify-center gap-2 text-sm"
 								>
 									<svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
@@ -1597,7 +1597,7 @@ export default function GetStarted() {
 								</div>
 
 								<a
-									href={`${import.meta.env.VITE_API_URL || "http://localhost:8000"}/api/auth/google`}
+									href={`${import.meta.env.VITE_API_URL || window.location.origin}/api/auth/google`}
 									className="w-full px-6 py-3 bg-gray-100 hover:bg-gray-200 border border-gray-300 text-gray-900 font-semibold rounded-lg transition-all duration-300 flex items-center justify-center gap-2 text-sm"
 								>
 									<svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">

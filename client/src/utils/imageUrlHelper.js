@@ -20,7 +20,7 @@ export const getFullImageUrl = (imagePath) => {
   }
 
   // Get API base from axios defaults
-  const apiBase = axios.defaults.baseURL || "http://localhost:8000";
+  const apiBase = axios.defaults.baseURL || window.location.origin;
 
   // Ensure path starts with /
   const normalizedPath = imagePath.startsWith("/") ? imagePath : `/${imagePath}`;

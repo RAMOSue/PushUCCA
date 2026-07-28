@@ -52,7 +52,7 @@ export default function ViewBorrowPhotosModal({
       const getFullImageUrl = (path) => {
         if (!path) return "";
         if (path.startsWith("http")) return path;
-        const apiBase = import.meta.env.VITE_API_URL || "http://localhost:8000";
+        const apiBase = import.meta.env.VITE_API_URL || window.location.origin;
         return apiBase + (path.startsWith("/") ? path : "/" + path);
       };
 
@@ -161,7 +161,7 @@ export default function ViewBorrowPhotosModal({
                         const getFullImageUrl = (path) => {
                           if (!path) return "";
                           if (path.startsWith("http")) return path;
-                          const apiBase = import.meta.env.VITE_API_URL || "http://localhost:8000";
+                          const apiBase = import.meta.env.VITE_API_URL || window.location.origin;
                           return apiBase + (path.startsWith("/") ? path : "/" + path);
                         };
                         return getFullImageUrl(selectedPhoto.photo_url);
@@ -180,12 +180,11 @@ export default function ViewBorrowPhotosModal({
                   const getFullImageUrl = (path) => {
                     if (!path) return "";
                     if (path.startsWith("http")) return path;
-                    const apiBase = import.meta.env.VITE_API_URL || "http://localhost:8000";
+                    const apiBase = import.meta.env.VITE_API_URL || window.location.origin;
                     return apiBase + (path.startsWith("/") ? path : "/" + path);
                   };
 
                   const photoUrl = getFullImageUrl(photo.photo_url);
-                    : `${import.meta.env.VITE_API_URL || "http://localhost:8000"}${photo.photo_url}`;
 
                   return (
                     <div

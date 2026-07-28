@@ -504,7 +504,7 @@ export default function BorrowCart() {
                         <div className="w-12 sm:w-14 md:w-16 h-12 sm:h-14 md:h-16 flex-shrink-0 rounded-full overflow-hidden border border-outline-variant/20 dark:border-gray-700">
                           {item.image_url ? (
                             <img
-                              src={item.image_url?.startsWith('http') ? item.image_url : `${import.meta.env.VITE_API_URL || "http://localhost:8000"}${item.image_url}`}
+                              src={item.image_url?.startsWith('http') ? item.image_url : `${import.meta.env.VITE_API_URL || window.location.origin}${item.image_url}`}
                               alt={item.name}
                               className="w-full h-full object-cover"
                             />

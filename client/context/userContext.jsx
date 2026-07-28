@@ -8,7 +8,7 @@ import tokenManager from "../src/utils/tokenManager"; // ✅ Multi-user testing
 export const UserContext = createContext({});
 
 // ✅ Global axios defaults - use environment variable for production
-const apiURL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+const apiURL = import.meta.env.VITE_API_URL || window.location.origin;
 axios.defaults.baseURL = apiURL;
 axios.defaults.withCredentials = true;
 

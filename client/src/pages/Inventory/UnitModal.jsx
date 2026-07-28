@@ -49,7 +49,7 @@ export default function UnitModal({ isOpen, onClose, selectedItem, onUnitDeleted
 
     try {
       const parsedUrl = new URL(qrUrl);
-      const apiBase = import.meta.env.VITE_API_URL || "http://localhost:8000";
+      const apiBase = import.meta.env.VITE_API_URL || window.location.origin;
       const pathname = parsedUrl.pathname.replace(/^\/+/, "");
 
       if (pathname.includes("qr_codes/") || pathname.includes("uploads/")) {

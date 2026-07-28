@@ -65,7 +65,7 @@ import { LoginModalProvider } from "../context/LoginModalContext";
 
 // ✅ Global axios configuration (supports both local and production)
 // Environment variable VITE_API_URL is set in .env.local or Render deployment
-const apiURL = import.meta.env.VITE_API_URL || "http://localhost:8000"
+const apiURL = import.meta.env.VITE_API_URL || window.location.origin
 axios.defaults.baseURL = apiURL
 axios.defaults.withCredentials = true;
 

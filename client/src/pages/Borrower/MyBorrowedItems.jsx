@@ -441,7 +441,7 @@ export default function MyBorrowedItems() {
                       <div className="flex-shrink-0 w-10 sm:w-12 h-10 sm:h-12 rounded-full overflow-hidden border-2 border-primary/30 dark:border-blue-500/30 bg-surface-container-high dark:bg-[#222] shadow-sm">
                         {imageUrl ? (
                           <img
-                            src={imageUrl?.startsWith('http') ? imageUrl : `${import.meta.env.VITE_API_URL || "http://localhost:8000"}${imageUrl}`}
+                            src={imageUrl?.startsWith('http') ? imageUrl : `${import.meta.env.VITE_API_URL || window.location.origin}${imageUrl}`}
                             alt={itemName}
                             className="w-full h-full object-cover"
                           />

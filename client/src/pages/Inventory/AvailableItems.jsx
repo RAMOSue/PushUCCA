@@ -483,7 +483,7 @@ export default function AvailableItems() {
                     <div className="w-16 sm:w-20 md:w-24 h-16 sm:h-20 md:h-24 flex-shrink-0">
                       {selectedItem.image_url ? (
                         <img
-                          src={selectedItem.image_url?.startsWith('http') ? selectedItem.image_url : `${import.meta.env.VITE_API_URL || "http://localhost:8000"}${selectedItem.image_url}`}
+                          src={selectedItem.image_url?.startsWith('http') ? selectedItem.image_url : `${import.meta.env.VITE_API_URL || window.location.origin}${selectedItem.image_url}`}
                           alt={selectedItem.name}
                           className="w-full h-full object-cover rounded-lg sm:rounded-xl"
                         />
