@@ -93,9 +93,54 @@ function buildProfileResponse(profile) {
   };
 }
 
+const PROFILE_COLUMNS = [
+  { name: "date_of_birth", type: "DATE" },
+  { name: "citizenship", type: "VARCHAR(100)" },
+  { name: "religion", type: "VARCHAR(100)" },
+  { name: "marital_status", type: "VARCHAR(50)" },
+  { name: "college", type: "VARCHAR(255)" },
+  { name: "program", type: "VARCHAR(255)" },
+  { name: "current_address", type: "TEXT" },
+  { name: "height", type: "NUMERIC(5,2)" },
+  { name: "weight", type: "NUMERIC(5,2)" },
+  { name: "eye_color", type: "VARCHAR(50)" },
+  { name: "mother_full_name", type: "VARCHAR(255)" },
+  { name: "mother_birthday", type: "DATE" },
+  { name: "father_full_name", type: "VARCHAR(255)" },
+  { name: "father_birthday", type: "DATE" },
+  { name: "emergency_contact_name", type: "VARCHAR(255)" },
+  { name: "emergency_contact_mobile", type: "VARCHAR(50)" },
+  { name: "emergency_contact_relationship", type: "VARCHAR(100)" },
+  { name: "emergency_contact_occupation", type: "VARCHAR(100)" },
+];
+
+async function ensureUserProfileColumns() {
+  try {
+    const { rows } = await pool.query(`
+      SELECT column_name
+      FROM information_schema.columns
+      WHERE table_schema = 'public' AND table_name = 'user_profiles';
+    `);
+
+    const existingColumns = new Set(rows.map((row) => row.column_name));
+    const missingColumns = PROFILE_COLUMNS.filter((column) => !existingColumns.has(column.name));
+
+    if (missingColumns.length === 0) return;
+
+    const statements = missingColumns.map(
+      (column) => `ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS ${column.name} ${column.type}`
+    );
+
+    await pool.query(statements.join("; "));
+  } catch (err) {
+    console.warn("⚠️ Could not ensure profile columns exist:", err.message);
+  }
+}
+
 // Helper: Backwards-compatible profile query
 // Tries to include division info, falls back if column doesn't exist
 async function getProfileWithDivision(userId) {
+  await ensureUserProfileColumns();
   try {
     // Try the new query with division_id
     const qWithDivision = `
@@ -139,6 +184,7 @@ async function getProfileWithDivision(userId) {
 
 // Helper: Get all profiles with division info (backwards compatible)
 async function getAllProfilesWithDivisions() {
+  await ensureUserProfileColumns();
   try {
     const qWithDivision = `
       SELECT u.id, u.name, u.email, u.phone, u.role, u.division_id,
@@ -379,6 +425,8 @@ exports.updateProfileInfo = async (req, res) => {
       const updateQuery = `UPDATE users SET ${userUpdates.join(", ")} WHERE id = $${paramCount}`;
       await pool.query(updateQuery, userValues);
     }
+
+    await ensureUserProfileColumns();
 
     const profileUpdates = [];
     const profileValues = [];
