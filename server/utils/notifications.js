@@ -12,16 +12,23 @@ const NotificationTypes = {
     RETURN_REQUEST: 'return_request'
 };
 
-const SERVER_URL = process.env.SERVER_URL || 'http://localhost:8000';
+const isProd = process.env.NODE_ENV === 'production';
+const SERVER_URL = process.env.SERVER_URL || (isProd ? '' : 'http://localhost:8000');
 
 function toFullUrl(filePath) {
     if (!filePath) return null;
     if (typeof filePath !== 'string') return null;
-    if (filePath.startsWith('http')) return filePath;
+    if (/^https?:\/\//i.test(filePath)) {
+        return isProd ? filePath.replace(/^http:\/\//i, 'https://') : filePath;
+    }
     if (!filePath.startsWith('/')) {
         filePath = `/${filePath}`;
     }
-    return `${SERVER_URL}${filePath}`;
+    if (SERVER_URL) {
+        const base = isProd ? SERVER_URL.replace(/^http:\/\//i, 'https://') : SERVER_URL;
+        return `${base}${filePath}`;
+    }
+    return filePath;
 }
 
 async function getNotificationActorMeta(actorUserId) {

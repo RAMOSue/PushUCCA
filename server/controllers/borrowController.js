@@ -8,13 +8,21 @@ const notificationController = require("../controllers/notificationController");
 const path = require("path");
 const fs = require("fs");
 
-// ✅ Backend server URL (set in .env, defaults to port 8000 in dev)
-// In production, this should be your Render backend URL
-const SERVER_URL = process.env.SERVER_URL || "http://localhost:8000";
+// Backend server URL (set in .env). In production, ensure SERVER_URL is the full https:// URL.
+const isProd = process.env.NODE_ENV === "production";
+const SERVER_URL = process.env.SERVER_URL || (isProd ? "" : "http://localhost:8000");
 
-// Helper: convert relative path to full URL
+// Helper: convert relative or absolute path to full URL
 function toFullUrl(filePath) {
-  return filePath ? `${SERVER_URL}${filePath}` : null;
+  if (!filePath) return null;
+  if (/^https?:\/\//i.test(filePath)) {
+    return isProd ? filePath.replace(/^http:\/\//i, "https://") : filePath;
+  }
+  if (SERVER_URL) {
+    const base = isProd ? SERVER_URL.replace(/^http:\/\//i, "https://") : SERVER_URL;
+    return base + filePath;
+  }
+  return filePath;
 }
 
 // Helper: transform image_url to proper full URL
@@ -35,9 +43,23 @@ function transformImageUrl(imageUrl) {
 /*
  * ------------------------------------------------------------
  * BORROW CONTROLLER
+const isProd = process.env.NODE_ENV === "production";
+const SERVER_URL = process.env.SERVER_URL || (isProd ? "" : "http://localhost:8000");
+
  * ------------------------------------------------------------
  * Current model: borrowing_requests (group) + borrowing_items (line items)
- * Inventory is tracked in inventory_items.quantity (aggregate count) and inventory_units for unit-specific tracking.
+  // Helper to convert paths to full URLs, preserving absolute URLs and upgrading to https in prod
+  function toFullUrl(filePath) {
+    if (!filePath) return null;
+    if (/^https?:\/\//i.test(filePath)) {
+      return isProd ? filePath.replace(/^http:\/\//i, "https://") : filePath;
+    }
+    if (SERVER_URL) {
+      const base = isProd ? SERVER_URL.replace(/^http:\/\//i, "https://") : SERVER_URL;
+      return base + filePath;
+    }
+    return filePath;
+  }
  *
  * Status lifecycle (current DB enum extended to include pending_return):
  *   pending -> approved -> pending_return -> returned

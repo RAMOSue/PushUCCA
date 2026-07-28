@@ -6,12 +6,21 @@ const fs = require("fs");
 const multer = require("multer"); // npm install multer
 const { v4: uuidv4 } = require("uuid");
 
-// Backend base URL (set in .env, defaults to port 8000 in dev)
-const BASE_URL = process.env.BASE_URL || "http://localhost:8000";
+// Backend base URL (set in .env). In production, ensure BASE_URL is the full https:// URL.
+const isProd = process.env.NODE_ENV === 'production';
+const BASE_URL = process.env.BASE_URL || (isProd ? '' : 'http://localhost:8000');
 
-// Helper: convert relative path to full URL
+// Helper: convert relative or absolute path to full URL
 function toFullUrl(filePath) {
-  return filePath ? `${BASE_URL}${filePath}` : null;
+  if (!filePath) return null;
+  if (/^https?:\/\//i.test(filePath)) {
+    return isProd ? filePath.replace(/^http:\/\//i, 'https://') : filePath;
+  }
+  if (BASE_URL) {
+    const base = isProd ? BASE_URL.replace(/^http:\/\//i, 'https://') : BASE_URL;
+    return base + filePath;
+  }
+  return filePath;
 }
 
 function buildPublicUrl(req, relativePath) {

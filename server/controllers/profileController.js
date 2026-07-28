@@ -4,9 +4,9 @@ const path = require("path");
 const fs = require("fs");
 const { verifySchoolID } = require("../services/schoolIDDetectionService");
 
-// ✅ Backend server URL (set in .env, defaults to port 8000 in dev)
-// In production, this should be your Render backend URL
-const SERVER_URL = process.env.SERVER_URL || "http://localhost:8000";
+// Backend server URL (set in .env). In production, ensure SERVER_URL is the full https:// URL.
+const isProd = process.env.NODE_ENV === "production";
+const SERVER_URL = process.env.SERVER_URL || (isProd ? "" : "http://localhost:8000");
 
 // Ensure uploads directory exists
 const UPLOAD_DIR = path.join(__dirname, "..", "public", "uploads", "profiles");
@@ -37,9 +37,21 @@ const upload = multer({
   limits: { fileSize: 5 * 1024 * 1024 }, // 5MB max
 });
 
-// Helper: convert relative path to full URL
+// Helper: convert relative or absolute path to full URL
 function toFullUrl(filePath) {
-  return filePath ? `${SERVER_URL}${filePath}` : null;
+  if (!filePath) return null;
+  // If already an absolute URL, return as-is but upgrade to https in prod
+  if (/^https?:\/\//i.test(filePath)) {
+    if (isProd) return filePath.replace(/^http:\/\//i, "https://");
+    return filePath;
+  }
+  // If SERVER_URL is configured, prefix it. In prod, ensure https.
+  if (SERVER_URL) {
+    const base = isProd ? SERVER_URL.replace(/^http:\/\//i, "https://") : SERVER_URL;
+    return base + filePath;
+  }
+  // Fallback: return relative path (will be served from the same origin as the frontend)
+  return filePath;
 }
 
 // Helper: Backwards-compatible profile query
