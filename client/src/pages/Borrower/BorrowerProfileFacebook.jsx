@@ -40,7 +40,8 @@ export default function BorrowerProfileFacebook() {
 
   // ===== FETCH DATA =====
   useEffect(() => {
-    if (user?.id) {
+    const init = async () => {
+      if (!user?.id) return;
       // ✅ Use user data from context initially
       setProfile(user);
       setPreviewUrl(user.profile_pic_url || "");
@@ -48,8 +49,10 @@ export default function BorrowerProfileFacebook() {
       setTempPhone(user.phone || "");
       setTempDivision(user.division_id || null);
       // Still fetch divisions
-      fetchDivisions();
-    }
+      await fetchDivisions();
+      setLoading(false);
+    };
+    init();
   }, [user]);
 
   const fetchDivisions = async () => {
