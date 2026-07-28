@@ -50,26 +50,7 @@ export default function BorrowerProfileFacebook() {
       setTempName(profileData.name || "");
       setTempPhone(profileData.phone || "");
       setTempDivision(profileData.division_id || null);
-      setTempProfile({
-        date_of_birth: profileData.date_of_birth || "",
-        citizenship: profileData.citizenship || "",
-        religion: profileData.religion || "",
-        marital_status: profileData.marital_status || "",
-        college: profileData.college || "",
-        program: profileData.program || "",
-        current_address: profileData.current_address || "",
-        height: profileData.height || "",
-        weight: profileData.weight || "",
-        eye_color: profileData.eye_color || "",
-        mother_full_name: profileData.mother_full_name || "",
-        mother_birthday: profileData.mother_birthday || "",
-        father_full_name: profileData.father_full_name || "",
-        father_birthday: profileData.father_birthday || "",
-        emergency_contact_name: profileData.emergency_contact_name || "",
-        emergency_contact_mobile: profileData.emergency_contact_mobile || "",
-        emergency_contact_relationship: profileData.emergency_contact_relationship || "",
-        emergency_contact_occupation: profileData.emergency_contact_occupation || "",
-      });
+      setTempProfile(buildTempProfile(profileData));
     } catch (err) {
       console.error("Failed to fetch profile", err);
     }
@@ -84,26 +65,7 @@ export default function BorrowerProfileFacebook() {
       setTempName(user.name || "");
       setTempPhone(user.phone || "");
       setTempDivision(user.division_id || null);
-      setTempProfile({
-        date_of_birth: user.date_of_birth || "",
-        citizenship: user.citizenship || "",
-        religion: user.religion || "",
-        marital_status: user.marital_status || "",
-        college: user.college || "",
-        program: user.program || "",
-        current_address: user.current_address || "",
-        height: user.height || "",
-        weight: user.weight || "",
-        eye_color: user.eye_color || "",
-        mother_full_name: user.mother_full_name || "",
-        mother_birthday: user.mother_birthday || "",
-        father_full_name: user.father_full_name || "",
-        father_birthday: user.father_birthday || "",
-        emergency_contact_name: user.emergency_contact_name || "",
-        emergency_contact_mobile: user.emergency_contact_mobile || "",
-        emergency_contact_relationship: user.emergency_contact_relationship || "",
-        emergency_contact_occupation: user.emergency_contact_occupation || "",
-      });
+      setTempProfile(buildTempProfile(user));
       await fetchProfile();
       await fetchDivisions();
       setLoading(false);
@@ -217,7 +179,9 @@ export default function BorrowerProfileFacebook() {
   const saveExtendedProfile = async () => {
     try {
       const { data } = await axios.patch("/api/profiles/me", tempProfile, { withCredentials: true });
-      setProfile(data.profile || data);
+      const savedProfile = data.profile || data;
+      setProfile(savedProfile);
+      setTempProfile(buildTempProfile(savedProfile));
       setEditingProfile(false);
       toast.success("Profile updated");
     } catch (err) {
@@ -274,6 +238,27 @@ export default function BorrowerProfileFacebook() {
     const division = divisions.find(d => d.id === tempDivision);
     return division?.name || "Not assigned";
   };
+
+  const buildTempProfile = (profileData) => ({
+    date_of_birth: profileData?.date_of_birth || "",
+    citizenship: profileData?.citizenship || "",
+    religion: profileData?.religion || "",
+    marital_status: profileData?.marital_status || "",
+    college: profileData?.college || "",
+    program: profileData?.program || "",
+    current_address: profileData?.current_address || "",
+    height: profileData?.height || "",
+    weight: profileData?.weight || "",
+    eye_color: profileData?.eye_color || "",
+    mother_full_name: profileData?.mother_full_name || "",
+    mother_birthday: profileData?.mother_birthday || "",
+    father_full_name: profileData?.father_full_name || "",
+    father_birthday: profileData?.father_birthday || "",
+    emergency_contact_name: profileData?.emergency_contact_name || "",
+    emergency_contact_mobile: profileData?.emergency_contact_mobile || "",
+    emergency_contact_relationship: profileData?.emergency_contact_relationship || "",
+    emergency_contact_occupation: profileData?.emergency_contact_occupation || "",
+  });
 
   const profileSections = [
     {
@@ -335,6 +320,10 @@ export default function BorrowerProfileFacebook() {
     const url = profile?.[`${fieldName}_url`];
     return url ? "uploaded" : "missing";
   };
+
+  const extendedProfileFields = profileSections
+    .flatMap((section) => section.fields)
+    .filter(({ key }) => !["name", "email", "phone", "division_id", "role"].includes(key));
 
   const getUploadedCount = () => {
     const docs = ["birth_certificate", "class_schedule", "id_front", "id_back"];
@@ -606,6 +595,39 @@ export default function BorrowerProfileFacebook() {
                   )}
                 </div>
 
+                <div className="px-4 py-3 border-b border-gray-100">
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="text-xs text-gray-500 uppercase tracking-wide mb-1 font-semibold">More Details</p>
+                    <div className="flex gap-2">
+                      {editingProfile ? (
+                        <>
+                          <button onClick={saveExtendedProfile} className="px-2 py-1 text-xs bg-emerald-600 text-white rounded">Save</button>
+                          <button onClick={() => { setEditingProfile(false); setTempProfile(buildTempProfile(profile)); }} className="px-2 py-1 text-xs border border-gray-300 rounded">Cancel</button>
+                        </>
+                      ) : (
+                        <button onClick={() => setEditingProfile(true)} className="px-2 py-1 text-xs border border-gray-300 rounded">Edit</button>
+                      )}
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    {extendedProfileFields.map(({ label, key }) => (
+                      <div key={key} className="rounded-lg bg-gray-50 p-2.5">
+                        <p className="text-[10px] uppercase tracking-wide text-gray-500">{label}</p>
+                        {editingProfile ? (
+                          <input
+                            type={key.includes("birthday") || key === "date_of_birth" ? "date" : "text"}
+                            value={tempProfile?.[key] ?? ""}
+                            onChange={(e) => setTempProfile((prev) => ({ ...prev, [key]: e.target.value }))}
+                            className="mt-1 w-full px-2 py-1 text-xs border border-gray-300 rounded"
+                          />
+                        ) : (
+                          <p className="text-xs text-gray-900">{profile?.[key] || "Not provided"}</p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
                 {/* Documents Summary Row */}
                 <div 
                   onClick={() => setActiveTab("documents")}
@@ -704,6 +726,58 @@ export default function BorrowerProfileFacebook() {
                       </p>
                     )}
                   </div>
+                </div>
+              </div>
+
+              <div className="hidden sm:block mt-6 bg-white rounded-lg border border-gray-200 p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="font-semibold text-sm text-gray-900">Additional Profile Details</h3>
+                  <div className="flex gap-2">
+                    {editingProfile ? (
+                      <>
+                        <button
+                          onClick={saveExtendedProfile}
+                          className="px-3 py-1.5 text-xs bg-emerald-600 text-white rounded hover:bg-emerald-700"
+                        >
+                          Save
+                        </button>
+                        <button
+                          onClick={() => {
+                            setEditingProfile(false);
+                            setTempProfile(buildTempProfile(profile));
+                          }}
+                          className="px-3 py-1.5 text-xs border border-gray-300 rounded hover:bg-gray-50"
+                        >
+                          Cancel
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        onClick={() => setEditingProfile(true)}
+                        className="px-3 py-1.5 text-xs border border-gray-300 rounded hover:bg-gray-50"
+                      >
+                        Edit
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {extendedProfileFields.map(({ label, key }) => (
+                    <div key={key} className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+                      <p className="text-[11px] uppercase tracking-wide text-gray-500 mb-1">{label}</p>
+                      {editingProfile ? (
+                        <input
+                          type={key.includes("birthday") || key === "date_of_birth" ? "date" : "text"}
+                          value={tempProfile?.[key] ?? ""}
+                          onChange={(e) => setTempProfile((prev) => ({ ...prev, [key]: e.target.value }))}
+                          className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-emerald-500"
+                        />
+                      ) : (
+                        <p className="text-sm text-gray-900">{profile?.[key] || "Not provided"}</p>
+                      )}
+                    </div>
+                  ))}
                 </div>
               </div>
 

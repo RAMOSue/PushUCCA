@@ -48,26 +48,7 @@ export default function StaffAdminProfileFacebook() {
       setTempName(profileData.name || "");
       setTempPhone(profileData.phone || "");
       setTempDivision(profileData.division_id || null);
-      setTempProfile({
-        date_of_birth: profileData.date_of_birth || "",
-        citizenship: profileData.citizenship || "",
-        religion: profileData.religion || "",
-        marital_status: profileData.marital_status || "",
-        college: profileData.college || "",
-        program: profileData.program || "",
-        current_address: profileData.current_address || "",
-        height: profileData.height || "",
-        weight: profileData.weight || "",
-        eye_color: profileData.eye_color || "",
-        mother_full_name: profileData.mother_full_name || "",
-        mother_birthday: profileData.mother_birthday || "",
-        father_full_name: profileData.father_full_name || "",
-        father_birthday: profileData.father_birthday || "",
-        emergency_contact_name: profileData.emergency_contact_name || "",
-        emergency_contact_mobile: profileData.emergency_contact_mobile || "",
-        emergency_contact_relationship: profileData.emergency_contact_relationship || "",
-        emergency_contact_occupation: profileData.emergency_contact_occupation || "",
-      });
+      setTempProfile(buildTempProfile(profileData));
     } catch (err) {
       console.error("Failed to fetch profile", err);
     }
@@ -82,26 +63,7 @@ export default function StaffAdminProfileFacebook() {
       setTempName(user.name || "");
       setTempPhone(user.phone || "");
       setTempDivision(user.division_id || null);
-      setTempProfile({
-        date_of_birth: user.date_of_birth || "",
-        citizenship: user.citizenship || "",
-        religion: user.religion || "",
-        marital_status: user.marital_status || "",
-        college: user.college || "",
-        program: user.program || "",
-        current_address: user.current_address || "",
-        height: user.height || "",
-        weight: user.weight || "",
-        eye_color: user.eye_color || "",
-        mother_full_name: user.mother_full_name || "",
-        mother_birthday: user.mother_birthday || "",
-        father_full_name: user.father_full_name || "",
-        father_birthday: user.father_birthday || "",
-        emergency_contact_name: user.emergency_contact_name || "",
-        emergency_contact_mobile: user.emergency_contact_mobile || "",
-        emergency_contact_relationship: user.emergency_contact_relationship || "",
-        emergency_contact_occupation: user.emergency_contact_occupation || "",
-      });
+      setTempProfile(buildTempProfile(user));
       await fetchProfile();
       await fetchDivisions();
       setLoading(false);
@@ -215,7 +177,9 @@ export default function StaffAdminProfileFacebook() {
   const saveExtendedProfile = async () => {
     try {
       const { data } = await axios.patch("/api/profiles/me", tempProfile, { withCredentials: true });
-      setProfile(data.profile || data);
+      const savedProfile = data.profile || data;
+      setProfile(savedProfile);
+      setTempProfile(buildTempProfile(savedProfile));
       setEditingProfile(false);
       toast.success("Profile updated");
     } catch (err) {
@@ -261,6 +225,27 @@ export default function StaffAdminProfileFacebook() {
     const division = divisions.find(d => d.id === tempDivision);
     return division?.name || "Not assigned";
   };
+
+  const buildTempProfile = (profileData) => ({
+    date_of_birth: profileData?.date_of_birth || "",
+    citizenship: profileData?.citizenship || "",
+    religion: profileData?.religion || "",
+    marital_status: profileData?.marital_status || "",
+    college: profileData?.college || "",
+    program: profileData?.program || "",
+    current_address: profileData?.current_address || "",
+    height: profileData?.height || "",
+    weight: profileData?.weight || "",
+    eye_color: profileData?.eye_color || "",
+    mother_full_name: profileData?.mother_full_name || "",
+    mother_birthday: profileData?.mother_birthday || "",
+    father_full_name: profileData?.father_full_name || "",
+    father_birthday: profileData?.father_birthday || "",
+    emergency_contact_name: profileData?.emergency_contact_name || "",
+    emergency_contact_mobile: profileData?.emergency_contact_mobile || "",
+    emergency_contact_relationship: profileData?.emergency_contact_relationship || "",
+    emergency_contact_occupation: profileData?.emergency_contact_occupation || "",
+  });
 
   const profileSections = [
     {
@@ -322,6 +307,10 @@ export default function StaffAdminProfileFacebook() {
     const url = profile?.[`${fieldName}_url`];
     return url ? "uploaded" : "missing";
   };
+
+  const extendedProfileFields = profileSections
+    .flatMap((section) => section.fields)
+    .filter(({ key }) => !["name", "email", "phone", "division_id", "role"].includes(key));
 
   // ===== RENDER =====
   if (loading) {
@@ -530,6 +519,39 @@ export default function StaffAdminProfileFacebook() {
                         </p>
                       )}
                     </div>
+                  </div>
+                </div>
+
+                <div className="mt-6 bg-white dark:bg-[#1a1a1a] rounded-lg border border-gray-200 dark:border-gray-700 p-6 transition-colors">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="font-semibold text-gray-900 dark:text-white">Additional Profile Details</h3>
+                    <div className="flex gap-2">
+                      {editingProfile ? (
+                        <>
+                          <button onClick={saveExtendedProfile} className="px-3 py-1.5 text-sm bg-emerald-600 text-white rounded hover:bg-emerald-700">Save</button>
+                          <button onClick={() => { setEditingProfile(false); setTempProfile(buildTempProfile(profile)); }} className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-[#222]">Cancel</button>
+                        </>
+                      ) : (
+                        <button onClick={() => setEditingProfile(true)} className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-[#222]">Edit</button>
+                      )}
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {extendedProfileFields.map(({ label, key }) => (
+                      <div key={key} className="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#252525] p-3">
+                        <p className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">{label}</p>
+                        {editingProfile ? (
+                          <input
+                            type={key.includes("birthday") || key === "date_of_birth" ? "date" : "text"}
+                            value={tempProfile?.[key] ?? ""}
+                            onChange={(e) => setTempProfile((prev) => ({ ...prev, [key]: e.target.value }))}
+                            className="w-full px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-[#333] text-gray-900 dark:text-white"
+                          />
+                        ) : (
+                          <p className="text-sm text-gray-900 dark:text-white">{profile?.[key] || "Not provided"}</p>
+                        )}
+                      </div>
+                    ))}
                   </div>
                 </div>
 
