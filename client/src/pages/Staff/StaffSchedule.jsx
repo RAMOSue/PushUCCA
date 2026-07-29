@@ -812,16 +812,7 @@ export default function StaffSchedule() {
               })}
             </div>
 
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={openNewForm}
-                className="flex items-center gap-2 rounded-lg border border-outline-variant/20 bg-surface-container-low px-3 py-2 text-sm font-medium text-on-surface transition hover:bg-surface-container-high dark:border-gray-700 dark:bg-[#222] dark:text-white"
-              >
-                <Plus className="h-4 w-4" />
-                New Schedule
-              </button>
-            </div>
+           
           </div>
         </div>
 
@@ -937,27 +928,7 @@ export default function StaffSchedule() {
                 })}
               </div>
 
-              <div className="mt-6 pt-4 border-t border-outline-variant/20 dark:border-gray-700">
-                <p className="text-xs font-semibold text-on-surface-variant dark:text-gray-400 uppercase tracking-wider mb-3">Legend</p>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded bg-pink-100 dark:bg-pink-900/40 border border-pink-300 dark:border-pink-600"></div>
-                    <span className="text-xs text-on-surface-variant dark:text-gray-400">Costume</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded bg-blue-100 dark:bg-blue-900/40 border border-blue-300 dark:border-blue-600"></div>
-                    <span className="text-xs text-on-surface-variant dark:text-gray-400">Instrument</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded bg-purple-100 dark:bg-purple-900/40 border border-purple-300 dark:border-purple-600"></div>
-                    <span className="text-xs text-on-surface-variant dark:text-gray-400">Both</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600"></div>
-                    <span className="text-xs text-on-surface-variant dark:text-gray-400">Empty</span>
-                  </div>
-                </div>
-              </div>
+              
             </div>
 
             <div className="rounded-lg border border-outline-variant/20 bg-surface-container-low p-4 shadow-sm dark:border-gray-700 dark:bg-[#222]">
