@@ -1182,32 +1182,7 @@ export default function StaffSchedule() {
                     />
                   </div>
 
-                  <div>
-                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-2">Division</label>
-                    <div className="flex flex-wrap gap-2">
-                      {divisions.map((division) => {
-                        const isSelected = form.selectedDivisionIds.includes(division.id);
-                        return (
-                          <button
-                            key={division.id}
-                            type="button"
-                            onClick={() => {
-                              setForm((previous) => ({
-                                ...previous,
-                                selectedDivisionIds: isSelected
-                                  ? previous.selectedDivisionIds.filter((id) => id !== division.id)
-                                  : [...previous.selectedDivisionIds, division.id],
-                              }));
-                            }}
-                            className={`rounded-full px-3 py-2 text-sm font-medium transition-all ${isSelected ? 'bg-primary text-white dark:bg-blue-600' : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-[#2a2a2a] dark:text-gray-300 dark:hover:bg-[#333]'}`}
-                          >
-                            {division.name}
-                          </button>
-                        );
-                      })}
-                    </div>
-                    <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">Choose one or more divisions for this performance.</p>
-                  </div>
+                
 
                   <div>
                     <label className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-2">Date *</label>
