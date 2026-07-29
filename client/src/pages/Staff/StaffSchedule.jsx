@@ -903,15 +903,7 @@ export default function StaffSchedule() {
                   </button>
                 </div>
 
-                <div className="mb-3 flex items-center justify-end">
-                  <button
-                    onClick={goToToday}
-                    className="px-4 py-2 bg-primary/20 dark:bg-blue-900/40 text-primary dark:text-blue-300 rounded-lg hover:bg-primary/30 dark:hover:bg-blue-900/60 transition font-medium text-sm"
-                  >
-                    Today
-                  </button>
-                </div>
-
+               
                 <div className="grid grid-cols-7 gap-1 mb-3">
                 {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
                   <div key={day} className="text-center text-xs font-bold text-on-surface-variant dark:text-gray-400 uppercase tracking-wider py-2">
