@@ -84,11 +84,18 @@ export default function StaffSchedule() {
   const [selectedPerformanceView, setSelectedPerformanceView] = useState('All');
   const [transitionDirection, setTransitionDirection] = useState('left');
   const [divisions, setDivisions] = useState([]);
-  const [selectedDivisionIds, setSelectedDivisionIds] = useState([]);
-
-  // ✅ NEW: Calendar view state
-  const [calendarDate, setCalendarDate] = useState(new Date());
-  const [selectedCalendarDay, setSelectedCalendarDay] = useState(null);
+  const [calendarViewState, setCalendarViewState] = useState(() => ({
+    All: new Date(),
+    Dulimbay: new Date(),
+    Budjong: new Date(),
+    Kayam: new Date(),
+  }));
+  const [selectedCalendarDayByView, setSelectedCalendarDayByView] = useState(() => ({
+    All: null,
+    Dulimbay: null,
+    Budjong: null,
+    Kayam: null,
+  }));
   
   // ✅ NEW: Performance detail modal state
   const [selectedPerformanceForDetail, setSelectedPerformanceForDetail] = useState(null);
@@ -129,30 +136,35 @@ export default function StaffSchedule() {
     }
   };
 
+  const currentCalendarDate = calendarViewState[selectedPerformanceView] || new Date();
+  const selectedCalendarDay = selectedCalendarDayByView[selectedPerformanceView] ?? null;
+
+  const getViewPerformances = () => {
+    if (selectedPerformanceView === 'All') {
+      return performances;
+    }
+
+    const selectedDivisionName = selectedPerformanceView.toLowerCase();
+    return performances.filter((performance) => {
+      const assignedDivisions = Array.isArray(performance.performance_divisions)
+        ? performance.performance_divisions.map((division) => (division?.name || '').toLowerCase())
+        : [];
+      return assignedDivisions.includes(selectedDivisionName);
+    });
+  };
+
   // Group performances by date whenever performances change or search updates
   useEffect(() => {
-    let filtered = performances;
-    
-    // Filter by calendar month - only show performances in currently displayed month
+    let filtered = getViewPerformances();
+
     filtered = filtered.filter((p) => {
       const perfDate = new Date(p.start_time);
       return (
-        perfDate.getMonth() === calendarDate.getMonth() &&
-        perfDate.getFullYear() === calendarDate.getFullYear()
+        perfDate.getMonth() === currentCalendarDate.getMonth() &&
+        perfDate.getFullYear() === currentCalendarDate.getFullYear()
       );
     });
-    
-    if (selectedPerformanceView !== 'All') {
-      const selectedDivisionName = selectedPerformanceView.toLowerCase();
-      filtered = filtered.filter((performance) => {
-        const assignedDivisions = Array.isArray(performance.performance_divisions)
-          ? performance.performance_divisions.map((division) => (division?.name || '').toLowerCase())
-          : [];
-        return assignedDivisions.includes(selectedDivisionName);
-      });
-    }
 
-    // Filter by search query
     if (searchQuery.trim()) {
       const searchLower = searchQuery.toLowerCase();
       filtered = filtered.filter((p) =>
@@ -161,22 +173,20 @@ export default function StaffSchedule() {
         (p.location || '').toLowerCase().includes(searchLower)
       );
     }
-    
-    // Group by date
+
     const groups = {};
     for (const p of filtered) {
       const day = new Date(p.start_time).toDateString();
       if (!groups[day]) groups[day] = [];
       groups[day].push(p);
     }
-    
-    // Sort by date descending
+
     const arr = Object.entries(groups)
       .map(([day, perfs]) => ({ day, performances: perfs }))
       .sort((a, b) => new Date(b.day) - new Date(a.day));
-    
+
     setGroupedPerformances(arr);
-  }, [performances, searchQuery, calendarDate, selectedPerformanceView]);
+  }, [performances, searchQuery, currentCalendarDate, selectedPerformanceView]);
 
   async function fetchPerformances() {
     try {
@@ -301,6 +311,10 @@ export default function StaffSchedule() {
   const openNewForm = () => {
     setEditing(null);
     setFormStep(0);
+    const defaultDivisionIds = selectedPerformanceView === 'All'
+      ? []
+      : divisions.filter((division) => division.name === selectedPerformanceView).map((division) => division.id);
+
     setForm({
       title: '',
       location: '',
@@ -309,7 +323,7 @@ export default function StaffSchedule() {
       end_time: '10:00',
       selectedBorrowerIds: [],
       selectedItemIds: [],
-      selectedDivisionIds: []
+      selectedDivisionIds: defaultDivisionIds
     });
     setItemSearch('');
     setSelectedPerformerDivision('All'); // ✅ NEW: Reset division filter
@@ -616,8 +630,8 @@ export default function StaffSchedule() {
 
   const getPerformancesForDay = (day) => {
     if (!day) return [];
-    const dayString = new Date(calendarDate.getFullYear(), calendarDate.getMonth(), day).toDateString();
-    return performances.filter(p => new Date(p.start_time).toDateString() === dayString);
+    const dayString = new Date(currentCalendarDate.getFullYear(), currentCalendarDate.getMonth(), day).toDateString();
+    return getViewPerformances().filter((p) => new Date(p.start_time).toDateString() === dayString);
   };
 
   const getCategoryColor = (performance) => {
@@ -644,37 +658,45 @@ export default function StaffSchedule() {
   };
 
   const previousMonth = () => {
-    setCalendarDate(new Date(calendarDate.getFullYear(), calendarDate.getMonth() - 1));
+    setCalendarViewState((prev) => ({
+      ...prev,
+      [selectedPerformanceView]: new Date(currentCalendarDate.getFullYear(), currentCalendarDate.getMonth() - 1),
+    }));
   };
 
   const nextMonth = () => {
-    setCalendarDate(new Date(calendarDate.getFullYear(), calendarDate.getMonth() + 1));
+    setCalendarViewState((prev) => ({
+      ...prev,
+      [selectedPerformanceView]: new Date(currentCalendarDate.getFullYear(), currentCalendarDate.getMonth() + 1),
+    }));
   };
 
   const goToToday = () => {
-    setCalendarDate(new Date());
+    setCalendarViewState((prev) => ({
+      ...prev,
+      [selectedPerformanceView]: new Date(),
+    }));
   };
 
   const isToday = (day) => {
     const today = new Date();
     return (
       day === today.getDate() &&
-      calendarDate.getMonth() === today.getMonth() &&
-      calendarDate.getFullYear() === today.getFullYear()
+      currentCalendarDate.getMonth() === today.getMonth() &&
+      currentCalendarDate.getFullYear() === today.getFullYear()
     );
   };
 
   const isSelected = (day) => {
-    return (
-      selectedCalendarDay === day &&
-      calendarDate.getMonth() === new Date().getMonth() &&
-      calendarDate.getFullYear() === new Date().getFullYear()
-    );
+    return selectedCalendarDay === day;
   };
 
   // ✅ NEW: Open create form with pre-filled date from calendar
   const openCreateFormWithDate = (day) => {
-    const selectedDate = new Date(calendarDate.getFullYear(), calendarDate.getMonth(), day);
+    const selectedDate = new Date(currentCalendarDate.getFullYear(), currentCalendarDate.getMonth(), day);
+    const defaultDivisionIds = selectedPerformanceView === 'All'
+      ? []
+      : divisions.filter((division) => division.name === selectedPerformanceView).map((division) => division.id);
     setEditing(null);
     setFormStep(0);
     setForm({
@@ -684,7 +706,8 @@ export default function StaffSchedule() {
       start_time: '09:00',
       end_time: '10:00',
       selectedBorrowerIds: [],
-      selectedItemIds: []
+      selectedItemIds: [],
+      selectedDivisionIds: defaultDivisionIds
     });
     setItemSearch('');
     setSelectedPerformerDivision('All');
@@ -710,6 +733,31 @@ export default function StaffSchedule() {
     const nextDirection = currentIndex === -1 || nextIndex === -1 || currentIndex < nextIndex ? 'right' : 'left';
     setTransitionDirection(nextDirection);
     setSelectedPerformanceView(nextView);
+  };
+
+  const getDivisionBadgeStyles = (divisionName) => {
+    switch ((divisionName || '').toLowerCase()) {
+      case 'dulimbay':
+        return 'bg-blue-100 text-blue-700 border border-blue-200 dark:bg-blue-900/40 dark:text-blue-200 dark:border-blue-800';
+      case 'budjong':
+        return 'bg-amber-100 text-amber-700 border border-amber-200 dark:bg-amber-900/40 dark:text-amber-200 dark:border-amber-800';
+      case 'kayam':
+        return 'bg-emerald-100 text-emerald-700 border border-emerald-200 dark:bg-emerald-900/40 dark:text-emerald-200 dark:border-emerald-800';
+      default:
+        return 'bg-slate-100 text-slate-700 border border-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-700';
+    }
+  };
+
+  const getPerformanceDivisionLabels = (performance) => {
+    const fromPerformance = Array.isArray(performance.performance_divisions)
+      ? performance.performance_divisions.map((division) => division?.name).filter(Boolean)
+      : [];
+
+    if (fromPerformance.length > 0) {
+      return fromPerformance;
+    }
+
+    return ['All'];
   };
 
   const filteredPerformanceCount = groupedPerformances.reduce((total, group) => total + group.performances.length, 0);
@@ -772,13 +820,19 @@ export default function StaffSchedule() {
 
         {/* ========== Main Content Area ========== */}
         <div className="px-6 md:px-8 lg:px-12 space-y-4 dark:bg-[#171717]">
-          
+          <motion.div
+            key={`${selectedPerformanceView}-${currentCalendarDate.getMonth()}-${currentCalendarDate.getFullYear()}`}
+            initial={{ opacity: 0, x: transitionDirection === 'right' ? 24 : -24 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.28, ease: 'easeOut' }}
+            className="space-y-4"
+          >
           {/* ✅ MERGED: Calendar View - Always Visible */}
           <div className="bg-surface-container-low dark:bg-[#222] rounded-lg border border-outline-variant/10 dark:border-gray-700 p-4 md:p-6 shadow-sm dark:shadow-black/20">
               {/* Calendar Header - Month Navigation */}
               <div className="flex items-center justify-between mb-6 pb-4 border-b border-outline-variant/20 dark:border-gray-700">
                 <h2 className="text-xl font-bold text-on-surface dark:text-white">
-                  {calendarDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+                  {currentCalendarDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
                 </h2>
                 <div className="flex items-center gap-2">
                   <button
@@ -816,7 +870,7 @@ export default function StaffSchedule() {
               {/* Calendar Grid */}
               <div className="grid grid-cols-7 gap-1 auto-rows-max">
                 {/* Empty cells for days before month starts */}
-                {Array.from({ length: getFirstDayOfMonth(calendarDate) }).map((_, i) => (
+                {Array.from({ length: getFirstDayOfMonth(currentCalendarDate) }).map((_, i) => (
                   <div
                     key={`empty-${i}`}
                     className="aspect-square bg-surface-container-lowest dark:bg-[#1a1a1a]/50 rounded-lg border border-outline-variant/10 dark:border-gray-700/30"
@@ -824,7 +878,7 @@ export default function StaffSchedule() {
                 ))}
 
                 {/* Day cells */}
-                {Array.from({ length: getDaysInMonth(calendarDate) }).map((_, i) => {
+                {Array.from({ length: getDaysInMonth(currentCalendarDate) }).map((_, i) => {
                   const day = i + 1;
                   const dayPerformances = getPerformancesForDay(day);
                   const isCurrentDay = isToday(day);
@@ -834,8 +888,7 @@ export default function StaffSchedule() {
                     <div
                       key={day}
                       onClick={() => {
-                        setSelectedCalendarDay(day);
-                        // ✅ NEW: If no performances, open create form with this date
+                        setSelectedCalendarDayByView((prev) => ({ ...prev, [selectedPerformanceView]: day }));
                         if (dayPerformances.length === 0) {
                           openCreateFormWithDate(day);
                         }
@@ -947,12 +1000,6 @@ export default function StaffSchedule() {
             </div>
           ) : (
             <div className="space-y-8 overflow-hidden">
-              <motion.div
-                key={`${selectedPerformanceView}-${calendarDate.getMonth()}-${calendarDate.getFullYear()}`}
-                initial={{ opacity: 0, x: transitionDirection === 'right' ? 24 : -24 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.28, ease: 'easeOut' }}
-              >
               {groupedPerformances.map((group) => (
                 <div key={group.day} className="space-y-4">
                   {/* Sticky Date Header */}
@@ -990,7 +1037,16 @@ export default function StaffSchedule() {
                             </div>
 
                             {/* Title */}
-                            <p className="text-xs font-semibold truncate text-on-surface dark:text-white min-w-[120px]">{perf.title}</p>
+                            <div className="min-w-[120px] flex-1">
+                              <p className="text-xs font-semibold truncate text-on-surface dark:text-white">{perf.title}</p>
+                              <div className="mt-1 flex flex-wrap gap-1">
+                                {getPerformanceDivisionLabels(perf).map((divisionName) => (
+                                  <span key={`${perf.id}-${divisionName}`} className={`rounded-full px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide ${getDivisionBadgeStyles(divisionName)}`}>
+                                    {divisionName}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
 
                             {/* Time */}
                             <div className="flex-shrink-0 text-[10px] text-on-surface-variant dark:text-gray-400 w-16">
@@ -1074,9 +1130,9 @@ export default function StaffSchedule() {
                   </div>
                 </div>
               ))}
-              </motion.div>
             </div>
           )}
+          </motion.div>
         </div>
       </div>
 
