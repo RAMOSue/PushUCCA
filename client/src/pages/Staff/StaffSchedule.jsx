@@ -82,6 +82,7 @@ export default function StaffSchedule() {
   const [selectedPerformerDivision, setSelectedPerformerDivision] = useState('All'); // ✅ NEW: Division filter for performers
   const [selectedPerformanceView, setSelectedPerformanceView] = useState('All');
   const [transitionDirection, setTransitionDirection] = useState('left');
+  const [calendarExpanded, setCalendarExpanded] = useState(false);
   const [divisions, setDivisions] = useState([]);
   const [calendarViewState, setCalendarViewState] = useState(() => ({
     All: new Date(),
@@ -653,27 +654,84 @@ export default function StaffSchedule() {
     return getViewPerformances().filter((p) => new Date(p.start_time).toDateString() === dayString);
   };
 
-  const getCategoryColor = (performance) => {
-    // Color code based on performance content
-    if (!performance.performance_items || performance.performance_items.length === 0) {
-      return { bg: 'bg-gray-100 dark:bg-gray-700', text: 'text-gray-700 dark:text-gray-300', border: 'border-gray-300 dark:border-gray-600' };
+  const getDivisionTheme = (divisionName) => {
+    const normalized = (divisionName || '').toLowerCase();
+
+    switch (normalized) {
+      case 'dulimbay':
+        return {
+          bg: 'bg-blue-100/90 dark:bg-blue-900/40',
+          text: 'text-blue-700 dark:text-blue-200',
+          border: 'border-blue-200 dark:border-blue-800',
+          dot: 'bg-blue-500',
+          badge: 'bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-950/40 dark:text-blue-200 dark:border-blue-800'
+        };
+      case 'budjong':
+        return {
+          bg: 'bg-amber-100/90 dark:bg-amber-900/40',
+          text: 'text-amber-700 dark:text-amber-200',
+          border: 'border-amber-200 dark:border-amber-800',
+          dot: 'bg-amber-500',
+          badge: 'bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-200 dark:border-amber-800'
+        };
+      case 'kayam':
+        return {
+          bg: 'bg-rose-100/90 dark:bg-rose-900/40',
+          text: 'text-rose-700 dark:text-rose-200',
+          border: 'border-rose-200 dark:border-rose-800',
+          dot: 'bg-rose-500',
+          badge: 'bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-950/40 dark:text-rose-200 dark:border-rose-800'
+        };
+      default:
+        return {
+          bg: 'bg-slate-100/90 dark:bg-slate-800',
+          text: 'text-slate-700 dark:text-slate-300',
+          border: 'border-slate-200 dark:border-slate-700',
+          dot: 'bg-slate-500',
+          badge: 'bg-slate-50 text-slate-700 border border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700'
+        };
     }
-    
-    // Check item categories
-    const hasCosmetics = performance.performance_items.some(pi => pi.category?.toLowerCase().includes('costume'));
-    const hasInstrument = performance.performance_items.some(pi => pi.category?.toLowerCase().includes('instrument'));
-    
-    if (hasCosmetics && hasInstrument) {
-      return { bg: 'bg-purple-100 dark:bg-purple-900/40', text: 'text-purple-700 dark:text-purple-300', border: 'border-purple-300 dark:border-purple-600' };
+  };
+
+  const getPerformanceDivisionNames = (performance) => {
+    const fromPerformance = Array.isArray(performance?.performance_divisions)
+      ? performance.performance_divisions.map((division) => division?.name).filter(Boolean)
+      : [];
+
+    if (fromPerformance.length > 0) {
+      return fromPerformance;
     }
-    if (hasCosmetics) {
-      return { bg: 'bg-pink-100 dark:bg-pink-900/40', text: 'text-pink-700 dark:text-pink-300', border: 'border-pink-300 dark:border-pink-600' };
+
+    if (selectedPerformanceView !== 'All') {
+      return [selectedPerformanceView];
     }
-    if (hasInstrument) {
-      return { bg: 'bg-blue-100 dark:bg-blue-900/40', text: 'text-blue-700 dark:text-blue-300', border: 'border-blue-300 dark:border-blue-600' };
-    }
-    
-    return { bg: 'bg-green-100 dark:bg-green-900/40', text: 'text-green-700 dark:text-green-300', border: 'border-green-300 dark:border-green-600' };
+
+    return [];
+  };
+
+  const getDivisionIndicatorsForDay = (dayPerformances) => {
+    const indicators = [];
+    const seen = new Set();
+
+    dayPerformances.forEach((performance) => {
+      getPerformanceDivisionNames(performance).forEach((divisionName) => {
+        if (!seen.has(divisionName)) {
+          seen.add(divisionName);
+          indicators.push({
+            name: divisionName,
+            style: getDivisionTheme(divisionName)
+          });
+        }
+      });
+    });
+
+    return indicators;
+  };
+
+  const getPerformanceChipStyles = (performance) => {
+    const divisionNames = getPerformanceDivisionNames(performance);
+    const primaryDivisionName = divisionNames[0] || 'All';
+    return getDivisionTheme(primaryDivisionName);
   };
 
   const previousMonth = () => {
@@ -760,28 +818,12 @@ export default function StaffSchedule() {
   };
 
   const getDivisionBadgeStyles = (divisionName) => {
-    switch ((divisionName || '').toLowerCase()) {
-      case 'dulimbay':
-        return 'bg-blue-100 text-blue-700 border border-blue-200 dark:bg-blue-900/40 dark:text-blue-200 dark:border-blue-800';
-      case 'budjong':
-        return 'bg-amber-100 text-amber-700 border border-amber-200 dark:bg-amber-900/40 dark:text-amber-200 dark:border-amber-800';
-      case 'kayam':
-        return 'bg-emerald-100 text-emerald-700 border border-emerald-200 dark:bg-emerald-900/40 dark:text-emerald-200 dark:border-emerald-800';
-      default:
-        return 'bg-slate-100 text-slate-700 border border-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-700';
-    }
+    return getDivisionTheme(divisionName).badge;
   };
 
   const getPerformanceDivisionLabels = (performance) => {
-    const fromPerformance = Array.isArray(performance.performance_divisions)
-      ? performance.performance_divisions.map((division) => division?.name).filter(Boolean)
-      : [];
-
-    if (fromPerformance.length > 0) {
-      return fromPerformance;
-    }
-
-    return ['All'];
+    const divisionNames = getPerformanceDivisionNames(performance);
+    return divisionNames.length > 0 ? divisionNames : ['All'];
   };
 
   const filteredPerformanceCount = visiblePerformances.length;
@@ -812,7 +854,14 @@ export default function StaffSchedule() {
               })}
             </div>
 
-           
+            <button
+              type="button"
+              onClick={() => setCalendarExpanded((prev) => !prev)}
+              className={`flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold transition-all ${calendarExpanded ? 'border-primary bg-primary/10 text-primary dark:border-blue-500 dark:bg-blue-900/30 dark:text-blue-300' : 'border-outline-variant/20 bg-surface-container-low text-on-surface-variant hover:bg-surface-container-high dark:border-gray-700 dark:bg-[#222] dark:text-gray-300 dark:hover:bg-[#2a2a2a]'}`}
+            >
+              <CalendarIcon className="h-4 w-4" />
+              Calendar
+            </button>
           </div>
         </div>
 
@@ -824,36 +873,46 @@ export default function StaffSchedule() {
             transition={{ duration: 0.28, ease: 'easeOut' }}
             className="space-y-4"
           >
-            <div className="bg-surface-container-low dark:bg-[#222] rounded-lg border border-outline-variant/10 dark:border-gray-700 p-4 md:p-6 shadow-sm dark:shadow-black/20">
-              <div className="flex items-center justify-between mb-6 pb-4 border-b border-outline-variant/20 dark:border-gray-700">
-                <h2 className="text-xl font-bold text-on-surface dark:text-white">
-                  {currentCalendarDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
-                </h2>
-                <div className="flex items-center gap-2">
+            <motion.div
+              initial={false}
+              animate={{
+                opacity: calendarExpanded ? 1 : 0,
+                maxHeight: calendarExpanded ? 900 : 0,
+              }}
+              transition={{ duration: 0.24, ease: 'easeInOut' }}
+              className="overflow-hidden"
+            >
+              <div className="bg-surface-container-low dark:bg-[#222] rounded-lg border border-outline-variant/10 dark:border-gray-700 p-4 md:p-6 shadow-sm dark:shadow-black/20">
+                <div className="flex items-center justify-between gap-3 mb-6 pb-4 border-b border-outline-variant/20 dark:border-gray-700">
                   <button
                     onClick={previousMonth}
-                    className="p-2 hover:bg-surface-container-high dark:hover:bg-[#2a2a2a] rounded-lg transition text-on-surface-variant dark:text-gray-400"
+                    className="flex h-10 w-10 items-center justify-center rounded-full hover:bg-surface-container-high dark:hover:bg-[#2a2a2a] transition text-on-surface-variant dark:text-gray-400"
                     title="Previous month"
                   >
                     <ChevronLeft className="w-5 h-5" />
                   </button>
+                  <h2 className="flex-1 text-center text-xl font-bold text-on-surface dark:text-white">
+                    {currentCalendarDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+                  </h2>
+                  <button
+                    onClick={nextMonth}
+                    className="flex h-10 w-10 items-center justify-center rounded-full hover:bg-surface-container-high dark:hover:bg-[#2a2a2a] transition text-on-surface-variant dark:text-gray-400"
+                    title="Next month"
+                  >
+                    <ChevronRight className="w-5 h-5" />
+                  </button>
+                </div>
+
+                <div className="mb-3 flex items-center justify-end">
                   <button
                     onClick={goToToday}
                     className="px-4 py-2 bg-primary/20 dark:bg-blue-900/40 text-primary dark:text-blue-300 rounded-lg hover:bg-primary/30 dark:hover:bg-blue-900/60 transition font-medium text-sm"
                   >
                     Today
                   </button>
-                  <button
-                    onClick={nextMonth}
-                    className="p-2 hover:bg-surface-container-high dark:hover:bg-[#2a2a2a] rounded-lg transition text-on-surface-variant dark:text-gray-400"
-                    title="Next month"
-                  >
-                    <ChevronRight className="w-5 h-5" />
-                  </button>
                 </div>
-              </div>
 
-              <div className="grid grid-cols-7 gap-1 mb-3">
+                <div className="grid grid-cols-7 gap-1 mb-3">
                 {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
                   <div key={day} className="text-center text-xs font-bold text-on-surface-variant dark:text-gray-400 uppercase tracking-wider py-2">
                     {day}
@@ -873,6 +932,7 @@ export default function StaffSchedule() {
                   const day = i + 1;
                   const dayPerformances = getPerformancesForDay(day);
                   const isCurrentDay = isToday(day);
+                  const divisionIndicators = getDivisionIndicatorsForDay(dayPerformances);
 
                   return (
                     <div
@@ -892,13 +952,26 @@ export default function StaffSchedule() {
                       } ${dayPerformances.length === 0 ? 'cursor-pointer hover:bg-primary/10 dark:hover:bg-blue-900/30' : ''}`}
                       title={dayPerformances.length === 0 ? 'Click to create performance' : ''}
                     >
-                      <div className={`text-xs font-bold mb-1 ${isCurrentDay ? 'text-primary dark:text-blue-400' : 'text-on-surface-variant dark:text-gray-400'}`}>
-                        {day}
+                      <div className="mb-1 flex items-start justify-between gap-2">
+                        <div className={`text-xs font-bold ${isCurrentDay ? 'text-primary dark:text-blue-400' : 'text-on-surface-variant dark:text-gray-400'}`}>
+                          {day}
+                        </div>
+                        {divisionIndicators.length > 0 && (
+                          <div className="flex items-center gap-1">
+                            {divisionIndicators.slice(0, 3).map((indicator) => (
+                              <span
+                                key={`${day}-${indicator.name}`}
+                                className={`h-2.5 w-2.5 rounded-full ${indicator.style.dot}`}
+                                title={indicator.name}
+                              />
+                            ))}
+                          </div>
+                        )}
                       </div>
 
                       <div className="space-y-0.5 max-h-16 overflow-y-auto">
                         {dayPerformances.slice(0, 3).map((perf, idx) => {
-                          const colors = getCategoryColor(perf);
+                          const colors = getPerformanceChipStyles(perf);
                           return (
                             <div
                               key={perf.id || idx}
@@ -930,6 +1003,7 @@ export default function StaffSchedule() {
 
               
             </div>
+            </motion.div>
 
             <div className="rounded-lg border border-outline-variant/20 bg-surface-container-low p-4 shadow-sm dark:border-gray-700 dark:bg-[#222]">
               <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
