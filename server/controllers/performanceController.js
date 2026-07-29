@@ -4,6 +4,65 @@ const pool = require('../db');
 const isProd = process.env.NODE_ENV === 'production';
 const BASE_URL = process.env.BASE_URL || (isProd ? '' : 'http://localhost:8000');
 
+async function ensurePerformanceDivisionTable() {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS performance_divisions (
+        performance_id INTEGER NOT NULL REFERENCES performances(id) ON DELETE CASCADE,
+        division_id INTEGER NOT NULL REFERENCES divisions(id) ON DELETE CASCADE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (performance_id, division_id)
+      )
+    `);
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_performance_divisions_division_id
+      ON performance_divisions (division_id)
+    `);
+  } catch (error) {
+    console.warn('ensurePerformanceDivisionTable warning:', error.message);
+  }
+}
+
+ensurePerformanceDivisionTable().catch((error) => {
+  console.warn('ensurePerformanceDivisionTable startup warning:', error.message);
+});
+
+async function getPerformanceDivisions(client, performanceId) {
+  const { rows } = await client.query(
+    `SELECT pd.division_id, d.name
+     FROM performance_divisions pd
+     LEFT JOIN divisions d ON d.id = pd.division_id
+     WHERE pd.performance_id = $1
+     ORDER BY d.name ASC, pd.division_id ASC`,
+    [performanceId]
+  );
+
+  return rows.map((row) => ({
+    division_id: row.division_id,
+    id: row.division_id,
+    name: row.name,
+  }));
+}
+
+async function savePerformanceDivisions(client, performanceId, divisionIds) {
+  if (!Array.isArray(divisionIds)) {
+    return;
+  }
+
+  const normalizedIds = [...new Set(divisionIds.filter(Boolean).map((value) => Number(value)).filter((value) => !Number.isNaN(value)))];
+
+  await client.query('DELETE FROM performance_divisions WHERE performance_id = $1', [performanceId]);
+
+  for (const divisionId of normalizedIds) {
+    await client.query(
+      `INSERT INTO performance_divisions (performance_id, division_id)
+       VALUES ($1, $2)
+       ON CONFLICT (performance_id, division_id) DO NOTHING`,
+      [performanceId, divisionId]
+    );
+  }
+}
+
 // Helper: convert relative or absolute path to full URL
 function toFullUrl(filePath) {
   if (!filePath) return null;
@@ -53,12 +112,15 @@ async function getAllPerformances(req, res) {
             ...borrower,
             profile_pic_url: toFullUrl(borrower.profile_pic_url)
           }));
+          const performanceDivisions = await getPerformanceDivisions(pool, perf.id);
 
           return {
             ...perf,
             dancers: [],
             items: itemsResult.rows,
-            performance_borrowers: borrowersWithUrls // ✅ NEW: Include full borrower details
+            performance_items: itemsResult.rows,
+            performance_borrowers: borrowersWithUrls,
+            performance_divisions: performanceDivisions
           };
         } catch (itemErr) {
           console.error(`Error fetching items for performance ${perf.id}:`, itemErr.message);
@@ -115,12 +177,15 @@ async function getPerformanceById(req, res) {
       ...borrower,
       profile_pic_url: toFullUrl(borrower.profile_pic_url)
     }));
+    const performanceDivisions = await getPerformanceDivisions(pool, perf.id);
     
     res.json({
       ...perf,
       dancers: [],
       items: itemsResult.rows,
-      performance_borrowers: borrowersWithUrls // ✅ NEW: Include full borrower details
+      performance_items: itemsResult.rows,
+      performance_borrowers: borrowersWithUrls,
+      performance_divisions: performanceDivisions
     });
   } catch (err) {
     console.error('getPerformanceById error:', err.message);
@@ -132,7 +197,7 @@ async function getPerformanceById(req, res) {
 async function createPerformance(req, res) {
   const client = await pool.connect();
   try {
-    const { title, description, location, start_time, end_time, selectedBorrowerIds, selectedItemIds } = req.body;
+    const { title, description, location, start_time, end_time, selectedBorrowerIds, selectedItemIds, selectedDivisionIds } = req.body;
     const created_by = req.user?.id || null;
     
     await client.query('BEGIN');
@@ -166,6 +231,10 @@ async function createPerformance(req, res) {
           [performance.id, itemId, null, 1]
         );
       }
+    }
+
+    if (Array.isArray(selectedDivisionIds)) {
+      await savePerformanceDivisions(client, performance.id, selectedDivisionIds);
     }
 
     // Create recommendations for all selected borrowers
@@ -212,7 +281,7 @@ async function updatePerformance(req, res) {
   const client = await pool.connect();
   try {
     const { id } = req.params;
-    const { title, description, location, start_time, end_time, selectedBorrowerIds, selectedItemIds } = req.body;
+    const { title, description, location, start_time, end_time, selectedBorrowerIds, selectedItemIds, selectedDivisionIds } = req.body;
     
     await client.query('BEGIN');
     
@@ -250,6 +319,10 @@ async function updatePerformance(req, res) {
           [id, itemId, null, 1]
         );
       }
+    }
+
+    if (Array.isArray(selectedDivisionIds)) {
+      await savePerformanceDivisions(client, id, selectedDivisionIds);
     }
 
     // Delete and recreate recommendations for updated performance
@@ -429,12 +502,15 @@ async function getFullPerformance(client, performanceId) {
     ...borrower,
     profile_pic_url: toFullUrl(borrower.profile_pic_url)
   }));
+  const performanceDivisions = await getPerformanceDivisions(client, performanceId);
   
   return {
     ...perf,
-    performance_borrowers: borrowersWithUrls, // ✅ UPDATED: Return full borrower details instead of just IDs
+    performance_borrowers: borrowersWithUrls,
     dancers: [],
-    items: itemsResult.rows
+    items: itemsResult.rows,
+    performance_items: itemsResult.rows,
+    performance_divisions: performanceDivisions
   };
 }
 

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useContext } from 'react';
+import React, { useEffect, useState, useContext, useMemo } from 'react';
 import axios from 'axios';
 import dayjs from 'dayjs';
 import utc from 'dayjs/plugin/utc';
@@ -6,6 +6,7 @@ import timezone from 'dayjs/plugin/timezone';
 import Calendar from 'react-calendar';
 import 'react-calendar/dist/Calendar.css';
 import { useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import { UserContext } from '../../../context/userContext';
 import { BorrowingContext } from '../../../context/borrowingContext';
 import PageLayout from '../../components/layout/PageLayout';
@@ -49,7 +50,8 @@ export default function StaffSchedule() {
     start_time: '09:00',
     end_time: '10:00',
     selectedBorrowerIds: [], // ✅ SIMPLIFIED: Just user IDs, no dancer counts in form
-    selectedItemIds: [] // ✅ SIMPLIFIED: Just inventory item IDs, no specific units
+    selectedItemIds: [], // ✅ SIMPLIFIED: Just inventory item IDs, no specific units
+    selectedDivisionIds: []
   });
   const [itemSearch, setItemSearch] = useState('');
   const [timeOptions, setTimeOptions] = useState([]);
@@ -79,6 +81,10 @@ export default function StaffSchedule() {
   const [filterDropdownOpen, setFilterDropdownOpen] = useState(false);
   const [groupedPerformances, setGroupedPerformances] = useState([]);
   const [selectedPerformerDivision, setSelectedPerformerDivision] = useState('All'); // ✅ NEW: Division filter for performers
+  const [selectedPerformanceView, setSelectedPerformanceView] = useState('All');
+  const [transitionDirection, setTransitionDirection] = useState('left');
+  const [divisions, setDivisions] = useState([]);
+  const [selectedDivisionIds, setSelectedDivisionIds] = useState([]);
 
   // ✅ NEW: Calendar view state
   const [calendarDate, setCalendarDate] = useState(new Date());
@@ -92,6 +98,7 @@ export default function StaffSchedule() {
     fetchPerformances();
     fetchInventoryItems();
     fetchBorrowers();
+    fetchDivisions();
   }, []);
 
   // Refresh inventory periodically to sync available items
@@ -110,6 +117,18 @@ export default function StaffSchedule() {
     }
   }, [inventoryRefreshCount]);
 
+  const fetchDivisions = async () => {
+    try {
+      const res = await axios.get('/api/inventory/divisions');
+      const divisionList = Array.isArray(res.data)
+        ? res.data.filter((division) => (division.status || 'Active').toLowerCase() !== 'inactive')
+        : [];
+      setDivisions(divisionList);
+    } catch (error) {
+      console.error('Failed to load divisions:', error.message);
+    }
+  };
+
   // Group performances by date whenever performances change or search updates
   useEffect(() => {
     let filtered = performances;
@@ -123,6 +142,16 @@ export default function StaffSchedule() {
       );
     });
     
+    if (selectedPerformanceView !== 'All') {
+      const selectedDivisionName = selectedPerformanceView.toLowerCase();
+      filtered = filtered.filter((performance) => {
+        const assignedDivisions = Array.isArray(performance.performance_divisions)
+          ? performance.performance_divisions.map((division) => (division?.name || '').toLowerCase())
+          : [];
+        return assignedDivisions.includes(selectedDivisionName);
+      });
+    }
+
     // Filter by search query
     if (searchQuery.trim()) {
       const searchLower = searchQuery.toLowerCase();
@@ -147,7 +176,7 @@ export default function StaffSchedule() {
       .sort((a, b) => new Date(b.day) - new Date(a.day));
     
     setGroupedPerformances(arr);
-  }, [performances, searchQuery, calendarDate]);
+  }, [performances, searchQuery, calendarDate, selectedPerformanceView]);
 
   async function fetchPerformances() {
     try {
@@ -279,7 +308,8 @@ export default function StaffSchedule() {
       start_time: '09:00',
       end_time: '10:00',
       selectedBorrowerIds: [],
-      selectedItemIds: []
+      selectedItemIds: [],
+      selectedDivisionIds: []
     });
     setItemSearch('');
     setSelectedPerformerDivision('All'); // ✅ NEW: Reset division filter
@@ -298,6 +328,8 @@ export default function StaffSchedule() {
     // ✅ SIMPLIFIED: Extract just inventory item IDs from performance_items
     const itemIds = p.performance_items?.map(pi => pi.inventory_item_id) || [];
     
+    const divisionIds = (p.performance_divisions || []).map((division) => division.division_id || division.id).filter(Boolean);
+
     setForm({
       title: p.title || '',
       location: p.location || '',
@@ -305,7 +337,8 @@ export default function StaffSchedule() {
       start_time: startDayjs.format('HH:mm'),
       end_time: endDayjs.format('HH:mm'),
       selectedBorrowerIds: borrowerIds,
-      selectedItemIds: itemIds
+      selectedItemIds: itemIds,
+      selectedDivisionIds: divisionIds
     });
     setItemSearch('');
     setSelectedPerformerDivision('All'); // ✅ NEW: Reset division filter
@@ -444,7 +477,8 @@ export default function StaffSchedule() {
         start_time: start,
         end_time: end,
         selectedBorrowerIds: form.selectedBorrowerIds,
-        selectedItemIds: form.selectedItemIds
+        selectedItemIds: form.selectedItemIds,
+        selectedDivisionIds: form.selectedDivisionIds
       };
 
       if (editing) {
@@ -668,6 +702,18 @@ export default function StaffSchedule() {
   const todaySchedules = performances.filter((p) => new Date(p.start_time).toDateString() === new Date().toDateString()).length;
   const pastSchedules = performances.filter((p) => new Date(p.start_time) < new Date()).length;
 
+  const divisionTabs = useMemo(() => [{ label: 'All', value: 'All' }, ...divisions.map((division) => ({ label: division.name, value: division.name }))], [divisions]);
+
+  const handleDivisionTabChange = (nextView) => {
+    const currentIndex = divisionTabs.findIndex((tab) => tab.value === selectedPerformanceView);
+    const nextIndex = divisionTabs.findIndex((tab) => tab.value === nextView);
+    const nextDirection = currentIndex === -1 || nextIndex === -1 || currentIndex < nextIndex ? 'right' : 'left';
+    setTransitionDirection(nextDirection);
+    setSelectedPerformanceView(nextView);
+  };
+
+  const filteredPerformanceCount = groupedPerformances.reduce((total, group) => total + group.performances.length, 0);
+
   return (
     <PageLayout>
       <div className="dark:bg-[#171717]">
@@ -696,7 +742,7 @@ export default function StaffSchedule() {
         </div>
 
         {/* ========== Action Bar ========== */}
-        <div className="px-6 md:px-8 lg:px-12 pb-6">
+        <div className="px-6 md:px-8 lg:px-12 pb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <button
             onClick={openNewForm}
             className="flex items-center gap-2 px-4 py-2.5 bg-primary text-on-primary rounded-lg hover:bg-primary-container transition font-medium text-sm shadow-sm"
@@ -704,6 +750,24 @@ export default function StaffSchedule() {
             <Plus className="w-5 h-5" />
             New Schedule
           </button>
+
+          <div className="sticky top-4 z-20 w-full md:w-auto">
+            <div className="flex flex-wrap items-center gap-2 rounded-full border border-outline-variant/20 bg-surface-container-low dark:border-gray-700 dark:bg-[#222] p-1 shadow-sm">
+              {divisionTabs.map((tab) => {
+                const isActive = selectedPerformanceView === tab.value;
+                return (
+                  <button
+                    key={tab.value}
+                    type="button"
+                    onClick={() => handleDivisionTabChange(tab.value)}
+                    className={`relative rounded-full px-4 py-2 text-sm font-semibold transition-all duration-300 ${isActive ? 'bg-primary text-white shadow-sm dark:bg-blue-600' : 'text-on-surface-variant hover:bg-surface-container-high dark:text-gray-300 dark:hover:bg-[#2a2a2a]'}`}
+                  >
+                    {tab.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         </div>
 
         {/* ========== Main Content Area ========== */}
@@ -846,25 +910,29 @@ export default function StaffSchedule() {
             </div>
 
           {/* ✅ MERGED: List View - Always Visible Below Calendar */}
-          {/* Full Width Search Bar */}
-          <div className="flex items-center gap-3 bg-surface-container-low dark:bg-[#222] rounded-lg px-4 py-3 border border-transparent dark:border-gray-700 hover:border-primary/20 dark:hover:border-gray-600 focus-within:ring-2 focus-within:ring-primary focus-within:border-transparent transition shadow-sm dark:shadow-black/40">
-                <Search className="w-5 text-on-surface-variant dark:text-gray-400 flex-shrink-0" />
-                <input
-                  type="text"
-                  placeholder="Search by title, location, or description..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="flex-1 bg-transparent focus:outline-none text-sm text-on-surface dark:text-white dark:placeholder-gray-500"
-                />
-                {searchQuery && (
-                  <button
-                    onClick={() => setSearchQuery('')}
-                    className="px-2 text-on-surface-variant dark:text-gray-400 hover:text-on-surface dark:hover:text-white transition"
-                  >
-                    ✕
-                  </button>
-                )}
-              </div>
+          <div className="flex items-center justify-between gap-3 rounded-lg border border-outline-variant/20 bg-surface-container-low px-4 py-3 shadow-sm dark:border-gray-700 dark:bg-[#222]">
+            <div className="flex items-center gap-3 flex-1">
+              <Search className="w-5 text-on-surface-variant dark:text-gray-400 flex-shrink-0" />
+              <input
+                type="text"
+                placeholder="Search by title, location, or description..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="flex-1 bg-transparent focus:outline-none text-sm text-on-surface dark:text-white dark:placeholder-gray-500"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="px-2 text-on-surface-variant dark:text-gray-400 hover:text-on-surface dark:hover:text-white transition"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+            <div className="text-xs font-semibold text-on-surface-variant dark:text-gray-400">
+              {filteredPerformanceCount} shown
+            </div>
+          </div>
 
           {/* Performances List */}
           {loading ? (
@@ -878,7 +946,13 @@ export default function StaffSchedule() {
               <p className="text-on-surface-variant dark:text-gray-500 text-xs mt-2">Create one to get started</p>
             </div>
           ) : (
-            <div className="space-y-8">
+            <div className="space-y-8 overflow-hidden">
+              <motion.div
+                key={`${selectedPerformanceView}-${calendarDate.getMonth()}-${calendarDate.getFullYear()}`}
+                initial={{ opacity: 0, x: transitionDirection === 'right' ? 24 : -24 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.28, ease: 'easeOut' }}
+              >
               {groupedPerformances.map((group) => (
                 <div key={group.day} className="space-y-4">
                   {/* Sticky Date Header */}
@@ -1000,6 +1074,7 @@ export default function StaffSchedule() {
                   </div>
                 </div>
               ))}
+              </motion.div>
             </div>
           )}
         </div>
@@ -1049,6 +1124,33 @@ export default function StaffSchedule() {
                       onChange={(e) => setForm({ ...form, location: e.target.value })}
                       className="w-full border border-gray-300 dark:border-gray-600 dark:bg-[#1a1a1a] dark:text-white px-4 py-2 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
                     />
+                  </div>
+
+                  <div>
+                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-2">Division</label>
+                    <div className="flex flex-wrap gap-2">
+                      {divisions.map((division) => {
+                        const isSelected = form.selectedDivisionIds.includes(division.id);
+                        return (
+                          <button
+                            key={division.id}
+                            type="button"
+                            onClick={() => {
+                              setForm((previous) => ({
+                                ...previous,
+                                selectedDivisionIds: isSelected
+                                  ? previous.selectedDivisionIds.filter((id) => id !== division.id)
+                                  : [...previous.selectedDivisionIds, division.id],
+                              }));
+                            }}
+                            className={`rounded-full px-3 py-2 text-sm font-medium transition-all ${isSelected ? 'bg-primary text-white dark:bg-blue-600' : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-[#2a2a2a] dark:text-gray-300 dark:hover:bg-[#333]'}`}
+                          >
+                            {division.name}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">Choose one or more divisions for this performance.</p>
                   </div>
 
                   <div>
@@ -1261,6 +1363,9 @@ export default function StaffSchedule() {
                     {form.location && <p className="text-sm text-blue-800 dark:text-blue-300"><strong>Location:</strong> {form.location}</p>}
                     <p className="text-sm text-blue-800 dark:text-blue-300">
                       <strong>When:</strong> {form.date ? dayjs(form.date).format('MMM D, YYYY') : 'Not set'} from {form.start_time} to {form.end_time}
+                    </p>
+                    <p className="text-sm text-blue-800 dark:text-blue-300">
+                      <strong>Divisions:</strong> {form.selectedDivisionIds.length > 0 ? divisions.filter((division) => form.selectedDivisionIds.includes(division.id)).map((division) => division.name).join(', ') : 'None selected'}
                     </p>
                   </div>
 
