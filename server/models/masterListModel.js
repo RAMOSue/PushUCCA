@@ -5,7 +5,7 @@ const pool = require("../db");
 // ======================== UNITS ========================
 class UnitsModel {
   static async getAll() {
-    const result = await pool.query("SELECT * FROM divisions ORDER BY name ASC");
+    const result = await pool.query("SELECT * FROM divisions WHERE status = 'Active' ORDER BY name ASC");
     return result.rows;
   }
 
@@ -60,7 +60,7 @@ class UnitsModel {
 // ======================== POSITIONS ========================
 class PositionsModel {
   static async getAll() {
-    const result = await pool.query("SELECT * FROM positions ORDER BY name ASC");
+    const result = await pool.query("SELECT * FROM positions WHERE status = 'Active' ORDER BY name ASC");
     return result.rows;
   }
 
@@ -123,6 +123,7 @@ class OrgStructureModel {
       LEFT JOIN divisions u ON os.unit_id = u.id
       LEFT JOIN positions p ON os.position_id = p.id
       LEFT JOIN terms t ON os.term_id = t.id
+      WHERE os.status = 'Active'
       ORDER BY os.hierarchy_level, p.name
     `);
     return result.rows;
@@ -139,7 +140,7 @@ class OrgStructureModel {
       LEFT JOIN divisions u ON os.unit_id = u.id
       LEFT JOIN positions p ON os.position_id = p.id
       LEFT JOIN terms t ON os.term_id = t.id
-      WHERE os.unit_id = $1
+      WHERE os.unit_id = $1 AND os.status = 'Active'
       ORDER BY os.hierarchy_level
     `, [unitId]);
     return result.rows;
