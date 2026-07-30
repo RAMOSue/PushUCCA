@@ -5,7 +5,8 @@ const pool = require("../db");
 // ======================== UNITS ========================
 class UnitsModel {
   static async getAll() {
-    const result = await pool.query("SELECT * FROM divisions WHERE status = 'Active' ORDER BY name ASC");
+    // Return all divisions regardless of status so UI can show active and inactive records
+    const result = await pool.query("SELECT * FROM divisions ORDER BY name ASC");
     return result.rows;
   }
 
@@ -48,9 +49,9 @@ class UnitsModel {
   }
 
   static async delete(id) {
-    // Soft delete by setting status to Inactive (or hard delete if needed)
+    // Perform hard delete. ON DELETE CASCADE will remove related organizational_structures.
     const result = await pool.query(
-      "UPDATE divisions SET status = 'Inactive', updated_at = CURRENT_TIMESTAMP WHERE id = $1 RETURNING *",
+      "DELETE FROM divisions WHERE id = $1 RETURNING *",
       [id]
     );
     return result.rows[0];
@@ -108,13 +109,8 @@ class PositionsModel {
   }
 
   static async delete(id) {
-    // Prevent deleting positions that are still referenced by organizational_structures
-    const ref = await pool.query("SELECT id FROM organizational_structures WHERE position_id = $1 LIMIT 1", [id]);
-    if (ref.rows.length > 0) {
-      throw new Error("Position cannot be deleted because it is currently assigned to one or more units. Remove assignments first.");
-    }
-
-    // Safe to hard-delete when no references exist
+    // Perform hard delete. Related rows in organizational_structures and position_permissions
+    // will be removed by ON DELETE CASCADE in the schema.
     const result = await pool.query(
       "DELETE FROM positions WHERE id = $1 RETURNING *",
       [id]
