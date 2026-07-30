@@ -69,6 +69,11 @@ class PositionsModel {
     return result.rows[0];
   }
 
+  static async getByName(name) {
+    const result = await pool.query("SELECT * FROM positions WHERE LOWER(name) = LOWER($1) LIMIT 1", [name]);
+    return result.rows[0];
+  }
+
   static async create(name, description, maxHolders, isSharedRole, status, createdBy) {
     // Check for duplicates
     const existing = await pool.query("SELECT id FROM positions WHERE LOWER(name) = LOWER($1)", [name]);

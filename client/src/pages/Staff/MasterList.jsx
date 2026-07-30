@@ -58,9 +58,9 @@ export default function MasterList() {
 
   // Tab configuration with API endpoints and form fields
   const tabs = {
-    officers: {
-      title: "Officers",
-      icon: Users,
+    positions: {
+      title: "Officer Positions",
+      icon: Shield,
       endpoint: "/api/master-list/org-structures",
       fields: [],
     },
@@ -166,11 +166,12 @@ export default function MasterList() {
   // Officers specific state
   const [divisionsList, setDivisionsList] = useState([]);
   const [positionsList, setPositionsList] = useState([]);
-  const [officersList, setOfficersList] = useState([]);
+  const [officersList, setOfficersList] = useState([]); // reused to hold unit-position mappings
   const [selectedDivision, setSelectedDivision] = useState(() => {
     try { return localStorage.getItem('masterlistSelectedDivision') || 'Dulimbay'; } catch { return 'Dulimbay'; }
   });
   const [officerLoading, setOfficerLoading] = useState(false);
+  const [newPositionName, setNewPositionName] = useState("");
 
   // Fetch data
   const fetchData = async () => {
@@ -178,7 +179,7 @@ export default function MasterList() {
       setLoading(true);
       setImageError(null);
       // For officers we'll fetch positions/divisions separately
-      if (activeTab === 'officers') {
+      if (activeTab === 'positions') {
         setOfficerLoading(true);
         const [divRes, posRes] = await Promise.all([
           axios.get('/api/master-list/units'),
@@ -809,7 +810,7 @@ export default function MasterList() {
         {/* Pagination */}
         {totalPages > 1 && (
           <div className="px-6 md:px-8 lg:px-12 mt-3">
-            {activeTab === "officers" ? (
+            {activeTab === "positions" ? (
               <>
                 <div className="flex items-center gap-3 mb-4">
                   {['Dulimbay','Budjong','Kayam'].map((d) => (
@@ -828,30 +829,44 @@ export default function MasterList() {
                     <div className="flex items-center gap-3">
                       <label className="text-sm font-medium text-on-surface dark:text-white mr-2">Position</label>
                       <select
-                        id="newOfficerPosition"
+                        id="existingPositionSelect"
                         className="px-3 py-2 bg-white dark:bg-[#111] border border-outline-variant/20 rounded-md text-sm"
                       >
-                        <option value="">Select position</option>
+                        <option value="">Use existing position (optional)</option>
                         {positionsList.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                       </select>
+                      <input
+                        type="text"
+                        value={newPositionName}
+                        onChange={(e) => setNewPositionName(e.target.value)}
+                        placeholder="Or enter new position name"
+                        className="px-3 py-2 border border-outline-variant/20 rounded-md text-sm flex-1 bg-white dark:bg-[#111]"
+                      />
                     </div>
                     <div>
                       <button
                         onClick={async () => {
-                          const sel = document.getElementById('newOfficerPosition').value;
-                          if (!sel) { toast.error('Select a position'); return; }
+                          const sel = document.getElementById('existingPositionSelect').value;
+                          const name = newPositionName && newPositionName.trim();
+                          if (!sel && !name) { toast.error('Select or enter a position name'); return; }
                           try {
                             const divRes = await axios.get('/api/master-list/units');
                             const unit = (divRes.data||[]).find(u=> (u.name||'').toLowerCase()===selectedDivision.toLowerCase());
                             if (!unit) { toast.error('Division not found'); return; }
-                            const payload = { unitId: unit.id, positionId: Number(sel), hierarchyLevel: 3 };
-                            const res = await axios.post('/api/master-list/org-structures', payload);
-                            toast.success('Officer added');
+
+                            let payload = { unitId: unit.id, hierarchyLevel: 3 };
+                            if (sel) payload.positionId = Number(sel);
+                            else payload.positionName = name;
+
+                            await axios.post('/api/master-list/org-structures', payload);
+                            toast.success('Position added to division');
+                            setNewPositionName('');
+                            document.getElementById('existingPositionSelect').value = '';
                             refreshOfficersForDivision(selectedDivision);
                           } catch (err) { console.error(err); toast.error(err.response?.data?.error || 'Add failed'); }
                         }}
                         className="btn btn-primary"
-                      >Add Officer</button>
+                      >Add Position</button>
                     </div>
                   </div>
 

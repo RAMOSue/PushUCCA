@@ -160,9 +160,25 @@ const getOrgStructuresByUnit = async (req, res) => {
 
 const createOrgStructure = async (req, res) => {
   try {
-    const { unitId, positionId, hierarchyLevel, termId, status } = req.body;
-    if (!unitId || !positionId) {
-      return res.status(400).json({ error: "Unit ID and Position ID are required" });
+    let { unitId, positionId, positionName, hierarchyLevel, termId, status } = req.body;
+
+    if (!unitId) {
+      return res.status(400).json({ error: "Unit ID is required" });
+    }
+
+    // If positionId not provided, allow creating or finding by positionName
+    if (!positionId) {
+      if (!positionName) {
+        return res.status(400).json({ error: "Position ID or positionName is required" });
+      }
+
+      // Try to find existing position by name
+      let position = await PositionsModel.getByName(positionName);
+      if (!position) {
+        // Create new position (minimal fields)
+        position = await PositionsModel.create(positionName, null, 1, false, "Active", req.user.id);
+      }
+      positionId = position.id;
     }
 
     const structure = await OrgStructureModel.create(unitId, positionId, hierarchyLevel, termId, status, req.user.id);
