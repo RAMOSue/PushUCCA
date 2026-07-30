@@ -14,11 +14,15 @@
  * </PageLayout>
  */
 
-import { useContext } from "react";
+import { useContext, createContext } from "react";
 import { SidebarContext } from "../../context/SidebarContext";
+
+// Context to detect nested PageLayout usage so inner layouts don't re-apply margins
+export const PageLayoutContext = createContext(false);
 
 export function PageLayout({ children }) {
   const contextValue = useContext(SidebarContext);
+  const isNested = useContext(PageLayoutContext);
   
   // Sidebar widths:
   // - Left sidebar (SideNavbar): w-64 (16rem / 256px)
@@ -29,9 +33,11 @@ export function PageLayout({ children }) {
   // Fallback if context is not available
   if (!contextValue) {
     return (
-      <div className={`pt-2 px-0 sm:px-2 md:px-4 transition-all duration-300 ease-in-out ${defaultMarginLeft} ${defaultMarginRight} min-h-screen bg-gray-50 dark:bg-[#171717] dark:text-white`}>
-        {children}
-      </div>
+      <PageLayoutContext.Provider value={true}>
+        <div className={`pt-2 px-0 sm:px-2 md:px-4 transition-all duration-300 ease-in-out ${defaultMarginLeft} ${defaultMarginRight} min-h-screen bg-gray-50 dark:bg-[#171717] dark:text-white`}>
+          {children}
+        </div>
+      </PageLayoutContext.Provider>
     );
   }
   
@@ -40,18 +46,22 @@ export function PageLayout({ children }) {
   // Content shifts inward on desktop when sidebars open
   // On mobile, sidebars overlay (no shift) with 0 margins
   // Always apply margins on lg+ screens to account for sidebars
-  const marginLeft = !isMobile ? "lg:ml-64" : "ml-0";
-  const marginRight = !isMobile ? "lg:mr-72" : "mr-0";
+  // If this PageLayout is nested inside another PageLayout, avoid re-applying
+  // the large-screen margins so content width is not reduced twice.
+  const marginLeft = isNested ? "" : (!isMobile ? "lg:ml-64" : "ml-0");
+  const marginRight = isNested ? "" : (!isMobile ? "lg:mr-72" : "mr-0");
   
   return (
-    <div 
-      className={`pt-2 px-0 sm:px-2 md:px-4 transition-all duration-300 ease-in-out ${marginLeft} ${marginRight} min-h-screen bg-gray-50 dark:bg-[#171717] dark:text-white`}
-      style={{
-        willChange: sidebarOpen ? "margin" : "auto",
-      }}
-    >
-      {children}
-    </div>
+    <PageLayoutContext.Provider value={true}>
+      <div 
+        className={`pt-2 px-0 sm:px-2 md:px-4 transition-all duration-300 ease-in-out ${marginLeft} ${marginRight} min-h-screen bg-gray-50 dark:bg-[#171717] dark:text-white`}
+        style={{
+          willChange: sidebarOpen ? "margin" : "auto",
+        }}
+      >
+        {children}
+      </div>
+    </PageLayoutContext.Provider>
   );
 }
 
