@@ -62,7 +62,7 @@ export default function SideNavbar({ role = "staff" }) {
       { path: "/staff/schedule", label: "Performance", icon: Calendar },
       { path: "/staff/announcements", label: "Announcements", icon: Megaphone },
       // Member Management
-      { path: "/staff/borrower-profiles", label: "Borrower Profiles", icon: Users },
+      { path: "/staff/user-profiles", label: "User Profiles", icon: Users },
       { path: "/staff/documents", label: "Documents", icon: FileText },
       // Administration
       { path: "/staff/master-list", label: "Master List", icon: Database },

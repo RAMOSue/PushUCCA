@@ -13,6 +13,10 @@ export default function BorrowerProfiles() {
   const [expandedProfiles, setExpandedProfiles] = useState({});
   const [selectedDivision, setSelectedDivision] = useState("ALL");
   const [selectedStatus, setSelectedStatus] = useState("ALL");
+  const [units, setUnits] = useState([]);
+  const [positionsList, setPositionsList] = useState([]);
+  const [orgStructures, setOrgStructures] = useState([]);
+  const [assignLoading, setAssignLoading] = useState(false);
 
   useEffect(() => {
     const fetchProfiles = async () => {
@@ -28,6 +32,19 @@ export default function BorrowerProfiles() {
       }
     };
     fetchProfiles();
+    // fetch master-list units and positions for assignments UI
+    (async function fetchMasterList() {
+      try {
+        const [uRes, pRes] = await Promise.all([
+          axios.get("/api/master-list/units", { withCredentials: true }),
+          axios.get("/api/master-list/positions", { withCredentials: true }),
+        ]);
+        setUnits(uRes.data || []);
+        setPositionsList(pRes.data || []);
+      } catch (err) {
+        console.error("Error fetching master list data:", err);
+      }
+    })();
   }, []);
 
   if (loading) {
@@ -113,6 +130,78 @@ export default function BorrowerProfiles() {
     return matchesSearch && matchesDivision;
   });
 
+  // When a specific division tab (not ALL/Student) is selected, load org-structures
+  useEffect(() => {
+    const loadOrgStructures = async () => {
+      if (!units || units.length === 0) return;
+      if (!selectedDivision || selectedDivision === "ALL" || selectedDivision === "Student") {
+        setOrgStructures([]);
+        return;
+      }
+      const unit = units.find(u => u.name === selectedDivision);
+      if (!unit) {
+        setOrgStructures([]);
+        return;
+      }
+      try {
+        const { data } = await axios.get(`/api/master-list/org-structures/unit/${unit.id}`, { withCredentials: true });
+        setOrgStructures(data || []);
+      } catch (err) {
+        console.error("Error loading org structures:", err);
+        setOrgStructures([]);
+      }
+    };
+    loadOrgStructures();
+  }, [selectedDivision, units]);
+
+  const getUnitIdByName = (name) => {
+    const u = units.find(x => x.name === name);
+    return u ? u.id : null;
+  };
+
+  const handleAddPositionToUnit = async (positionId) => {
+    const unitId = getUnitIdByName(selectedDivision);
+    if (!unitId) return toast.error("Unit not found");
+    try {
+      setAssignLoading(true);
+      await axios.post(`/api/master-list/org-structures`, { unitId, positionId }, { withCredentials: true });
+      const { data } = await axios.get(`/api/master-list/org-structures/unit/${unitId}`, { withCredentials: true });
+      setOrgStructures(data || []);
+      toast.success("Position added to unit");
+    } catch (err) {
+      console.error("Error adding position to unit:", err);
+      toast.error("Failed to add position to unit");
+    } finally { setAssignLoading(false); }
+  };
+
+  const handleAssignUser = async (orgStructureId, userId) => {
+    try {
+      setAssignLoading(true);
+      await axios.post(`/api/master-list/assignments`, { orgStructureId, userId }, { withCredentials: true });
+      const unitId = getUnitIdByName(selectedDivision);
+      const { data } = await axios.get(`/api/master-list/org-structures/unit/${unitId}`, { withCredentials: true });
+      setOrgStructures(data || []);
+      toast.success("Assigned user to position");
+    } catch (err) {
+      console.error("Error assigning user:", err);
+      toast.error("Failed to assign user");
+    } finally { setAssignLoading(false); }
+  };
+
+  const handleRemoveAssignment = async (assignmentId) => {
+    try {
+      setAssignLoading(true);
+      await axios.delete(`/api/master-list/assignments/${assignmentId}`, { withCredentials: true });
+      const unitId = getUnitIdByName(selectedDivision);
+      const { data } = await axios.get(`/api/master-list/org-structures/unit/${unitId}`, { withCredentials: true });
+      setOrgStructures(data || []);
+      toast.success("Removed assignment");
+    } catch (err) {
+      console.error("Error removing assignment:", err);
+      toast.error("Failed to remove assignment");
+    } finally { setAssignLoading(false); }
+  };
+
   // Organize into sections by completion status
   const getCompletionStatus = (profile) => {
     const hasPhoto = !!profile.profile_pic_url;
@@ -150,8 +239,8 @@ export default function BorrowerProfiles() {
           <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
             {/* Left Side - Title */}
             <div>
-              <h1 className="text-3xl md:text-4xl font-bold text-on-surface dark:text-white mb-2">Borrower Profiles</h1>
-              <p className="text-on-surface-variant dark:text-gray-400 text-sm">Manage and review borrower documentation</p>
+              <h1 className="text-3xl md:text-4xl font-bold text-on-surface dark:text-white mb-2">User Profiles</h1>
+              <p className="text-on-surface-variant dark:text-gray-400 text-sm">Manage and review user documentation and officer assignments</p>
             </div>
 
             {/* Right Side - Summary Pills */}
@@ -235,6 +324,68 @@ export default function BorrowerProfiles() {
                     {division}
                   </button>
                 ))}
+              </div>
+            )}
+
+            {/* Officer Assignments (per-division) */}
+            {selectedDivision && selectedDivision !== "ALL" && selectedDivision !== "Student" && (
+              <div className="bg-surface-container-low dark:bg-[#111] rounded-lg p-4 border border-outline-variant/20 dark:border-gray-700">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-semibold text-on-surface dark:text-white">Officer Assignments — {selectedDivision}</h3>
+                  <span className="text-xs text-on-surface-variant dark:text-gray-400">Manage assignments for this division</span>
+                </div>
+
+                <div className="space-y-2">
+                  {positionsList.length === 0 ? (
+                    <p className="text-sm text-on-surface-variant dark:text-gray-400">Loading positions...</p>
+                  ) : (
+                    positionsList.map((pos) => {
+                      const os = orgStructures.find(o => o.position_id === pos.id);
+                      const assigns = os ? (os.assignments || []) : [];
+                      const usersInDivision = profiles.filter(p => p.department_name === selectedDivision);
+                      return (
+                        <div key={pos.id} className="flex items-center justify-between gap-3 p-2 bg-surface-container-high dark:bg-[#1a1a1a] rounded">
+                          <div>
+                            <div className="text-sm font-medium text-on-surface dark:text-white">{pos.name}</div>
+                            <div className="text-xs text-on-surface-variant dark:text-gray-400">{pos.description || ''}</div>
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            {os ? (
+                              assigns.length > 0 ? (
+                                <div className="flex items-center gap-2">
+                                  {assigns.map(a => (
+                                    <div key={a.id} className="flex items-center gap-2 bg-surface dark:bg-[#111] px-2 py-1 rounded">
+                                      <div className="text-sm font-medium">{a.user_name || 'Unnamed'}</div>
+                                      <button onClick={() => handleRemoveAssignment(a.id)} disabled={assignLoading} className="text-xs text-red-600 hover:underline">Remove</button>
+                                    </div>
+                                  ))}
+                                  <select className="text-xs p-1 border rounded" onChange={(e) => handleAssignUser(os.id, Number(e.target.value))} defaultValue="">
+                                    <option value="">Change / Assign...</option>
+                                    {usersInDivision.map(u => (
+                                      <option key={u.id} value={u.id}>{u.name}</option>
+                                    ))}
+                                  </select>
+                                </div>
+                              ) : (
+                                <div className="flex items-center gap-2">
+                                  <select className="text-xs p-1 border rounded" onChange={(e) => handleAssignUser(os.id, Number(e.target.value))} defaultValue="">
+                                    <option value="">Assign user...</option>
+                                    {usersInDivision.map(u => (
+                                      <option key={u.id} value={u.id}>{u.name}</option>
+                                    ))}
+                                  </select>
+                                </div>
+                              )
+                            ) : (
+                              <button onClick={() => handleAddPositionToUnit(pos.id)} disabled={assignLoading} className="text-xs px-3 py-1 rounded bg-primary dark:bg-blue-600 text-on-primary">Add to division</button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
               </div>
             )}
 
