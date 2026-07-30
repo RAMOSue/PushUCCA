@@ -1,7 +1,7 @@
 // client/src/context/userContext.jsx
 import axios from "axios";
 import { createContext, useEffect, useState } from "react";
-import notificationService from "../services/notifications";
+import notificationService from "../src/services/notifications";
 import { INACTIVITY_CONFIG } from "../src/config/inactivityConfig";
 import tokenManager from "../src/utils/tokenManager"; // ✅ Multi-user testing
 
