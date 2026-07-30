@@ -60,7 +60,8 @@ class UnitsModel {
 // ======================== POSITIONS ========================
 class PositionsModel {
   static async getAll() {
-    const result = await pool.query("SELECT * FROM positions WHERE status = 'Active' ORDER BY name ASC");
+    // Return all positions (including Inactive) so frontend can display true DB state
+    const result = await pool.query("SELECT * FROM positions ORDER BY name ASC");
     return result.rows;
   }
 
