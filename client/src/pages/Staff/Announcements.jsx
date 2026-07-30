@@ -3,7 +3,8 @@ import axios from 'axios';
 import toast from 'react-hot-toast';
 import PageLayout from '../../components/layout/PageLayout';
 import { UserContext } from '../../../context/userContext';
-import { Plus, Edit2, Trash2, Image as ImgIcon, Pin, Calendar as CalendarIcon } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { Plus, Edit2, Trash2, Image as ImgIcon, Pin, Calendar as CalendarIcon, Search, Filter } from 'lucide-react';
 
 function StatCard({ label, value }) {
   return (
@@ -183,53 +184,96 @@ export default function Announcements() {
 
       {/* Filters */}
       <div className="flex items-center gap-3 mb-4">
-        <input placeholder="Search announcements" value={query} onChange={(e) => setQuery(e.target.value)} className="input" />
-        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="select">
-          <option value="all">All</option>
-          <option value="published">Published</option>
-          <option value="scheduled">Scheduled</option>
-          <option value="draft">Draft</option>
-        </select>
-        <select value={priorityFilter} onChange={(e) => setPriorityFilter(e.target.value)} className="select">
-          <option value="all">All priorities</option>
-          <option value="Normal">Normal</option>
-          <option value="Important">Important</option>
-          <option value="Urgent">Urgent</option>
-        </select>
+        <div className="flex items-center gap-2 flex-1">
+          <div className="relative flex items-center w-full">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant" />
+            <input placeholder="Search announcements" value={query} onChange={(e) => setQuery(e.target.value)} className="input pl-10 w-full" />
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="select">
+            <option value="all">All</option>
+            <option value="published">Published</option>
+            <option value="scheduled">Scheduled</option>
+            <option value="draft">Draft</option>
+          </select>
+          <select value={priorityFilter} onChange={(e) => setPriorityFilter(e.target.value)} className="select">
+            <option value="all">All priorities</option>
+            <option value="Normal">Normal</option>
+            <option value="Important">Important</option>
+            <option value="Urgent">Urgent</option>
+          </select>
+          <button title="More filters" className="btn btn-ghost"><Filter/></button>
+        </div>
       </div>
 
       {/* Announcement list */}
       <div className="space-y-4">
-        {loading && <div>Loading…</div>}
-        {!loading && filtered.length === 0 && <div>No announcements found.</div>}
-        {filtered.map((it) => (
-          <div key={it.id} className="p-4 bg-white rounded-lg shadow-sm border flex gap-4 hover:shadow-md transition">
-            <div className="w-20 h-20 bg-gray-100 rounded overflow-hidden flex-shrink-0">
-              {it.image_url ? <img src={it.image_url} alt="img" className="w-full h-full object-cover" /> : <div className="p-4 text-gray-400"><ImgIcon/></div>}
-            </div>
-            <div className="flex-1">
-              <div className="flex items-start justify-between">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-3">
+        {loading && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="p-4 rounded-lg bg-surface-container-low dark:bg-[#171717] animate-pulse h-36" />
+            ))}
+          </div>
+        )}
+
+        {!loading && filtered.length === 0 && (
+          <div className="p-8 rounded-lg bg-surface-container-low border border-outline-variant/10 text-center">
+            <div className="text-xl font-semibold mb-2">No announcements yet</div>
+            <div className="text-sm text-on-surface-variant mb-4">Create your first announcement to keep the community informed.</div>
+            {user?.role === 'staff' && (
+              <button onClick={openCreate} className="btn btn-primary inline-flex items-center"><Plus className="mr-2"/>Create Announcement</button>
+            )}
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filtered.map((it) => (
+            <motion.div
+              key={it.id}
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              whileHover={{ scale: 1.01 }}
+              transition={{ duration: 0.18 }}
+              className="p-4 bg-white rounded-lg shadow-sm border hover:shadow-md transition"
+            >
+              <div className="flex gap-4">
+                <div className="w-16 h-16 rounded-full overflow-hidden bg-gray-100 flex-shrink-0">
+                  {it.author?.avatar_url ? (
+                    <img src={it.author.avatar_url} alt={it.author?.name} className="w-full h-full object-cover" />
+                  ) : it.image_url ? (
+                    <img src={it.image_url} alt="img" className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-gray-400"><ImgIcon/></div>
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
                     <h3 className="font-semibold truncate">{it.title}</h3>
-                    {it.priority === 'Urgent' && <Badge color="orange">Urgent</Badge>}
-                    {it.priority === 'Important' && <Badge color="orange">Important</Badge>}
-                    {it.is_published ? <Badge color="green">Published</Badge> : it.published_at ? <Badge color="orange">Scheduled</Badge> : <Badge>Draft</Badge>}
-                    {it.pinned && <span title="Pinned" className="text-primary"><Pin className="w-4 h-4"/></span>}
+                    <div className="ml-2 flex items-center gap-2">
+                      {it.priority === 'Urgent' && <Badge color="orange">Urgent</Badge>}
+                      {it.priority === 'Important' && <Badge color="orange">Important</Badge>}
+                      {it.is_published ? <Badge color="green">Published</Badge> : it.published_at ? <Badge color="orange">Scheduled</Badge> : <Badge>Draft</Badge>}
+                      {it.pinned && <span title="Pinned" className="text-primary"><Pin className="w-4 h-4"/></span>}
+                    </div>
                   </div>
                   <div className="text-sm text-gray-600">by {it.author?.name || 'Unknown'} • {new Date(it.created_at).toLocaleString()}</div>
-                  <p className="mt-2 text-sm text-gray-800 line-clamp-2">{it.content}</p>
+                  {it.published_at && (
+                    <div className="text-xs text-on-surface-variant mt-1 flex items-center gap-2"><CalendarIcon className="w-3 h-3"/>{new Date(it.published_at).toLocaleString()}</div>
+                  )}
+                  <p className="mt-2 text-sm text-gray-800 line-clamp-3">{it.content}</p>
                 </div>
-                <div className="flex flex-col gap-2">
+                <div className="flex flex-col items-end gap-2">
                   <button onClick={() => openEdit(it)} className="btn btn-sm"><Edit2/></button>
                   <button onClick={() => removeItem(it.id)} className="btn btn-sm btn-danger"><Trash2/></button>
                   <button onClick={() => togglePublish(it)} className="btn btn-sm">{it.is_published ? 'Unpublish' : 'Publish'}</button>
                   <button onClick={() => togglePin(it)} className="btn btn-sm">{it.pinned ? 'Unpin' : 'Pin'}</button>
                 </div>
               </div>
-            </div>
-          </div>
-        ))}
+            </motion.div>
+          ))}
+        </div>
       </div>
 
       {/* Composer modal */}
