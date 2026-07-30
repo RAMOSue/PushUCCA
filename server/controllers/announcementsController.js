@@ -37,15 +37,19 @@ function toFullUrl(filePath) {
 exports.listAnnouncements = async (req, res) => {
   try {
     const onlyPublished = req.query.published === 'true' || req.query.published === undefined;
+    const divisionId = req.query.division_id ? parseInt(req.query.division_id, 10) : null;
+    const divisionName = req.query.division || null;
     const limit = Math.min(100, parseInt(req.query.limit || '50', 10));
     const offset = parseInt(req.query.offset || '0', 10);
-    const rows = await announcementModel.getAllAnnouncements({ onlyPublished, limit, offset });
+    const rows = await announcementModel.getAllAnnouncements({ onlyPublished, limit, offset, divisionId, divisionName });
     const data = rows.map((r) => ({
       id: r.id,
       title: r.title,
       content: r.content,
       image_url: r.image_url ? toFullUrl(r.image_url) : null,
       author: { id: r.author_id, name: r.author_name, profile_pic_url: r.profile_pic_url ? toFullUrl(r.profile_pic_url) : null },
+      division_id: r.division_id,
+      division_name: r.division_name,
       priority: r.priority,
       pinned: r.pinned,
       is_published: r.is_published,
@@ -80,10 +84,21 @@ exports.createAnnouncement = [
   async (req, res) => {
     try {
       const { title, content, is_published, published_at, priority, pinned } = req.body;
+      const division_id = req.body.division_id ? parseInt(req.body.division_id, 10) : null;
       if (!title) return res.status(400).json({ error: 'Title is required' });
       const image_url = req.file ? `/uploads/announcements/${req.file.filename}` : null;
       const created_by = req.user?.id || null;
-      const created = await announcementModel.createAnnouncement({ title, content, image_url, created_by, is_published: is_published === 'true' || is_published === true, published_at: published_at || null, priority: priority || 'Normal', pinned: pinned === 'true' || pinned === true });
+      const created = await announcementModel.createAnnouncement({
+        title,
+        content,
+        image_url,
+        created_by,
+        division_id,
+        is_published: is_published === 'true' || is_published === true,
+        published_at: published_at || null,
+        priority: priority || 'Normal',
+        pinned: pinned === 'true' || pinned === true,
+      });
       created.image_url = created.image_url ? toFullUrl(created.image_url) : null;
       res.status(201).json(created);
     } catch (err) {
@@ -101,6 +116,10 @@ exports.updateAnnouncement = [
       if (!id) return res.status(400).json({ error: 'Invalid id' });
       const fields = { ...req.body };
       if (req.file) fields.image_url = `/uploads/announcements/${req.file.filename}`;
+      if (fields.division_id !== undefined) {
+        const parsedDivisionId = parseInt(fields.division_id, 10);
+        fields.division_id = Number.isNaN(parsedDivisionId) ? null : parsedDivisionId;
+      }
       // Normalize boolean strings
       if (fields.is_published !== undefined) fields.is_published = fields.is_published === 'true' || fields.is_published === true;
       if (fields.pinned !== undefined) fields.pinned = fields.pinned === 'true' || fields.pinned === true;

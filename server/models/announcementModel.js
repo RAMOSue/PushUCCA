@@ -1,26 +1,42 @@
 const pool = require('../db');
 
-async function getAllAnnouncements({ onlyPublished = false, limit = 50, offset = 0 } = {}) {
-  const where = onlyPublished ? 'WHERE a.is_published = TRUE' : '';
+async function getAllAnnouncements({ onlyPublished = false, limit = 50, offset = 0, divisionId = null, divisionName = null } = {}) {
+  const clauses = [];
+  const values = [];
+
+  if (onlyPublished) clauses.push('a.is_published = TRUE');
+  if (divisionId) {
+    values.push(divisionId);
+    clauses.push(`a.division_id = $${values.length}`);
+  } else if (divisionName) {
+    values.push(divisionName);
+    clauses.push(`LOWER(d.name) = LOWER($${values.length})`);
+  }
+
+  const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : '';
   const q = `
-    SELECT a.*, u.name as author_name, u.id as author_id, p.profile_pic_url
+    SELECT a.*, u.name as author_name, u.id as author_id, p.profile_pic_url,
+           d.name AS division_name, d.id AS division_id
     FROM announcements a
     LEFT JOIN users u ON a.created_by = u.id
     LEFT JOIN user_profiles p ON u.id = p.user_id
+    LEFT JOIN divisions d ON a.division_id = d.id
     ${where}
     ORDER BY a.pinned DESC, a.published_at DESC NULLS LAST, a.created_at DESC
-    LIMIT $1 OFFSET $2
+    LIMIT $${values.length + 1} OFFSET $${values.length + 2}
   `;
-  const { rows } = await pool.query(q, [limit, offset]);
+  const { rows } = await pool.query(q, [...values, limit, offset]);
   return rows;
 }
 
 async function getAnnouncementById(id) {
   const q = `
-    SELECT a.*, u.name as author_name, u.id as author_id, p.profile_pic_url
+    SELECT a.*, u.name as author_name, u.id as author_id, p.profile_pic_url,
+           d.name AS division_name, d.id AS division_id
     FROM announcements a
     LEFT JOIN users u ON a.created_by = u.id
     LEFT JOIN user_profiles p ON u.id = p.user_id
+    LEFT JOIN divisions d ON a.division_id = d.id
     WHERE a.id = $1
     LIMIT 1
   `;
@@ -28,19 +44,19 @@ async function getAnnouncementById(id) {
   return rows[0] || null;
 }
 
-async function createAnnouncement({ title, content, image_url, created_by, is_published = false, published_at = null, priority = 'Normal', pinned = false }) {
+async function createAnnouncement({ title, content, image_url, created_by, division_id = null, is_published = false, published_at = null, priority = 'Normal', pinned = false }) {
   const q = `
-    INSERT INTO announcements (title, content, image_url, created_by, is_published, published_at, priority, pinned, created_at, updated_at)
-    VALUES ($1,$2,$3,$4,$5,$6,$7,$8, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+    INSERT INTO announcements (title, content, image_url, created_by, division_id, is_published, published_at, priority, pinned, created_at, updated_at)
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
     RETURNING *
   `;
-  const vals = [title, content, image_url, created_by, is_published, published_at, priority, pinned];
+  const vals = [title, content, image_url, created_by, division_id, is_published, published_at, priority, pinned];
   const { rows } = await pool.query(q, vals);
   return rows[0];
 }
 
 async function updateAnnouncement(id, fields = {}) {
-  const allowed = ['title','content','image_url','is_published','published_at','priority','pinned'];
+  const allowed = ['title','content','image_url','division_id','is_published','published_at','priority','pinned'];
   const sets = [];
   const vals = [];
   let idx = 1;

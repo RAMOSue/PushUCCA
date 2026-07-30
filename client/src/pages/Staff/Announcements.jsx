@@ -8,7 +8,7 @@ import { Plus, Edit2, Trash2, Image as ImgIcon, Pin, Calendar as CalendarIcon, S
 
 function StatCard({ label, value }) {
   return (
-    <div className="p-4 bg-surface-container-lowest rounded-md shadow-sm">
+    <div className="p-4 bg-surface-container-low rounded-lg border border-outline-variant/10 shadow-sm">
       <div className="text-sm text-on-surface-variant">{label}</div>
       <div className="text-2xl font-bold mt-1">{value}</div>
     </div>
@@ -27,11 +27,13 @@ export default function Announcements() {
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [priorityFilter, setPriorityFilter] = useState('all');
+  const [activeDivision, setActiveDivision] = useState('All');
+  const [divisions, setDivisions] = useState([]);
 
   // Composer state
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editing, setEditing] = useState(null);
-  const [form, setForm] = useState({ title: '', content: '', priority: 'Normal', pinned: false, publishNow: true, scheduledAt: '' });
+  const [form, setForm] = useState({ title: '', content: '', priority: 'Normal', pinned: false, publishNow: true, scheduledAt: '', division_id: '' });
   const [imageFile, setImageFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
 
@@ -49,7 +51,22 @@ export default function Announcements() {
     }
   };
 
-  useEffect(() => { fetchAnnouncements(); }, []);
+  const fetchDivisions = async () => {
+    try {
+      const res = await axios.get('/api/inventory/divisions');
+      const active = Array.isArray(res.data)
+        ? res.data.filter((division) => (division.status || 'Active').toLowerCase() !== 'inactive')
+        : [];
+      setDivisions(active);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  useEffect(() => {
+    fetchAnnouncements();
+    fetchDivisions();
+  }, []);
 
   const stats = useMemo(() => {
     const total = items.length;
@@ -61,6 +78,7 @@ export default function Announcements() {
 
   const filtered = useMemo(() => {
     return items.filter((it) => {
+      if (activeDivision !== 'All' && (it.division_name || '').toLowerCase() !== activeDivision.toLowerCase()) return false;
       if (query && !(it.title||'').toLowerCase().includes(query.toLowerCase()) && !(it.content||'').toLowerCase().includes(query.toLowerCase())) return false;
       if (statusFilter === 'published' && !it.is_published) return false;
       if (statusFilter === 'scheduled' && !(it.published_at && !it.is_published)) return false;
@@ -68,11 +86,11 @@ export default function Announcements() {
       if (priorityFilter !== 'all' && it.priority !== priorityFilter) return false;
       return true;
     }).sort((a,b) => (b.pinned?1:0) - (a.pinned?1:0) || new Date(b.published_at || b.created_at) - new Date(a.published_at || a.created_at));
-  }, [items, query, statusFilter, priorityFilter]);
+  }, [items, query, statusFilter, priorityFilter, activeDivision]);
 
   function openCreate() {
     setEditing(null);
-    setForm({ title: '', content: '', priority: 'Normal', pinned: false, publishNow: true, scheduledAt: '' });
+    setForm({ title: '', content: '', priority: 'Normal', pinned: false, publishNow: true, scheduledAt: '', division_id: '' });
     setImageFile(null);
     setPreviewUrl(null);
     setIsModalOpen(true);
@@ -80,7 +98,15 @@ export default function Announcements() {
 
   function openEdit(item) {
     setEditing(item);
-    setForm({ title: item.title || '', content: item.content || '', priority: item.priority || 'Normal', pinned: !!item.pinned, publishNow: !!item.is_published, scheduledAt: item.published_at ? new Date(item.published_at).toISOString().slice(0,16) : '' });
+    setForm({
+      title: item.title || '',
+      content: item.content || '',
+      priority: item.priority || 'Normal',
+      pinned: !!item.pinned,
+      publishNow: !!item.is_published,
+      scheduledAt: item.published_at ? new Date(item.published_at).toISOString().slice(0,16) : '',
+      division_id: item.division_id || '',
+    });
     setPreviewUrl(item.image_url || null);
     setIsModalOpen(true);
   }
@@ -99,6 +125,7 @@ export default function Announcements() {
       fd.append('content', form.content || '');
       fd.append('priority', form.priority || 'Normal');
       fd.append('pinned', form.pinned ? 'true' : 'false');
+      fd.append('division_id', form.division_id || '');
 
       if (form.publishNow) {
         fd.append('is_published', 'true');
@@ -182,44 +209,74 @@ export default function Announcements() {
         <StatCard label="Drafts" value={stats.drafts} />
       </div>
 
-      {/* Filters */}
-      <div className="flex items-center gap-3 mb-4">
-        <div className="flex items-center gap-2 flex-1">
-          <div className="relative flex items-center w-full">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant" />
-            <input placeholder="Search announcements" value={query} onChange={(e) => setQuery(e.target.value)} className="input pl-10 w-full" />
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="select">
-            <option value="all">All</option>
-            <option value="published">Published</option>
-            <option value="scheduled">Scheduled</option>
-            <option value="draft">Draft</option>
-          </select>
-          <select value={priorityFilter} onChange={(e) => setPriorityFilter(e.target.value)} className="select">
-            <option value="all">All priorities</option>
-            <option value="Normal">Normal</option>
-            <option value="Important">Important</option>
-            <option value="Urgent">Urgent</option>
-          </select>
-          <button title="More filters" className="btn btn-ghost"><Filter/></button>
+      <div className="mb-4">
+        <div className="flex flex-wrap items-center gap-2 rounded-full border border-outline-variant/20 bg-surface-container-low dark:border-gray-700 dark:bg-[#222] p-1 shadow-sm">
+          {['All','Dulimbay','Budjong','Kayam'].map((tab) => {
+            const isActive = activeDivision === tab;
+            return (
+              <button
+                key={tab}
+                type="button"
+                onClick={() => setActiveDivision(tab)}
+                className={`rounded-full px-4 py-2 text-sm font-semibold transition-all duration-300 ${isActive ? 'bg-primary text-white shadow-sm dark:bg-blue-600' : 'text-on-surface-variant hover:bg-surface-container-high dark:text-gray-300 dark:hover:bg-[#2a2a2a]'}`}
+              >
+                {tab}
+              </button>
+            );
+          })}
         </div>
       </div>
 
-      {/* Announcement list */}
-      <div className="space-y-4">
+      <div className="rounded-lg border border-outline-variant/20 bg-surface-container-low p-4 shadow-sm mb-4 dark:border-gray-700 dark:bg-[#222]">
+        <div className="grid gap-4 lg:grid-cols-[1.8fr_auto]">
+          <div className="relative flex items-center">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant" />
+            <input
+              placeholder="Search announcements"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              className="input pl-10 w-full bg-transparent"
+            />
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2 justify-end">
+            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="select">
+              <option value="all">All</option>
+              <option value="published">Published</option>
+              <option value="scheduled">Scheduled</option>
+              <option value="draft">Draft</option>
+            </select>
+            <select value={priorityFilter} onChange={(e) => setPriorityFilter(e.target.value)} className="select">
+              <option value="all">All priorities</option>
+              <option value="Normal">Normal</option>
+              <option value="Important">Important</option>
+              <option value="Urgent">Urgent</option>
+            </select>
+            <button title="More filters" className="btn btn-ghost"><Filter/></button>
+            <span className="text-sm text-on-surface-variant">{filtered.length} shown</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        <div className="hidden grid-cols-[1.8fr_120px_100px_100px_160px] gap-4 rounded-t-lg border border-outline-variant/20 bg-surface-container-low px-4 py-3 text-xs uppercase tracking-[0.12em] text-on-surface-variant md:grid">
+          <div>Announcement</div>
+          <div>Division</div>
+          <div>Priority</div>
+          <div>Status</div>
+          <div className="text-right">Actions</div>
+        </div>
+
         {loading && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="p-4 rounded-lg bg-surface-container-low dark:bg-[#171717] animate-pulse h-36" />
+          <div className="space-y-3">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="animate-pulse rounded-xl border border-outline-variant/10 bg-surface-container-low p-4 h-28" />
             ))}
           </div>
         )}
 
         {!loading && filtered.length === 0 && (
-          <div className="p-8 rounded-lg bg-surface-container-low border border-outline-variant/10 text-center">
+          <div className="rounded-lg border border-outline-variant/10 bg-surface-container-low p-8 text-center">
             <div className="text-xl font-semibold mb-2">No announcements yet</div>
             <div className="text-sm text-on-surface-variant mb-4">Create your first announcement to keep the community informed.</div>
             {user?.role === 'staff' && (
@@ -228,7 +285,7 @@ export default function Announcements() {
           </div>
         )}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="space-y-3">
           {filtered.map((it) => (
             <motion.div
               key={it.id}
@@ -236,40 +293,40 @@ export default function Announcements() {
               animate={{ opacity: 1, y: 0 }}
               whileHover={{ scale: 1.01 }}
               transition={{ duration: 0.18 }}
-              className="p-4 bg-surface-container-low dark:bg-[#222] rounded-lg border border-outline-variant/10 shadow-sm hover:shadow-md transition"
+              className="grid gap-4 rounded-xl border border-outline-variant/10 bg-surface-container-low p-4 shadow-sm hover:shadow-md transition dark:border-gray-700 dark:bg-[#222] md:grid-cols-[1.8fr_120px_100px_100px_160px]"
             >
-              <div className="flex gap-4">
-                <div className="w-16 h-16 rounded-full overflow-hidden bg-surface-container-high dark:bg-[#2a2a2a] flex-shrink-0">
-                  {it.author?.avatar_url ? (
-                    <img src={it.author.avatar_url} alt={it.author?.name} className="w-full h-full object-cover" />
+              <div className="flex items-start gap-3">
+                <div className="h-12 w-12 overflow-hidden rounded-lg bg-surface-container-high dark:bg-[#2a2a2a] flex-shrink-0">
+                  {it.author?.profile_pic_url ? (
+                    <img src={it.author.profile_pic_url} alt={it.author?.name} className="h-full w-full object-cover" />
                   ) : it.image_url ? (
-                    <img src={it.image_url} alt="img" className="w-full h-full object-cover" />
+                    <img src={it.image_url} alt={it.title} className="h-full w-full object-cover" />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center text-gray-400"><ImgIcon/></div>
+                    <div className="flex h-full w-full items-center justify-center text-on-surface-variant"><ImgIcon className="w-5 h-5"/></div>
                   )}
                 </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <h3 className="font-semibold truncate text-on-surface">{it.title}</h3>
-                    <div className="ml-2 flex items-center gap-2">
-                      {it.priority === 'Urgent' && <Badge color="orange">Urgent</Badge>}
-                      {it.priority === 'Important' && <Badge color="orange">Important</Badge>}
-                      {it.is_published ? <Badge color="green">Published</Badge> : it.published_at ? <Badge color="orange">Scheduled</Badge> : <Badge>Draft</Badge>}
-                      {it.pinned && <span title="Pinned" className="text-primary"><Pin className="w-4 h-4"/></span>}
-                    </div>
+                <div className="min-w-0">
+                  <p className="font-semibold text-on-surface truncate">{it.title}</p>
+                  <p className="mt-1 text-sm text-on-surface-variant line-clamp-2">{it.content || 'No description provided.'}</p>
+                  <div className="mt-2 text-xs text-on-surface-variant">
+                    by {it.author?.name || 'Unknown'} • {new Date(it.created_at).toLocaleDateString()}
                   </div>
-                  <div className="text-sm text-on-surface-variant">by {it.author?.name || 'Unknown'} • {new Date(it.created_at).toLocaleString()}</div>
-                  {it.published_at && (
-                    <div className="text-xs text-on-surface-variant mt-1 flex items-center gap-2"><CalendarIcon className="w-3 h-3"/>{new Date(it.published_at).toLocaleString()}</div>
-                  )}
-                  <p className="mt-2 text-sm text-on-surface line-clamp-3">{it.content}</p>
                 </div>
-                <div className="flex flex-col items-end gap-2">
-                  <button onClick={() => openEdit(it)} className="flex h-9 w-9 items-center justify-center rounded-full hover:bg-surface-container-high dark:hover:bg-[#2a2a2a] transition text-on-surface-variant"><Edit2 className="w-4 h-4"/></button>
-                  <button onClick={() => removeItem(it.id)} className="flex h-9 w-9 items-center justify-center rounded-full hover:bg-surface-container-high dark:hover:bg-[#2a2a2a] transition text-on-surface-variant"><Trash2 className="w-4 h-4 text-red-600"/></button>
-                  <button onClick={() => togglePublish(it)} className="btn btn-ghost btn-sm">{it.is_published ? 'Unpublish' : 'Publish'}</button>
-                  <button onClick={() => togglePin(it)} className="btn btn-ghost btn-sm">{it.pinned ? 'Unpin' : 'Pin'}</button>
-                </div>
+              </div>
+
+              <div className="text-sm text-on-surface">{it.division_name || 'Unassigned'}</div>
+              <div>
+                {it.priority === 'Urgent' ? <Badge color="orange">Urgent</Badge> : it.priority === 'Important' ? <Badge color="orange">Important</Badge> : <Badge>{it.priority || 'Normal'}</Badge>}
+              </div>
+              <div>
+                {it.is_published ? <Badge color="green">Published</Badge> : it.published_at ? <Badge color="orange">Scheduled</Badge> : <Badge>Draft</Badge>}
+                {it.published_at && <div className="mt-2 text-xs text-on-surface-variant">{new Date(it.published_at).toLocaleDateString()}</div>}
+              </div>
+              <div className="flex flex-wrap justify-end gap-2">
+                <button onClick={() => openEdit(it)} className="rounded-lg border border-outline-variant/20 px-3 py-2 text-sm font-medium text-on-surface-variant transition hover:bg-surface-container-high dark:border-gray-700 dark:text-gray-300 dark:hover:bg-[#2a2a2a]">Edit</button>
+                <button onClick={() => removeItem(it.id)} className="rounded-lg border border-outline-variant/20 px-3 py-2 text-sm font-medium text-red-600 transition hover:bg-red-50 dark:hover:bg-[#3b1717]">Delete</button>
+                <button onClick={() => togglePublish(it)} className="btn btn-ghost btn-sm">{it.is_published ? 'Unpublish' : 'Publish'}</button>
+                <button onClick={() => togglePin(it)} className="btn btn-ghost btn-sm">{it.pinned ? 'Unpin' : 'Pin'}</button>
               </div>
             </motion.div>
           ))}
@@ -287,11 +344,17 @@ export default function Announcements() {
             <div className="space-y-3">
               <input required value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Title" className="input w-full" />
               <textarea value={form.content} onChange={(e) => setForm({ ...form, content: e.target.value })} placeholder="Content" className="textarea w-full" rows={6} />
-              <div className="flex gap-3 items-center">
+              <div className="flex flex-wrap gap-3 items-center">
                 <select value={form.priority} onChange={(e) => setForm({ ...form, priority: e.target.value })} className="select">
                   <option>Normal</option>
                   <option>Important</option>
                   <option>Urgent</option>
+                </select>
+                <select value={form.division_id || ''} onChange={(e) => setForm({ ...form, division_id: e.target.value })} className="select">
+                  <option value="">No division</option>
+                  {divisions.map((division) => (
+                    <option key={division.id} value={division.id}>{division.name}</option>
+                  ))}
                 </select>
                 <label className="flex items-center gap-2"><input type="checkbox" checked={form.pinned} onChange={(e) => setForm({ ...form, pinned: e.target.checked })} /> Pin</label>
                 <label className="flex items-center gap-2"><input type="radio" name="publishMode" checked={form.publishNow} onChange={() => setForm({ ...form, publishNow: true, scheduledAt: '' })} /> Publish now</label>
