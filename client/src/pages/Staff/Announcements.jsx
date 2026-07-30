@@ -242,9 +242,7 @@ export default function Announcements() {
               <Plus className="mr-2" />
               Create Announcement
             </button>
-            {activeDivision === 'All' && (
-              <div className="text-sm text-on-surface-variant">Select a division tab before creating an announcement.</div>
-            )}
+           
           </div>
         )}
       </div>
