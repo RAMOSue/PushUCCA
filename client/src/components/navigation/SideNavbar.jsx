@@ -58,7 +58,6 @@ export default function SideNavbar({ role = "staff" }) {
     const staffItems = [
       // Daily Operations
       { path: "/staff/manage-requests", label: "Manage borrowing", icon: ClipboardList },
-      { path: "/staff/manage-inventory", label: "Inventory", icon: Box },
       { path: "/staff/available-items", label: "Available Items", icon: Package },
       { path: "/staff/schedule", label: "Performance", icon: Calendar },
       { path: "/staff/announcements", label: "Announcements", icon: Megaphone },

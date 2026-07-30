@@ -17,6 +17,7 @@ import VerifyEmail from "./pages/Auth/VerifyEmail";
 import Dashboard from "./pages/Dashboard/Dashboard";
 import GetStarted from "./pages/Home/GetStarted";
 import AvailableItems from "./pages/Inventory/AvailableItems";
+import InventoryTabs from "./pages/Inventory/InventoryTabs";
 import BorrowCart from "./pages/Borrower/BorrowCart";
 import StaffBorrowCart from "./pages/Staff/StaffBorrowCart";
 import MyBorrowedItems from "./pages/Borrower/MyBorrowedItems";
@@ -263,7 +264,7 @@ function AppContent() {
           {/* ==============================
               BORROWER ROUTES
           ============================== */}
-          <Route path="/available-items" element={<AvailableItems />} />
+          <Route path="/available-items" element={<InventoryTabs />} />
           
           {/* ✅ NEW: Borrower Performances Page */}
           <Route
@@ -406,7 +407,7 @@ function AppContent() {
             {/* Other nested staff pages */}
             <Route path="manage-requests" element={<StaffBorrowTimeline />} />
             <Route path="return-items" element={<StaffBorrowTimeline />} />
-            <Route path="available-items" element={<AvailableItems />} />
+            <Route path="available-items" element={<InventoryTabs />} />
             <Route path="schedule" element={<StaffSchedule />} />
             <Route path="announcements" element={<Announcements />} />
             <Route path="manage-inventory" element={<ManageInventory />} />

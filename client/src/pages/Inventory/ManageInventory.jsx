@@ -673,55 +673,71 @@ export default function ManageInventory() {
 
         {/* Main Content Area */}
         <div className="px-6 md:px-8 lg:px-12 space-y-4 pb-8">
-          {/* Search Bar */}
-          <div className="flex items-center gap-3 bg-surface-container-low dark:bg-[#222] rounded-lg px-4 py-3 border border-transparent dark:border-gray-700 hover:border-primary/20 dark:hover:border-blue-600 focus-within:ring-2 focus-within:ring-primary focus-within:border-transparent transition shadow-sm dark:shadow-black/40">
-            <Search className="w-5 text-on-surface-variant dark:text-gray-500 flex-shrink-0" />
-            <input
-              type="text"
-              placeholder="Search items..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="flex-1 bg-transparent focus:outline-none text-sm text-on-surface dark:text-white dark:placeholder-gray-500"
-            />
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery("")}
-                className="px-2 text-on-surface-variant dark:text-gray-500 hover:text-on-surface dark:hover:text-white transition"
-              >
-                ✕
-              </button>
-            )}
-          </div>
+          <div className="flex items-center gap-3">
+            {/* Search Bar (left) */}
+            <div className="flex items-center gap-3 bg-surface-container-low dark:bg-[#222] rounded-lg px-4 py-3 border border-transparent dark:border-gray-700 hover:border-primary/20 dark:hover:border-blue-600 focus-within:ring-2 focus-within:ring-primary focus-within:border-transparent transition shadow-sm dark:shadow-black/40 flex-1">
+              <Search className="w-5 text-on-surface-variant dark:text-gray-500 flex-shrink-0" />
+              <input
+                type="text"
+                placeholder="Search items..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="flex-1 bg-transparent focus:outline-none text-sm text-on-surface dark:text-white dark:placeholder-gray-500"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery("")}
+                  className="px-2 text-on-surface-variant dark:text-gray-500 hover:text-on-surface dark:hover:text-white transition"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
 
-          {/* Filters Section */}
-          <div className="flex gap-2 flex-wrap items-center">
-            {/* Group Chips */}
-            {GROUP_TABS.map((grp) => (
-              <button
-                key={grp}
-                onClick={() => handleSelectGroup(grp)}
-                className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
-                  selectedGroup === grp
-                    ? 'bg-primary text-on-primary shadow-sm dark:bg-blue-600'
-                    : 'bg-surface-container-low dark:bg-[#222] text-on-surface dark:text-white border border-outline-variant/30 dark:border-gray-700 hover:bg-surface-container-high dark:hover:bg-[#2a2a2a]'
-                }`}
-              >
-                {grp}
-              </button>
-            ))}
+            {/* Filters (center) */}
+            <div className="flex gap-2 flex-wrap items-center">
+              {GROUP_TABS.map((grp) => (
+                <button
+                  key={grp}
+                  onClick={() => handleSelectGroup(grp)}
+                  className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                    selectedGroup === grp
+                      ? 'bg-primary text-on-primary shadow-sm dark:bg-blue-600'
+                      : 'bg-surface-container-low dark:bg-[#222] text-on-surface dark:text-white border border-outline-variant/30 dark:border-gray-700 hover:bg-surface-container-high dark:hover:bg-[#2a2a2a]'
+                  }`}
+                >
+                  {grp}
+                </button>
+              ))}
 
-            {/* Category Select */}
+              <div>
+                <select
+                  value={filterCategory || 'all'}
+                  onChange={(e) => setFilterCategory(e.target.value === 'all' ? null : e.target.value)}
+                  className="px-4 py-2 bg-surface-container-low dark:bg-[#222] border border-outline-variant/30 dark:border-gray-700 rounded-lg text-sm font-medium text-on-surface dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent dark:focus:border-transparent"
+                >
+                  <option value="all">All</option>
+                  <option value="costume">Costume</option>
+                  <option value="instrument">Instrument</option>
+                  <option value="accessories">Accessories</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Add New Item (right) */}
             <div className="ml-auto">
-              <select
-                value={filterCategory || 'all'}
-                onChange={(e) => setFilterCategory(e.target.value === 'all' ? null : e.target.value)}
-                className="px-4 py-2 bg-surface-container-low dark:bg-[#222] border border-outline-variant/30 dark:border-gray-700 rounded-lg text-sm font-medium text-on-surface dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent dark:focus:border-transparent"
+              <button
+                onClick={() => {
+                  setNewItem(buildEmptyItem(selectedGroup));
+                  setEditingItem(null);
+                  setPreviewImage(null);
+                  setShowAdvanced(false);
+                  setFormPanelOpen(true);
+                }}
+                className="btn btn-primary"
               >
-                <option value="all">All</option>
-                <option value="costume">Costume</option>
-                <option value="instrument">Instrument</option>
-                <option value="accessories">Accessories</option>
-              </select>
+                <Plus className="mr-2" /> Add New Item
+              </button>
             </div>
           </div>
 
@@ -1210,22 +1226,7 @@ export default function ManageInventory() {
           </>
         )}
 
-        {/* Floating Action Button */}
-        {!formPanelOpen && (
-          <button
-            onClick={() => {
-              setNewItem(buildEmptyItem(selectedGroup));
-              setEditingItem(null);
-              setPreviewImage(null);
-              setShowAdvanced(false);
-              setFormPanelOpen(true);
-            }}
-            className="fixed bottom-10 right-10 w-14 h-14 bg-primary dark:bg-blue-600 text-white rounded-full shadow-2xl dark:shadow-blue-600/40 flex items-center justify-center hover:scale-110 dark:hover:bg-blue-700 transition-transform z-40 group"
-            title="Add new item"
-          >
-            <Plus className="w-6 h-6" />
-          </button>
-        )}
+        {/* Floating action moved into filter row above */}
       </div>
 
       {/* Unit Modal for QR display */}
