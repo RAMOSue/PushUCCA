@@ -86,7 +86,13 @@ export default function Announcements() {
 
   const filtered = useMemo(() => {
     return items.filter((it) => {
-      if (activeDivision !== 'All' && (it.division_name || '').toLowerCase() !== activeDivision.toLowerCase()) return false;
+      // If a specific division tab is active, show that division's announcements
+      // plus any global announcements (those without a division assigned).
+      if (activeDivision !== 'All') {
+        const isGlobal = !it.division_id && !(it.division_name);
+        const matchesDivision = (it.division_name || '').toLowerCase() === activeDivision.toLowerCase();
+        if (!isGlobal && !matchesDivision) return false;
+      }
       if (query && !(it.title||'').toLowerCase().includes(query.toLowerCase()) && !(it.content||'').toLowerCase().includes(query.toLowerCase())) return false;
       if (statusFilter === 'published' && !it.is_published) return false;
       if (statusFilter === 'scheduled' && !(it.published_at && !it.is_published)) return false;
@@ -97,10 +103,6 @@ export default function Announcements() {
   }, [items, query, statusFilter, priorityFilter, activeDivision]);
 
   function openCreate() {
-    if (activeDivision === 'All') {
-      toast.error('Select a division section before creating an announcement.');
-      return;
-    }
     setEditing(null);
     setForm({ title: '', content: '', priority: 'Normal', pinned: false, publishNow: true, scheduledAt: '', division_id: '' });
     setImageFile(null);
@@ -138,11 +140,7 @@ export default function Announcements() {
       fd.append('priority', form.priority || 'Normal');
       fd.append('pinned', form.pinned ? 'true' : 'false');
       const divisionId = editing ? form.division_id : activeDivisionId;
-      if (!divisionId) {
-        toast.error('Select a valid division section before creating an announcement.');
-        return;
-      }
-      fd.append('division_id', divisionId);
+      fd.append('division_id', divisionId || '');
 
       if (form.publishNow) {
         fd.append('is_published', 'true');
@@ -272,7 +270,7 @@ export default function Announcements() {
               <option value="Important">Important</option>
               <option value="Urgent">Urgent</option>
             </select>
-            <span className="text-sm text-on-surface-variant">{filtered.length} shown</span>
+            
           </div>
         </div>
       </div>
@@ -342,14 +340,7 @@ export default function Announcements() {
                 {it.published_at && <div className="mt-2 text-xs text-on-surface-variant">{new Date(it.published_at).toLocaleDateString()}</div>}
               </div>
               <div className="flex items-center justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => openEdit(it)}
-                  className="btn btn-ghost btn-sm p-2"
-                  title="Edit announcement"
-                >
-                  <Edit2 className="h-4 w-4" />
-                </button>
+                
                 <button
                   type="button"
                   onClick={() => togglePublish(it)}
@@ -370,6 +361,14 @@ export default function Announcements() {
                   </button>
                   {openMenuId === it.id && (
                     <div className="absolute right-0 top-full z-10 mt-2 w-44 rounded-lg border border-outline-variant/20 bg-surface-container-low p-2 shadow-lg dark:border-gray-700 dark:bg-[#222]">
+                      <button
+                        type="button"
+                        onClick={() => { openEdit(it); setOpenMenuId(null); }}
+                        className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-on-surface-variant transition hover:bg-surface-container-high dark:hover:bg-[#2a2a2a]"
+                      >
+                        <Edit2 className="h-4 w-4" />
+                        Edit
+                      </button>
                       <button
                         type="button"
                         onClick={() => { togglePin(it); setOpenMenuId(null); }}
