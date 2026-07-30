@@ -1,4 +1,5 @@
 import { useEffect, useState, useContext } from "react";
+import { useParams } from "react-router-dom";
 import axios from "axios";
 import toast from "react-hot-toast";
 import { Users, User, Mail, BadgeCheck, Download, Printer, FileText, X, ChevronLeft, ChevronRight, Camera, Search, Building } from "lucide-react";
@@ -7,6 +8,7 @@ import PageLayout from "../../components/layout/PageLayout";
 
 export default function BorrowerProfiles() {
   const { user } = useContext(UserContext);
+  const { id: selectedProfileId } = useParams();
   const [profiles, setProfiles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -46,6 +48,20 @@ export default function BorrowerProfiles() {
       }
     })();
   }, []);
+
+  useEffect(() => {
+    if (!selectedProfileId || profiles.length === 0) return;
+
+    setExpandedProfiles((prev) => ({
+      ...prev,
+      [selectedProfileId]: true,
+    }));
+
+    const element = document.getElementById(`borrower-profile-${selectedProfileId}`);
+    if (element) {
+      element.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [selectedProfileId, profiles]);
 
   if (loading) {
     return (
@@ -406,6 +422,7 @@ export default function BorrowerProfiles() {
                   return (
                     <div
                       key={borrower.id}
+                      id={`borrower-profile-${borrower.id}`}
                       className="bg-surface-container-low dark:bg-[#1a1a1a] rounded-lg border border-outline-variant/20 dark:border-gray-700 shadow-sm hover:shadow-md dark:hover:shadow-black/40 overflow-hidden transition-all duration-200"
                     >
                       {/* Row Header - Clickable */}
