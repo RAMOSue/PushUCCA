@@ -132,6 +132,10 @@ const deletePosition = async (req, res) => {
     res.json({ success: true, message: "Position deleted", position });
   } catch (err) {
     console.error("Delete position error:", err);
+    // If deletion blocked due to references, return 400 with a helpful message
+    if (err.message && err.message.toLowerCase().includes('assigned to one or more units')) {
+      return res.status(400).json({ error: err.message });
+    }
     res.status(500).json({ error: err.message });
   }
 };

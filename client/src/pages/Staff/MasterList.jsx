@@ -175,16 +175,17 @@ export default function MasterList() {
       // For officers we'll fetch positions/divisions separately
       if (activeTab === 'positions') {
         setOfficerLoading(true);
-        const [divRes, posRes] = await Promise.all([
-          axios.get('/api/master-list/units'),
-          axios.get('/api/master-list/positions'),
-        ]);
+         const ts = Date.now();
+         const [divRes, posRes] = await Promise.all([
+           axios.get(`/api/master-list/units?_=${ts}`),
+           axios.get(`/api/master-list/positions?_=${ts}`),
+         ]);
         setDivisionsList(Array.isArray(divRes.data) ? divRes.data : []);
         setPositionsList(Array.isArray(posRes.data) ? posRes.data : []);
         // find unit id for selectedDivision name
         const unit = (divRes.data || []).find(u => (u.name||'').toLowerCase() === (selectedDivision||'').toLowerCase());
         if (unit) {
-          const offRes = await axios.get(`/api/master-list/org-structures/unit/${unit.id}`);
+           const offRes = await axios.get(`/api/master-list/org-structures/unit/${unit.id}?_=${ts}`);
           setOfficersList(Array.isArray(offRes.data) ? offRes.data : []);
         } else {
           setOfficersList([]);

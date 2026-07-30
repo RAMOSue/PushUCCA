@@ -107,8 +107,15 @@ class PositionsModel {
   }
 
   static async delete(id) {
+    // Prevent deleting positions that are still referenced by organizational_structures
+    const ref = await pool.query("SELECT id FROM organizational_structures WHERE position_id = $1 LIMIT 1", [id]);
+    if (ref.rows.length > 0) {
+      throw new Error("Position cannot be deleted because it is currently assigned to one or more units. Remove assignments first.");
+    }
+
+    // Safe to hard-delete when no references exist
     const result = await pool.query(
-      "UPDATE positions SET status = 'Inactive', updated_at = CURRENT_TIMESTAMP WHERE id = $1 RETURNING *",
+      "DELETE FROM positions WHERE id = $1 RETURNING *",
       [id]
     );
     return result.rows[0];
