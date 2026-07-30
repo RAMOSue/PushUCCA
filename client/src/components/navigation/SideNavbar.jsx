@@ -54,11 +54,11 @@ export default function SideNavbar({ role = "staff" }) {
       ["/performances", "/settings"].includes(item.path)
     ) : borrowerItems;
 
-    // Reordered for staff daily workflow
+      // Reordered for staff daily workflow
     const staffItems = [
       // Daily Operations
       { path: "/staff/manage-requests", label: "Manage borrowing", icon: ClipboardList },
-      { path: "/staff/available-items", label: "Available Items", icon: Package },
+      { path: "/staff/inventory", label: "Inventory", icon: Package },
       { path: "/staff/schedule", label: "Performance", icon: Calendar },
       { path: "/staff/announcements", label: "Announcements", icon: Megaphone },
       // Member Management

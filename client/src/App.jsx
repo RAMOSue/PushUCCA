@@ -264,7 +264,8 @@ function AppContent() {
           {/* ==============================
               BORROWER ROUTES
           ============================== */}
-          <Route path="/available-items" element={<InventoryTabs />} />
+           <Route path="/available-items" element={<AvailableItems />} />
+           <Route path="/inventory" element={<InventoryTabs />} />
           
           {/* ✅ NEW: Borrower Performances Page */}
           <Route
@@ -277,6 +278,7 @@ function AppContent() {
               )
             }
           />
+          <Route path="/available-items" element={<AvailableItems />} />
 
           <Route
             path="/borrow-cart"
@@ -348,6 +350,8 @@ function AppContent() {
             }
           />
 
+          <Route path="/available-items" element={<AvailableItems />} />
+
           {/* ✅ SETTINGS ROUTE */}
           <Route
             path="/settings"
@@ -407,7 +411,8 @@ function AppContent() {
             {/* Other nested staff pages */}
             <Route path="manage-requests" element={<StaffBorrowTimeline />} />
             <Route path="return-items" element={<StaffBorrowTimeline />} />
-            <Route path="available-items" element={<InventoryTabs />} />
+            <Route path="available-items" element={<AvailableItems />} />
+            <Route path="inventory" element={<InventoryTabs />} />
             <Route path="schedule" element={<StaffSchedule />} />
             <Route path="announcements" element={<Announcements />} />
             <Route path="manage-inventory" element={<ManageInventory />} />

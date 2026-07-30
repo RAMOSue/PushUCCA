@@ -6,9 +6,9 @@ import { motion } from 'framer-motion';
 export default function InventoryTabs() {
   const [activeTab, setActiveTab] = useState(() => {
     try {
-      return localStorage.getItem('inventoryActiveTab') || 'available';
+      return localStorage.getItem('inventoryActiveTab') || 'manage';
     } catch (e) {
-      return 'available';
+      return 'manage';
     }
   });
 
@@ -19,20 +19,20 @@ export default function InventoryTabs() {
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
-        <div className="rounded-full border border-outline-variant/20 bg-surface-container-low dark:border-gray-700 dark:bg-[#222] p-1 shadow-sm">
+          <div className="rounded-full border border-outline-variant/20 bg-surface-container-low dark:border-gray-700 dark:bg-[#222] p-1 shadow-sm">
           <button
             type="button"
-            onClick={() => setActiveTab('available')}
-            className={`rounded-full px-4 py-2 text-sm font-semibold transition-all duration-300 ${activeTab === 'available' ? 'bg-primary text-white shadow-sm dark:bg-blue-600' : 'text-on-surface-variant hover:bg-surface-container-high dark:text-gray-300 dark:hover:bg-[#2a2a2a]'}`}
+            onClick={() => setActiveTab('manage')}
+            className={`rounded-full px-4 py-2 text-sm font-semibold transition-all duration-300 ${activeTab === 'manage' ? 'bg-primary text-white shadow-sm dark:bg-blue-600' : 'text-on-surface-variant hover:bg-surface-container-high dark:text-gray-300 dark:hover:bg-[#2a2a2a]'}`}
           >
-            Available Items
+            Manage Inventory
           </button>
           <button
             type="button"
-            onClick={() => setActiveTab('inventory')}
-            className={`rounded-full ml-2 px-4 py-2 text-sm font-semibold transition-all duration-300 ${activeTab === 'inventory' ? 'bg-primary text-white shadow-sm dark:bg-blue-600' : 'text-on-surface-variant hover:bg-surface-container-high dark:text-gray-300 dark:hover:bg-[#2a2a2a]'}`}
+            onClick={() => setActiveTab('available')}
+            className={`rounded-full ml-2 px-4 py-2 text-sm font-semibold transition-all duration-300 ${activeTab === 'available' ? 'bg-primary text-white shadow-sm dark:bg-blue-600' : 'text-on-surface-variant hover:bg-surface-container-high dark:text-gray-300 dark:hover:bg-[#2a2a2a]'}`}
           >
-            Inventory
+            Available Items
           </button>
         </div>
       </div>
@@ -43,7 +43,7 @@ export default function InventoryTabs() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.18 }}
       >
-        {activeTab === 'available' ? <AvailableItems /> : <ManageInventory />}
+        {activeTab === 'manage' ? <ManageInventory /> : <AvailableItems />}
       </motion.div>
     </div>
   );
