@@ -236,10 +236,10 @@ export default function Announcements() {
               animate={{ opacity: 1, y: 0 }}
               whileHover={{ scale: 1.01 }}
               transition={{ duration: 0.18 }}
-              className="p-4 bg-white rounded-lg shadow-sm border hover:shadow-md transition"
+              className="p-4 bg-surface-container-low dark:bg-[#222] rounded-lg border border-outline-variant/10 shadow-sm hover:shadow-md transition"
             >
               <div className="flex gap-4">
-                <div className="w-16 h-16 rounded-full overflow-hidden bg-gray-100 flex-shrink-0">
+                <div className="w-16 h-16 rounded-full overflow-hidden bg-surface-container-high dark:bg-[#2a2a2a] flex-shrink-0">
                   {it.author?.avatar_url ? (
                     <img src={it.author.avatar_url} alt={it.author?.name} className="w-full h-full object-cover" />
                   ) : it.image_url ? (
@@ -250,7 +250,7 @@ export default function Announcements() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <h3 className="font-semibold truncate">{it.title}</h3>
+                    <h3 className="font-semibold truncate text-on-surface">{it.title}</h3>
                     <div className="ml-2 flex items-center gap-2">
                       {it.priority === 'Urgent' && <Badge color="orange">Urgent</Badge>}
                       {it.priority === 'Important' && <Badge color="orange">Important</Badge>}
@@ -258,17 +258,17 @@ export default function Announcements() {
                       {it.pinned && <span title="Pinned" className="text-primary"><Pin className="w-4 h-4"/></span>}
                     </div>
                   </div>
-                  <div className="text-sm text-gray-600">by {it.author?.name || 'Unknown'} • {new Date(it.created_at).toLocaleString()}</div>
+                  <div className="text-sm text-on-surface-variant">by {it.author?.name || 'Unknown'} • {new Date(it.created_at).toLocaleString()}</div>
                   {it.published_at && (
                     <div className="text-xs text-on-surface-variant mt-1 flex items-center gap-2"><CalendarIcon className="w-3 h-3"/>{new Date(it.published_at).toLocaleString()}</div>
                   )}
-                  <p className="mt-2 text-sm text-gray-800 line-clamp-3">{it.content}</p>
+                  <p className="mt-2 text-sm text-on-surface line-clamp-3">{it.content}</p>
                 </div>
                 <div className="flex flex-col items-end gap-2">
-                  <button onClick={() => openEdit(it)} className="btn btn-sm"><Edit2/></button>
-                  <button onClick={() => removeItem(it.id)} className="btn btn-sm btn-danger"><Trash2/></button>
-                  <button onClick={() => togglePublish(it)} className="btn btn-sm">{it.is_published ? 'Unpublish' : 'Publish'}</button>
-                  <button onClick={() => togglePin(it)} className="btn btn-sm">{it.pinned ? 'Unpin' : 'Pin'}</button>
+                  <button onClick={() => openEdit(it)} className="flex h-9 w-9 items-center justify-center rounded-full hover:bg-surface-container-high dark:hover:bg-[#2a2a2a] transition text-on-surface-variant"><Edit2 className="w-4 h-4"/></button>
+                  <button onClick={() => removeItem(it.id)} className="flex h-9 w-9 items-center justify-center rounded-full hover:bg-surface-container-high dark:hover:bg-[#2a2a2a] transition text-on-surface-variant"><Trash2 className="w-4 h-4 text-red-600"/></button>
+                  <button onClick={() => togglePublish(it)} className="btn btn-ghost btn-sm">{it.is_published ? 'Unpublish' : 'Publish'}</button>
+                  <button onClick={() => togglePin(it)} className="btn btn-ghost btn-sm">{it.pinned ? 'Unpin' : 'Pin'}</button>
                 </div>
               </div>
             </motion.div>
