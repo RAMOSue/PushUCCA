@@ -248,6 +248,26 @@ function startNotificationScheduler() {
       console.error('Performance reminder scheduler error:', error);
     }
   });
+
+  // ✅ NEW: Publish scheduled announcements that are due
+  // Run every minute to ensure timely publishing of scheduled announcements
+  cron.schedule('*/1 * * * *', async () => {
+    try {
+      const res = await db.query(
+        `UPDATE announcements
+         SET is_published = TRUE, published_at = CASE WHEN published_at IS NULL THEN NOW() ELSE published_at END, updated_at = NOW()
+         WHERE is_published = FALSE AND published_at IS NOT NULL AND published_at <= NOW()
+         RETURNING id, title, published_at`
+      );
+
+      if (res.rows && res.rows.length > 0) {
+        console.log(`Published ${res.rows.length} scheduled announcements`);
+        // Optionally: emit notifications to staff/borrowers here
+      }
+    } catch (err) {
+      console.error('Error publishing scheduled announcements:', err && err.message ? err.message : err);
+    }
+  });
 }
 
 module.exports = startNotificationScheduler;

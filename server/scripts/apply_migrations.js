@@ -9,6 +9,14 @@ async function runMigration(filePath) {
     await pool.query(sql);
     console.log('Migration applied:', filePath);
   } catch (err) {
+    // Handle idempotent errors (object already exists) so migrations continue
+    const ignorableCodes = ['42710', '42P07']; // trigger exists, duplicate_table
+    const msg = err && err.message ? err.message : String(err);
+    if (err && (ignorableCodes.includes(err.code) || /already exists/i.test(msg))) {
+      console.warn('Migration warning (ignored):', filePath, msg);
+      return;
+    }
+
     console.error('Migration failed:', filePath, err.message);
     throw err;
   }
