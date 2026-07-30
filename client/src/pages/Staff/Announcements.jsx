@@ -6,15 +6,6 @@ import { UserContext } from '../../../context/userContext';
 import { motion } from 'framer-motion';
 import { Plus, Edit2, Trash2, Image as ImgIcon, Pin, Calendar as CalendarIcon, Search, Filter } from 'lucide-react';
 
-function StatCard({ label, value }) {
-  return (
-    <div className="p-4 bg-surface-container-low rounded-lg border border-outline-variant/10 shadow-sm">
-      <div className="text-sm text-on-surface-variant">{label}</div>
-      <div className="text-2xl font-bold mt-1">{value}</div>
-    </div>
-  );
-}
-
 function Badge({ children, color = 'gray' }) {
   const bg = color === 'green' ? 'bg-green-100 text-green-800' : color === 'orange' ? 'bg-orange-100 text-orange-800' : 'bg-gray-100 text-gray-800';
   return <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${bg}`}>{children}</span>;
@@ -67,14 +58,6 @@ export default function Announcements() {
     fetchAnnouncements();
     fetchDivisions();
   }, []);
-
-  const stats = useMemo(() => {
-    const total = items.length;
-    const published = items.filter(i => i.is_published).length;
-    const scheduled = items.filter(i => !i.is_published && i.published_at).length;
-    const drafts = items.filter(i => !i.is_published && !i.published_at).length;
-    return { total, published, scheduled, drafts };
-  }, [items]);
 
   const filtered = useMemo(() => {
     return items.filter((it) => {
@@ -189,27 +172,7 @@ export default function Announcements() {
 
   return (
     <PageLayout title="Announcements">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h2 className="text-2xl font-semibold">Announcements</h2>
-          <p className="text-sm text-on-surface-variant">Create and schedule community updates for staff and borrowers.</p>
-        </div>
-        {user?.role === 'staff' && (
-          <div>
-            <button onClick={openCreate} className="btn btn-primary inline-flex items-center"><Plus className="mr-2"/>Create Announcement</button>
-          </div>
-        )}
-      </div>
-
-      {/* Stats */}
-      <div className="grid grid-cols-4 gap-4 mb-6">
-        <StatCard label="Total" value={stats.total} />
-        <StatCard label="Published" value={stats.published} />
-        <StatCard label="Scheduled" value={stats.scheduled} />
-        <StatCard label="Drafts" value={stats.drafts} />
-      </div>
-
-      <div className="mb-4">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between mb-4">
         <div className="flex flex-wrap items-center gap-2 rounded-full border border-outline-variant/20 bg-surface-container-low dark:border-gray-700 dark:bg-[#222] p-1 shadow-sm">
           {['All','Dulimbay','Budjong','Kayam'].map((tab) => {
             const isActive = activeDivision === tab;
@@ -225,6 +188,13 @@ export default function Announcements() {
             );
           })}
         </div>
+
+        {user?.role === 'staff' && (
+          <button onClick={openCreate} className="btn btn-primary inline-flex items-center">
+            <Plus className="mr-2" />
+            Create Announcement
+          </button>
+        )}
       </div>
 
       <div className="rounded-lg border border-outline-variant/20 bg-surface-container-low p-4 shadow-sm mb-4 dark:border-gray-700 dark:bg-[#222]">
