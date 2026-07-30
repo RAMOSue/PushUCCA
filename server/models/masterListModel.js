@@ -457,62 +457,6 @@ class PositionPermissionsModel {
   }
 }
 
-// ======================== POSITION ASSIGNMENTS ========================
-class PositionAssignmentsModel {
-  static async getByOrgStructure(orgStructureId) {
-    const result = await pool.query(
-      `SELECT pa.id, pa.org_structure_id, pa.user_id, pa.status, pa.assigned_at, pa.assigned_by, u.name as user_name, u.email
-       FROM position_assignments pa
-       LEFT JOIN users u ON pa.user_id = u.id
-       WHERE pa.org_structure_id = $1 AND pa.status = 'Active'`,
-      [orgStructureId]
-    );
-    return result.rows;
-  }
-
-  static async getByUnit(unitId) {
-    const result = await pool.query(
-      `SELECT pa.id, pa.org_structure_id, pa.user_id, pa.status, pa.assigned_at, pa.assigned_by, u.name as user_name, u.email, os.position_id, p.name as position_name
-       FROM position_assignments pa
-       JOIN organizational_structures os ON pa.org_structure_id = os.id
-       LEFT JOIN users u ON pa.user_id = u.id
-       LEFT JOIN positions p ON os.position_id = p.id
-       WHERE os.unit_id = $1 AND pa.status = 'Active'`,
-      [unitId]
-    );
-    return result.rows;
-  }
-
-  static async assign(orgStructureId, userId, assignedBy) {
-    // Upsert: ensure single assignment per orgStructure per user
-    const existing = await pool.query(
-      'SELECT id FROM position_assignments WHERE org_structure_id = $1 AND user_id = $2',
-      [orgStructureId, userId]
-    );
-    if (existing.rows.length > 0) {
-      const result = await pool.query(
-        'UPDATE position_assignments SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 RETURNING *',
-        ['Active', existing.rows[0].id]
-      );
-      return result.rows[0];
-    }
-
-    const result = await pool.query(
-      'INSERT INTO position_assignments (org_structure_id, user_id, status, assigned_by) VALUES ($1, $2, $3, $4) RETURNING *',
-      [orgStructureId, userId, 'Active', assignedBy]
-    );
-    return result.rows[0];
-  }
-
-  static async remove(id) {
-    const result = await pool.query(
-      'DELETE FROM position_assignments WHERE id = $1 RETURNING *',
-      [id]
-    );
-    return result.rows[0];
-  }
-}
-
 module.exports = {
   UnitsModel,
   PositionsModel,
@@ -523,5 +467,4 @@ module.exports = {
   AttendanceSettingsModel,
   InventoryCategoriesModel,
   PositionPermissionsModel,
-  PositionAssignmentsModel,
 };

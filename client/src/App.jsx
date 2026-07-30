@@ -416,8 +416,7 @@ function AppContent() {
             <Route path="schedule" element={<StaffSchedule />} />
             <Route path="announcements" element={<Announcements />} />
             <Route path="manage-inventory" element={<ManageInventory />} />
-            <Route path="user-profiles" element={<BorrowerProfiles />} />
-            <Route path="user-profiles/:id" element={<BorrowerProfiles />} />
+            <Route path="borrower-profiles" element={<BorrowerProfiles />} />
             <Route path="documents" element={<StaffDocuments />} />
             <Route path="master-list" element={<MasterList />} />
             <Route path="profile" element={<StaffAdminProfileFacebook />} />

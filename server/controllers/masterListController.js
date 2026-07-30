@@ -11,7 +11,6 @@ const {
   InventoryCategoriesModel,
   PositionPermissionsModel,
 } = require("../models/masterListModel");
-const { PositionAssignmentsModel } = require("../models/masterListModel");
 
 // ======================== UNITS ENDPOINTS ========================
 const getAllUnits = async (req, res) => {
@@ -156,50 +155,9 @@ const getOrgStructuresByUnit = async (req, res) => {
   try {
     const { unitId } = req.params;
     const structures = await OrgStructureModel.getByUnit(unitId);
-    // Include current assignments per org structure
-    const assignmentsPromises = structures.map(async (s) => {
-      const assigns = await PositionAssignmentsModel.getByOrgStructure(s.id);
-      return { ...s, assignments: assigns };
-    });
-    const structuresWithAssignments = await Promise.all(assignmentsPromises);
-    res.json(structuresWithAssignments);
+    res.json(structures);
   } catch (err) {
     console.error("Get org structures by unit error:", err);
-    res.status(500).json({ error: err.message });
-  }
-};
-
-const getAssignmentsByUnit = async (req, res) => {
-  try {
-    const { unitId } = req.params;
-    const assignments = await PositionAssignmentsModel.getByUnit(unitId);
-    res.json(assignments);
-  } catch (err) {
-    console.error("Get assignments by unit error:", err);
-    res.status(500).json({ error: err.message });
-  }
-};
-
-const assignPosition = async (req, res) => {
-  try {
-    const { orgStructureId, userId } = req.body;
-    if (!orgStructureId || !userId) return res.status(400).json({ error: "orgStructureId and userId are required" });
-    const assignment = await PositionAssignmentsModel.assign(orgStructureId, userId, req.user.id);
-    res.status(201).json(assignment);
-  } catch (err) {
-    console.error("Assign position error:", err);
-    res.status(400).json({ error: err.message });
-  }
-};
-
-const removeAssignment = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const removed = await PositionAssignmentsModel.remove(id);
-    if (!removed) return res.status(404).json({ error: "Assignment not found" });
-    res.json({ success: true, removed });
-  } catch (err) {
-    console.error("Remove assignment error:", err);
     res.status(500).json({ error: err.message });
   }
 };
@@ -593,8 +551,4 @@ module.exports = {
   getPositionPermissions,
   addPositionPermission,
   removePositionPermission,
-  // Position Assignments
-  getAssignmentsByUnit,
-  assignPosition,
-  removeAssignment,
 };

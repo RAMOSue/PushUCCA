@@ -314,7 +314,7 @@ export default function StaffDocuments() {
                       <td className="px-6 py-4 text-center">
                         <div className="flex items-center justify-center gap-2">
                           <button
-                            onClick={() => navigate(`/staff/user-profiles/${profile.id}`)}
+                            onClick={() => navigate(`/staff/borrower-profiles/${profile.id}`)}
                             title="View full profile"
                             className="p-2 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-600 dark:text-blue-400 transition-colors"
                           >

@@ -34,10 +34,6 @@ router.delete("/positions/:id", ensureAuth, staffOrAdmin, masterListController.d
 // ======================== ORGANIZATIONAL STRUCTURE ROUTES ========================
 router.get("/org-structures", ensureAuth, staffOrAdmin, masterListController.getAllOrgStructures);
 router.get("/org-structures/unit/:unitId", ensureAuth, staffOrAdmin, masterListController.getOrgStructuresByUnit);
-// Assignment routes
-router.get("/assignments/unit/:unitId", ensureAuth, staffOrAdmin, masterListController.getAssignmentsByUnit);
-router.post("/assignments", ensureAuth, staffOrAdmin, masterListController.assignPosition);
-router.delete("/assignments/:id", ensureAuth, staffOrAdmin, masterListController.removeAssignment);
 router.post("/org-structures", ensureAuth, staffOrAdmin, masterListController.createOrgStructure);
 router.put("/org-structures/:id", ensureAuth, staffOrAdmin, masterListController.updateOrgStructure);
 router.delete("/org-structures/:id", ensureAuth, staffOrAdmin, masterListController.deleteOrgStructure);
