@@ -1,14 +1,13 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Animated, DeviceEventEmitter, Image, Pressable, StyleSheet, Text, View } from "react-native";
+import { Animated, DeviceEventEmitter, Image, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { Tabs, useFocusEffect, useRouter, useSegments } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import CartBadge from "../../src/components/navigation/CartBadge";
-import { fetchReservedBorrowCart } from "../../src/services/borrowCart";
-import { fetchUnreadNotificationCount, markAllNotificationsAsRead } from "../../src/services/notifications";
-import { useAuth } from "../../src/hooks/useAuth";
-
-const MOBILE_APP_LOGO = require("../../assets/images/icon.png");
+import { markAllNotificationsAsRead } from "../../src/services/notifications";
+import { useMobileRealtime } from "../../src/context/MobileRealtimeContext";
+import { useAuth } from "../../src/context/AuthContext";
+import { api } from "../../src/services/api";
 
 type TabsHeaderProps = {
   cartCount: number;
@@ -16,27 +15,22 @@ type TabsHeaderProps = {
   onAnimationStateChange?: (state: { isFlying: boolean; preview: { uri?: string; icon?: string } | null; fromX: number; fromY: number; destX: number; destY: number } | null) => void;
 };
 
-const TabsHeader = memo(function TabsHeader({ cartCount, onCartCountChange, onAnimationStateChange }: TabsHeaderProps) {
+const TabsHeader = memo(function TabsHeader({ cartCount, onCartCountChange, onAnimationStateChange, onMenuPress }: TabsHeaderProps & { onMenuPress: () => void }) {
   const router = useRouter();
-  const { user } = useAuth();
   const insets = useSafeAreaInsets();
   const cartPulse = useRef(new Animated.Value(1)).current;
   const cartButtonRef = useRef<View | null>(null);
+  const { cartCount: realtimeCartCount, divisionFilter, setDivisionFilter, refreshCartCount } = useMobileRealtime();
+  const [badgePulseKey, setBadgePulseKey] = useState(0);
+  const [badgePulseDirection, setBadgePulseDirection] = useState<"in" | "out">("in");
+  const [divisionMenuVisible, setDivisionMenuVisible] = useState(false);
+  const divisionMenuOpacity = useRef(new Animated.Value(0)).current;
+  const divisionMenuTranslateY = useRef(new Animated.Value(-6)).current;
 
   const fetchCounts = useCallback(async () => {
-    if (!user?.id) {
-      onCartCountChange?.(0);
-      return;
-    }
-
-    try {
-      const cart = await fetchReservedBorrowCart(user.id);
-      onCartCountChange?.(Array.isArray(cart.items) ? cart.items.length : 0);
-    } catch (error) {
-      console.error("Error fetching tab header counts:", error);
-      onCartCountChange?.(0);
-    }
-  }, [onCartCountChange, user?.id]);
+    const nextCount = await refreshCartCount();
+    onCartCountChange?.(nextCount);
+  }, [onCartCountChange, refreshCartCount]);
 
   useFocusEffect(
     useCallback(() => {
@@ -50,8 +44,16 @@ const TabsHeader = memo(function TabsHeader({ cartCount, onCartCountChange, onAn
 
   useEffect(() => {
     const animateSubscription = DeviceEventEmitter.addListener("cart:animate", (payload) => {
+      const kind = payload?.kind === "remove" ? "remove" : "add";
       const fromX = payload?.fromX ?? 0;
       const fromY = payload?.fromY ?? 0;
+
+      setBadgePulseDirection(kind === "remove" ? "out" : "in");
+      setBadgePulseKey((previous) => previous + 1);
+
+      if (kind === "remove") {
+        return;
+      }
 
       cartButtonRef.current?.measureInWindow((x, y, width, height) => {
         const destX = x + width / 2 - 18;
@@ -78,18 +80,81 @@ const TabsHeader = memo(function TabsHeader({ cartCount, onCartCountChange, onAn
     };
   }, [cartPulse, onAnimationStateChange]);
 
+  useEffect(() => {
+    onCartCountChange?.(realtimeCartCount);
+  }, [onCartCountChange, realtimeCartCount]);
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(divisionMenuOpacity, {
+        toValue: divisionMenuVisible ? 1 : 0,
+        duration: 140,
+        useNativeDriver: true,
+      }),
+      Animated.timing(divisionMenuTranslateY, {
+        toValue: divisionMenuVisible ? 0 : -6,
+        duration: 140,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [divisionMenuOpacity, divisionMenuTranslateY, divisionMenuVisible]);
+
   const handleCartPress = useCallback(() => {
     router.push("/(tabs)/borrow-cart");
   }, [router]);
 
+  const subtitleText = divisionFilter && divisionFilter.trim() ? divisionFilter : "ᜇᜓᜊᜓᜇ᜔ᜃ";
+
   return (
-    <View style={[styles.headerShell, { paddingTop: insets.top }]}>
+    <View style={[styles.headerShell, { paddingTop: Math.max(0, insets.top - 4) }]}> 
       <View style={styles.headerContent}>
         <View style={styles.brandBlock}>
-          <Image source={MOBILE_APP_LOGO} style={styles.logo} resizeMode="contain" />
-          <View>
-            <Text style={styles.title}>UCCA</Text>
-            <Text style={styles.subtitle}>Caraga State University</Text>
+          <Pressable onPress={onMenuPress} style={styles.menuButton} hitSlop={10}>
+            <MaterialCommunityIcons name="menu" size={22} color="#0f172a" />
+          </Pressable>
+          <View style={styles.brandTextBlock}>
+            <Text style={styles.title}>
+              <Text style={{ color: "#004aad" }}>Du</Text>
+              <Text style={{ color: "#ffbd59" }}>Bud</Text>
+              <Text style={{ color: "#ff3131" }}>Ka</Text>
+            </Text>
+            <View style={styles.subtitleWrap}>
+              <Pressable onPress={() => setDivisionMenuVisible((previous) => !previous)} style={styles.subtitleButton} hitSlop={8}>
+                <Text style={styles.subtitle}>{subtitleText}</Text>
+              </Pressable>
+              {divisionMenuVisible ? (
+                <Animated.View style={[styles.divisionMenu, { opacity: divisionMenuOpacity, transform: [{ translateY: divisionMenuTranslateY }] }]}>
+                  <Pressable
+                    onPress={() => {
+                      setDivisionFilter(null);
+                      setDivisionMenuVisible(false);
+                    }}
+                    style={styles.divisionOption}
+                  >
+                    <Text style={[styles.divisionOptionText, !divisionFilter && styles.divisionOptionTextActive]}>All Divisions</Text>
+                  </Pressable>
+                  {[
+                    { label: "Budjong", value: "Budjong" },
+                    { label: "Dulimbay", value: "Dulimbay" },
+                    { label: "Kayam", value: "Kayam" },
+                  ].map((option) => {
+                    const active = divisionFilter === option.value;
+                    return (
+                      <Pressable
+                        key={option.value}
+                        onPress={() => {
+                          setDivisionFilter(option.value);
+                          setDivisionMenuVisible(false);
+                        }}
+                        style={styles.divisionOption}
+                      >
+                        <Text style={[styles.divisionOptionText, active && styles.divisionOptionTextActive]}>{option.label}</Text>
+                      </Pressable>
+                    );
+                  })}
+                </Animated.View>
+              ) : null}
+            </View>
           </View>
         </View>
 
@@ -98,10 +163,12 @@ const TabsHeader = memo(function TabsHeader({ cartCount, onCartCountChange, onAn
             <Animated.View style={{ transform: [{ scale: cartPulse }] }}>
               <Ionicons name="cart-outline" size={22} color="#0f172a" />
             </Animated.View>
-            <CartBadge count={cartCount} />
+            <CartBadge count={cartCount} pulseKey={badgePulseKey} direction={badgePulseDirection} />
           </Pressable>
         </View>
       </View>
+
+      {divisionMenuVisible ? <Pressable style={styles.headerOverlay} onPress={() => setDivisionMenuVisible(false)} /> : null}
     </View>
   );
 });
@@ -110,9 +177,9 @@ export default function TabsLayout() {
   const router = useRouter();
   const segments = useSegments();
   const insets = useSafeAreaInsets();
-  const { user } = useAuth();
-  const [cartCount, setCartCount] = useState(0);
-  const [notificationCount, setNotificationCount] = useState(0);
+  const { width } = useWindowDimensions();
+  const { user, logout } = useAuth();
+  const { cartCount, setCartCount, notificationCount, setNotificationCount, refreshNotificationCount } = useMobileRealtime();
   const [flightAnimation, setFlightAnimation] = useState<{
     isFlying: boolean;
     preview: { uri?: string; icon?: string } | null;
@@ -124,6 +191,11 @@ export default function TabsLayout() {
   const cartFlyAnim = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
   const cartFlyScale = useRef(new Animated.Value(1.6)).current;
   const cartFlyOpacity = useRef(new Animated.Value(1)).current;
+  const drawerAnim = useRef(new Animated.Value(0)).current;
+  const drawerOverlayAnim = useRef(new Animated.Value(0)).current;
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [drawerProfile, setDrawerProfile] = useState<{ name?: string | null; department_name?: string | null; profile_pic_url?: string | null } | null>(null);
+  const drawerOpenOffset = Math.min(width * 0.75, 320);
 
   const isScannerOpen = segments[segments.length - 1] === "scan-qr";
 
@@ -137,23 +209,145 @@ export default function TabsLayout() {
   }, [isScannerOpen, router]);
 
   const fetchNotificationCount = useCallback(async () => {
-    if (!user?.id) {
-      setNotificationCount(0);
+    await refreshNotificationCount();
+  }, [refreshNotificationCount]);
+
+  const fetchDrawerProfile = useCallback(async () => {
+    try {
+      const { data } = await api.get("/api/profiles/me");
+      const profile = data?.profile || data;
+      setDrawerProfile({
+        name: profile?.name || user?.name || "Guest User",
+        department_name: profile?.department_name || null,
+        profile_pic_url: profile?.profile_pic_url || null,
+      });
+    } catch (error) {
+      console.error("Unable to load drawer profile", error);
+      setDrawerProfile({
+        name: user?.name || "Guest User",
+        department_name: null,
+        profile_pic_url: null,
+      });
+    }
+  }, [user?.name]);
+
+  const toggleDrawer = useCallback(() => {
+    if (isDrawerOpen) {
+      setIsDrawerOpen(false);
       return;
     }
 
-    try {
-      const count = await fetchUnreadNotificationCount();
-      setNotificationCount(count);
-    } catch (error) {
-      console.error("Error fetching unread notification count:", error);
-      setNotificationCount(0);
-    }
-  }, [user?.id]);
+    void fetchDrawerProfile();
+    setIsDrawerOpen(true);
+  }, [fetchDrawerProfile, isDrawerOpen]);
+
+  const closeDrawer = useCallback(() => {
+    setIsDrawerOpen(false);
+  }, []);
+
+  const handleLogout = useCallback(async () => {
+    await logout();
+    router.replace("/(auth)/login");
+  }, [logout, router]);
+
+  const drawerItems = [
+    {
+      label: "Announcements",
+      icon: "megaphone-outline" as const,
+      onPress: () => {
+        closeDrawer();
+        router.push("/(tabs)/announcements");
+      },
+    },
+    {
+      label: "About UCCA",
+      icon: "business-outline" as const,
+      onPress: () => {
+        closeDrawer();
+        router.push("/(tabs)/about-ucca");
+      },
+    },
+    {
+      label: "Divisions",
+      icon: "people-outline" as const,
+      onPress: () => {
+        closeDrawer();
+        router.push("/(tabs)/divisions");
+      },
+    },
+    {
+      label: "Indigenous Library",
+      icon: "library-outline" as const,
+      onPress: () => {
+        closeDrawer();
+        router.push("/(tabs)/cultural-library");
+      },
+    },
+    {
+      label: "Policies & Guidelines",
+      icon: "document-text-outline" as const,
+      onPress: () => {
+        closeDrawer();
+        router.push("/(tabs)/policies");
+      },
+    },
+    {
+      label: "Help / FAQ",
+      icon: "help-circle-outline" as const,
+      onPress: () => {
+        closeDrawer();
+        router.push("/(tabs)/help");
+      },
+    },
+    {
+      label: "Settings",
+      icon: "settings-outline" as const,
+      onPress: () => {
+        closeDrawer();
+        router.push("/(tabs)/settings");
+      },
+    },
+  ];
 
   useEffect(() => {
     void fetchNotificationCount();
   }, [fetchNotificationCount]);
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(drawerAnim, {
+        toValue: isDrawerOpen ? 1 : 0,
+        duration: 220,
+        useNativeDriver: true,
+      }),
+      Animated.timing(drawerOverlayAnim, {
+        toValue: isDrawerOpen ? 0.4 : 0,
+        duration: 220,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [drawerAnim, drawerOverlayAnim, isDrawerOpen]);
+
+  useEffect(() => {
+    const subscription = DeviceEventEmitter.addListener("mobile:profile-updated", (payload) => {
+      const nextProfile = payload?.profile;
+      if (!nextProfile) {
+        return;
+      }
+
+      setDrawerProfile({
+        name: nextProfile.name || user?.name || "Guest User",
+        department_name: nextProfile.department_name || null,
+        profile_pic_url: nextProfile.profile_pic_url || null,
+      });
+    });
+
+    return () => subscription.remove();
+  }, [user?.name]);
+
+  useEffect(() => {
+    void fetchDrawerProfile();
+  }, [fetchDrawerProfile]);
 
   useFocusEffect(
     useCallback(() => {
@@ -242,8 +436,17 @@ export default function TabsLayout() {
         </Animated.View>
       ) : null}
 
-      <TabsHeader cartCount={cartCount} onCartCountChange={setCartCount} onAnimationStateChange={setFlightAnimation} />
-      <Tabs
+      <Animated.View
+        style={[
+          styles.mainContent,
+          {
+            transform: [{ translateX: drawerAnim.interpolate({ inputRange: [0, 1], outputRange: [0, drawerOpenOffset] }) }],
+          },
+        ]}
+      >
+        <TabsHeader cartCount={cartCount} onCartCountChange={setCartCount} onAnimationStateChange={setFlightAnimation} onMenuPress={toggleDrawer} />
+
+        <Tabs
         screenOptions={{
           headerShown: false,
           tabBarActiveTintColor: "#2563eb",
@@ -271,20 +474,94 @@ export default function TabsLayout() {
         }}
       >
         <Tabs.Screen
-          name="home"
+          name="borrow-cart"
           options={{ href: null }}
         />
 
         <Tabs.Screen
-          name="borrow-cart"
-          options={{ href: null }}
-        />
-        
-        <Tabs.Screen
           name="scan-qr"
           options={{ href: null }}
         />
-        
+
+        <Tabs.Screen
+          name="documents/birth-certificate"
+          options={{ href: null }}
+        />
+
+        <Tabs.Screen
+          name="documents/school-id"
+          options={{ href: null }}
+        />
+
+        <Tabs.Screen
+          name="documents/class-schedule"
+          options={{ href: null }}
+        />
+
+        <Tabs.Screen
+          name="settings"
+          options={{ href: null }}
+        />
+
+        <Tabs.Screen
+          name="change-password"
+          options={{ href: null }}
+        />
+
+        <Tabs.Screen
+          name="announcements"
+          options={{ href: null }}
+        />
+
+        <Tabs.Screen
+          name="about-ucca"
+          options={{ href: null }}
+        />
+
+        <Tabs.Screen
+          name="divisions"
+          options={{ href: null }}
+        />
+
+        <Tabs.Screen
+          name="division-detail"
+          options={{ href: null }}
+        />
+
+        <Tabs.Screen
+          name="cultural-library"
+          options={{ href: null }}
+        />
+
+        <Tabs.Screen
+          name="instruments"
+          options={{ href: null }}
+        />
+
+        <Tabs.Screen
+          name="instrument-detail"
+          options={{ href: null }}
+        />
+
+        <Tabs.Screen
+          name="costumes"
+          options={{ href: null }}
+        />
+
+        <Tabs.Screen
+          name="costume-detail"
+          options={{ href: null }}
+        />
+
+        <Tabs.Screen
+          name="policies"
+          options={{ href: null }}
+        />
+
+        <Tabs.Screen
+          name="help"
+          options={{ href: null }}
+        />
 
         <Tabs.Screen
           name="available-items"
@@ -330,6 +607,7 @@ export default function TabsLayout() {
           listeners={() => ({
             tabPress: async () => {
               setNotificationCount(0);
+              DeviceEventEmitter.emit("notifications:updated", { count: 0 });
 
               try {
                 await markAllNotificationsAsRead();
@@ -352,21 +630,79 @@ export default function TabsLayout() {
         />
       </Tabs>
 
-      <View style={[styles.fabContainer, { paddingBottom: insets.bottom + 18 }]} pointerEvents="box-none">
-        <Pressable
-          onPress={handleToggleScanner}
-          android_ripple={{ color: "rgba(255,255,255,0.18)", radius: 36 }}
-          accessibilityRole="button"
-          accessibilityLabel="Open scanner"
-          style={({ pressed }) => [
-            styles.fab,
-            { transform: [{ scale: pressed ? 0.95 : 1 }] },
-          ]}
-          hitSlop={10}
+        <View style={[styles.fabContainer, { paddingBottom: insets.bottom + 18 }]} pointerEvents="box-none">
+          <Pressable
+            onPress={handleToggleScanner}
+            android_ripple={{ color: "rgba(255,255,255,0.18)", radius: 36 }}
+            accessibilityRole="button"
+            accessibilityLabel="Open scanner"
+            style={({ pressed }) => [
+              styles.fab,
+              { transform: [{ scale: pressed ? 0.95 : 1 }] },
+            ]}
+            hitSlop={10}
+          >
+            <MaterialCommunityIcons name="qrcode-scan" size={26} color="#ffffff" />
+          </Pressable>
+        </View>
+      </Animated.View>
+
+      <Animated.View
+        pointerEvents={isDrawerOpen ? "auto" : "none"}
+        style={styles.drawerShell}
+      >
+        <Animated.View
+          pointerEvents={isDrawerOpen ? "auto" : "none"}
+          style={[styles.drawerOverlay, { opacity: drawerOverlayAnim }]}
         >
-          <MaterialCommunityIcons name="qrcode-scan" size={26} color="#ffffff" />
-        </Pressable>
-      </View>
+          <Pressable style={styles.drawerOverlayPressable} onPress={closeDrawer} />
+        </Animated.View>
+        <Animated.View
+          style={[
+            styles.drawer,
+            {
+              transform: [{ translateX: drawerAnim.interpolate({ inputRange: [0, 1], outputRange: [-drawerOpenOffset, 0] }) }],
+            },
+          ]}
+        >
+          <View style={styles.drawerHeader}>
+            <View style={styles.drawerAvatar}>
+              {drawerProfile?.profile_pic_url ? (
+                <Image source={{ uri: drawerProfile.profile_pic_url }} style={styles.drawerAvatarImage} />
+              ) : (
+                <Ionicons name="person-circle" size={48} color="#ffffff" />
+              )}
+            </View>
+            <View style={styles.drawerUserInfo}>
+              <Text style={styles.drawerName}>{drawerProfile?.name || user?.name || "Guest User"}</Text>
+              <Text style={styles.drawerSubtitle}>{drawerProfile?.department_name || "No division assigned"}</Text>
+            </View>
+          </View>
+
+          <View style={styles.drawerBody}>
+            {drawerItems.map((item) => (
+              <Pressable
+                key={item.label}
+                style={({ pressed }) => [styles.drawerItem, pressed && styles.drawerItemPressed]}
+                onPress={item.onPress}
+              >
+                <Ionicons name={item.icon} size={20} color="#334155" />
+                <Text style={styles.drawerItemText}>{item.label}</Text>
+              </Pressable>
+            ))}
+            <Pressable
+              style={({ pressed }) => [styles.drawerItem, pressed && styles.drawerItemPressed]}
+              onPress={() => {
+                closeDrawer();
+                void handleLogout();
+              }}
+            >
+              <Ionicons name="log-out-outline" size={20} color="#dc2626" />
+              <Text style={[styles.drawerItemText, styles.drawerItemTextDanger]}>Logout</Text>
+            </Pressable>
+          </View>
+        </Animated.View>
+      </Animated.View>
     </View>
   );
 }
@@ -392,8 +728,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 8,
+    paddingTop: 4,
+    paddingBottom: 6,
     gap: 12,
   },
   brandBlock: {
@@ -403,10 +739,19 @@ const styles = StyleSheet.create({
     minWidth: 0,
     flex: 1,
   },
-  logo: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
+  brandTextBlock: {
+    minWidth: 0,
+    flexShrink: 1,
+  },
+  menuButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#f8fafc",
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+    alignItems: "center",
+    justifyContent: "center",
   },
   title: {
     fontSize: 18,
@@ -414,10 +759,53 @@ const styles = StyleSheet.create({
     color: "#0f172a",
     letterSpacing: -0.3,
   },
+  subtitleWrap: {
+    position: "relative",
+    alignSelf: "flex-start",
+  },
+  subtitleButton: {
+    paddingVertical: 2,
+  },
   subtitle: {
     fontSize: 12,
     color: "#64748b",
     fontWeight: "700",
+  },
+  divisionMenu: {
+    position: "absolute",
+    top: "100%",
+    left: 0,
+    marginTop: 8,
+    backgroundColor: "#ffffff",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+    paddingVertical: 6,
+    minWidth: 140,
+    zIndex: 30,
+    shadowColor: "#0f172a",
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 6,
+  },
+  divisionOption: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  divisionOptionText: {
+    fontSize: 13,
+    color: "#475569",
+    fontWeight: "600",
+  },
+  divisionOptionTextActive: {
+    color: "#2563eb",
+    fontWeight: "700",
+  },
+  headerOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "transparent",
+    zIndex: 20,
   },
   actionsRow: {
     flexDirection: "row",
@@ -481,5 +869,96 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: "#ffffff",
     overflow: "hidden",
+  },
+  mainContent: {
+    flex: 1,
+  },
+  drawerShell: {
+    ...StyleSheet.absoluteFillObject,
+    flexDirection: "row",
+    zIndex: 40,
+    elevation: 40,
+    pointerEvents: "box-none",
+  },
+  drawerOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(15, 23, 42, 0.4)",
+  },
+  drawerOverlayPressable: {
+    flex: 1,
+  },
+  drawer: {
+    width: "75%",
+    maxWidth: 320,
+    backgroundColor: "#ffffff",
+    borderRightWidth: 1,
+    borderRightColor: "#e2e8f0",
+    shadowColor: "#020617",
+    shadowOpacity: 0.16,
+    shadowRadius: 20,
+    shadowOffset: { width: 6, height: 0 },
+    elevation: 8,
+  },
+  drawerHeader: {
+    paddingHorizontal: 18,
+    paddingTop: 24,
+    paddingBottom: 18,
+    borderBottomWidth: 1,
+    borderBottomColor: "#e2e8f0",
+    backgroundColor: "#f8fafc",
+  },
+  drawerAvatar: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: "#2563eb",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 12,
+    overflow: "hidden",
+  },
+  drawerAvatarImage: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+  },
+  drawerUserInfo: {
+    gap: 2,
+  },
+  drawerName: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: "#0f172a",
+  },
+  drawerRole: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#475569",
+  },
+  drawerSubtitle: {
+    fontSize: 12,
+    color: "#94a3b8",
+    marginTop: 2,
+  },
+  drawerBody: {
+    paddingVertical: 8,
+  },
+  drawerItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  drawerItemPressed: {
+    backgroundColor: "#f8fafc",
+  },
+  drawerItemText: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#334155",
+  },
+  drawerItemTextDanger: {
+    color: "#dc2626",
   },
 });

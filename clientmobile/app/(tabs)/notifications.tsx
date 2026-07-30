@@ -4,13 +4,11 @@ import {
   Animated,
   DeviceEventEmitter,
   LayoutAnimation,
-  Platform,
   Pressable,
   RefreshControl,
   SectionList,
   StyleSheet,
   Text,
-  UIManager,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -18,6 +16,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { BottomSheetBackdrop, BottomSheetModal, BottomSheetView } from "@gorhom/bottom-sheet";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useAuth } from "../../src/hooks/useAuth";
+import { useMobileRealtime } from "../../src/context/MobileRealtimeContext";
 import {
   fetchNotifications,
   markNotificationAsRead,
@@ -190,18 +189,13 @@ function formatNotificationSummary(notification: NotificationItem) {
 
 export default function Notifications() {
   const { user, isLoading: authLoading } = useAuth();
+  const { applyNotificationDelta, refreshNotificationCount } = useMobileRealtime();
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedNotification, setSelectedNotification] = useState<NotificationItem | null>(null);
   const sheetRef = useRef<BottomSheetModal>(null);
   const pageOpacity = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    if (Platform.OS === "android") {
-      UIManager.setLayoutAnimationEnabledExperimental?.(true);
-    }
-  }, []);
 
   useEffect(() => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -328,6 +322,8 @@ export default function Notifications() {
           )
         );
 
+        applyNotificationDelta(-1);
+        DeviceEventEmitter.emit("notifications:updated", { countDelta: -1 });
         void markNotificationAsRead(notification.id).catch((error) => {
           console.error("Error marking notification as read:", error);
         });
@@ -360,6 +356,7 @@ export default function Notifications() {
     try {
       await deleteNotification(selectedNotification.id);
       setNotifications((prev) => prev.filter((item) => item.id !== selectedNotification.id));
+      DeviceEventEmitter.emit("notifications:updated", { countDelta: -1 });
     } catch (error) {
       console.error("Error deleting notification:", error);
     } finally {
@@ -443,16 +440,14 @@ export default function Notifications() {
   }
 
   return (
-    <SafeAreaView style={styles.screen}>
+    <SafeAreaView style={styles.screen} edges={['top','bottom']}>
       <Animated.View style={[styles.screen, { opacity: pageOpacity }]}> 
-        
-
         <SectionList
           sections={sections}
           keyExtractor={(item) => String(item.id)}
           renderItem={renderNotificationItem}
           renderSectionHeader={renderSectionHeader}
-          ItemSeparatorComponent={() => <View style={styles.rowSeparator} />}
+          ItemSeparatorComponent={() => null}
           contentContainerStyle={[styles.content, notifications.length === 0 && styles.emptyContent]}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#2563eb" />}
           ListEmptyComponent={
@@ -501,6 +496,7 @@ const styles = StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: "#f9fafb",
+    paddingTop: 0,
   },
   pageHeader: {
     paddingHorizontal: 16,
@@ -520,8 +516,9 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: 16,
-    paddingBottom: 24,
-    gap: 12,
+    paddingTop: 0,
+    paddingBottom: 8,
+    gap: 0,
   },
   sectionHeader: {
     fontSize: 13,
@@ -529,13 +526,13 @@ const styles = StyleSheet.create({
     color: "#475569",
     textTransform: "uppercase",
     letterSpacing: 0.7,
-    marginBottom: 6,
-    marginTop: 10,
+    marginBottom: 4,
+    marginTop: 0,
   },
   notificationItem: {
     backgroundColor: "#ffffff",
     paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingVertical: 12,
   },
   notificationItemUnread: {
     backgroundColor: "#eef2ff",
@@ -576,11 +573,6 @@ const styles = StyleSheet.create({
   notificationBody: {
     flex: 1,
     gap: 8,
-  },
-  rowSeparator: {
-    height: 1,
-    backgroundColor: "#e2e8f0",
-    marginLeft: 76,
   },
   notificationHeader: {
     flexDirection: "row",

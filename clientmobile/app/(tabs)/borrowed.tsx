@@ -74,12 +74,12 @@ function getStatusPriority(status: string) {
   return index === -1 ? STATUS_ORDER.length : index;
 }
 
-function getDateKey(value?: string | null) {
+function getDateKey(value?: string | Date | null) {
   if (!value) {
     return null;
   }
 
-  const parsed = new Date(value);
+  const parsed = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(parsed.getTime())) {
     return null;
   }
@@ -469,7 +469,7 @@ export default function BorrowedScreen() {
 
             <View style={styles.calendarGrid}>
               {calendarDays.map((day) => {
-                const dayStyle = [styles.dayCell];
+                const dayStyle: Array<any> = [styles.dayCell];
                 if (!day.isCurrentMonth) {
                   dayStyle.push(styles.dayCellMuted);
                 }
@@ -777,6 +777,12 @@ const styles = StyleSheet.create({
   },
   dayCellMuted: {
     opacity: 0.45,
+    width: "14.2857%",
+    aspectRatio: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 10,
+    marginVertical: 2,
   },
   dayCellToday: {
     borderWidth: 1,

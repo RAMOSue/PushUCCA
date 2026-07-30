@@ -20,3 +20,8 @@ export async function markAllNotificationsAsRead() {
   const response = await api.post("/api/notifications/mark-all-read");
   return response.data;
 }
+
+export async function deleteNotification(notificationId: string | number) {
+  const response = await api.post("/api/notifications/delete", { id: notificationId });
+  return response.data;
+}

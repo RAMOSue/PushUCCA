@@ -22,6 +22,7 @@ const performanceRoutes = require("./routes/performanceRoutes");
 const notificationRoutes = require("./routes/notificationRoutes");
 const masterListRoutes = require("./routes/masterListRoutes");
 const settingsRoutes = require("./routes/settingsRoutes");
+const announcementsRoutes = require("./routes/announcementsRoutes");
 
 // ✅ Testing System Routes
 const metricsRouter = require("./testing/metricsAPI");
@@ -162,6 +163,7 @@ app.use("/api/performances", performanceRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/master-list", masterListRoutes);
 app.use("/api/settings", settingsRoutes);
+app.use("/api/announcements", announcementsRoutes);
 
 // ✅ Testing System API Routes
 app.use("/api", metricsRouter);

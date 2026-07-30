@@ -128,6 +128,15 @@ export default function BorrowCartScreen() {
 
       try {
         await removeBorrowCartItem(payload);
+        setCartItems((previous) => previous.filter((entry) => {
+          const entryId = entry.unit_id ?? entry.unitId;
+          const entryItemId = entry.item_id ?? entry.itemId;
+          const currentId = item.unit_id ?? item.unitId;
+          const currentItemId = item.item_id ?? item.itemId;
+          return !(String(entryId ?? "") === String(currentId ?? "") && String(entryItemId ?? "") === String(currentItemId ?? ""));
+        }));
+        DeviceEventEmitter.emit("cart:updated", { countDelta: -1 });
+        DeviceEventEmitter.emit("cart:animate", { kind: "remove" });
         await fetchCart();
       } catch (error: any) {
         console.error("Error removing borrow cart item:", error?.response?.data || error?.message || error);

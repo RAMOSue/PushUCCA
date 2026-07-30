@@ -4,6 +4,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { Stack, useRouter, useSegments } from "expo-router";
 import { useEffect } from "react";
 import { AuthProvider, useAuth } from "../src/context/AuthContext";
+import { MobileRealtimeProvider } from "../src/context/MobileRealtimeContext";
 
 export default function RootLayout() {
   return (
@@ -11,8 +12,10 @@ export default function RootLayout() {
       <SafeAreaProvider>
         <BottomSheetModalProvider>
           <AuthProvider>
-            <AuthGate />
-            <Stack screenOptions={{ headerShown: false }} />
+            <MobileRealtimeProvider>
+              <AuthGate />
+              <Stack screenOptions={{ headerShown: false }} />
+            </MobileRealtimeProvider>
           </AuthProvider>
         </BottomSheetModalProvider>
       </SafeAreaProvider>

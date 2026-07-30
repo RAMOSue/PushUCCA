@@ -25,6 +25,7 @@ import { useFocusEffect, useLocalSearchParams } from "expo-router";
 import { API_BASE_URL } from "../../src/constants/api";
 import { api } from "../../src/services/api";
 import { useAuth } from "../../src/hooks/useAuth";
+import { useMobileRealtime } from "../../src/context/MobileRealtimeContext";
 import type {
   InventoryItem,
   InventoryUnit,
@@ -37,6 +38,15 @@ type DivisionOption = {
   id: string | number;
   name: string;
   status?: string | null;
+};
+
+type ScheduledPerformance = {
+  id: string | number;
+  title?: string | null;
+  location?: string | null;
+  start_time?: string | null;
+  end_time?: string | null;
+  performance_borrowers?: Array<{ borrower_user_id?: string | number | null }>;
 };
 
 type FilterButtonLayout = {
@@ -110,12 +120,12 @@ function getPerformanceStatus(startTime?: string | null) {
   return "upcoming";
 }
 
-function getDateKey(value?: string | null) {
+function getDateKey(value?: string | Date | null) {
   if (!value) {
     return null;
   }
 
-  const parsed = new Date(value);
+  const parsed = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(parsed.getTime())) {
     return null;
   }
@@ -136,15 +146,16 @@ function formatMonthLabel(value: Date) {
 
 export default function AvailableItems() {
   const { user, isLoading: authLoading } = useAuth();
+  const { divisionFilter, refreshCartCount } = useMobileRealtime();
   const params = useLocalSearchParams<{ search?: string }>();
   const sheetRef = useRef<BottomSheetModal>(null);
 
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [divisions, setDivisions] = useState<DivisionOption[]>([]);
   const [recommendations, setRecommendations] = useState<InventoryRecommendation[]>([]);
+  const [scheduledPerformances, setScheduledPerformances] = useState<ScheduledPerformance[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<CategoryFilter>("all");
-  const [selectedDivision, setSelectedDivision] = useState<string | null>(null);
   const [loadingItems, setLoadingItems] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -156,16 +167,13 @@ export default function AvailableItems() {
   const [borrowMessage, setBorrowMessage] = useState<string | null>(null);
   const [borrowing, setBorrowing] = useState(false);
   const [showCategoryMenu, setShowCategoryMenu] = useState(false);
-  const [showDivisionMenu, setShowDivisionMenu] = useState(false);
-  const [activeFilterMenu, setActiveFilterMenu] = useState<"division" | "category" | null>(null);
-  const [divisionButtonLayout, setDivisionButtonLayout] = useState<FilterButtonLayout | null>(null);
+  const [activeFilterMenu, setActiveFilterMenu] = useState<"category" | null>(null);
   const [categoryButtonLayout, setCategoryButtonLayout] = useState<FilterButtonLayout | null>(null);
   const [cartOrigin, setCartOrigin] = useState<{ x: number; y: number } | null>(null);
   const [calendarExpanded, setCalendarExpanded] = useState(false);
   const [selectedPerformanceDate, setSelectedPerformanceDate] = useState<string | null>(null);
   const [calendarMonth, setCalendarMonth] = useState(new Date());
   const cardRefs = useRef<Record<string, View | null>>({});
-  const divisionButtonRef = useRef<View | null>(null);
   const categoryButtonRef = useRef<View | null>(null);
   const [optimisticBorrowedUnitIds, setOptimisticBorrowedUnitIds] = useState<Set<string | number>>(new Set());
   const calendarHeight = useRef(new Animated.Value(0)).current;
@@ -207,6 +215,28 @@ export default function AvailableItems() {
     }
   }, [user?.id, user?.role]);
 
+  const fetchPerformances = useCallback(async () => {
+    try {
+      const { data } = await api.get<ScheduledPerformance[]>("/api/performances");
+      const now = new Date();
+      const upcomingPerformances = Array.isArray(data)
+        ? data.filter((performance) => {
+            if (!performance.start_time) {
+              return false;
+            }
+
+            const startTime = new Date(performance.start_time);
+            return !Number.isNaN(startTime.getTime()) && startTime >= now;
+          })
+        : [];
+
+      setScheduledPerformances(upcomingPerformances);
+    } catch (error: any) {
+      console.error("Error fetching performances:", error?.response?.data || error?.message || error);
+      setScheduledPerformances([]);
+    }
+  }, []);
+
   const fetchItems = useCallback(async (options?: { showLoader?: boolean }) => {
     const showLoader = options?.showLoader ?? true;
 
@@ -220,6 +250,7 @@ export default function AvailableItems() {
       const { data } = await api.get<InventoryItem[]>("/api/inventory/");
       setItems(Array.isArray(data) ? data : []);
       await fetchRecommendations();
+      await fetchPerformances();
     } catch (error: any) {
       console.error("Error fetching items:", error?.response?.data || error?.message || error);
       setErrorMessage("Unable to load available items.");
@@ -230,7 +261,7 @@ export default function AvailableItems() {
       }
       setRefreshing(false);
     }
-  }, [fetchRecommendations]);
+  }, [fetchPerformances, fetchRecommendations]);
 
   const fetchDivisions = useCallback(async () => {
     try {
@@ -271,9 +302,10 @@ export default function AvailableItems() {
         void fetchItems({ showLoader: false });
         void fetchDivisions();
         void fetchReservedRequest();
+        void fetchPerformances();
       }
       return undefined;
-    }, [authLoading, fetchDivisions, fetchItems, fetchReservedRequest])
+    }, [authLoading, fetchDivisions, fetchItems, fetchPerformances, fetchReservedRequest])
   );
 
   useEffect(() => {
@@ -281,8 +313,9 @@ export default function AvailableItems() {
       void fetchItems({ showLoader: true });
       void fetchDivisions();
       void fetchReservedRequest();
+      void fetchPerformances();
     }
-  }, [authLoading, fetchDivisions, fetchItems, fetchReservedRequest, user?.id, user?.role]);
+  }, [authLoading, fetchDivisions, fetchItems, fetchPerformances, fetchReservedRequest, user?.id, user?.role]);
 
   useEffect(() => {
     const subscription = DeviceEventEmitter.addListener("mobile:refresh", (payload) => {
@@ -293,10 +326,11 @@ export default function AvailableItems() {
       void fetchItems({ showLoader: false });
       void fetchDivisions();
       void fetchReservedRequest();
+      void fetchPerformances();
     });
 
     return () => subscription.remove();
-  }, [fetchDivisions, fetchItems, fetchReservedRequest]);
+  }, [fetchDivisions, fetchItems, fetchPerformances, fetchReservedRequest]);
 
   useEffect(() => {
     Animated.parallel([
@@ -471,6 +505,7 @@ export default function AvailableItems() {
 
         setBorrowMessage(`${successLabel}${failureLabel}`);
         DeviceEventEmitter.emit("mobile:refresh", { screen: "all" });
+        void refreshCartCount();
         sheetRef.current?.dismiss();
         return;
       }
@@ -533,15 +568,46 @@ export default function AvailableItems() {
   const performanceDateKeys = useMemo(() => {
     const nextSet = new Set<string>();
 
-    recommendations.forEach((recommendation) => {
-      const dateKey = getDateKey(recommendation.start_time);
+    scheduledPerformances.forEach((performance) => {
+      const dateKey = getDateKey(performance.start_time);
       if (dateKey) {
         nextSet.add(dateKey);
       }
     });
 
     return nextSet;
-  }, [recommendations]);
+  }, [scheduledPerformances]);
+
+  const performanceDayStatuses = useMemo(() => {
+    const nextMap = new Map<string, "today" | "user" | "event">();
+    const todayKey = getDateKey(new Date());
+
+    scheduledPerformances.forEach((performance) => {
+      const dateKey = getDateKey(performance.start_time);
+      if (!dateKey) {
+        return;
+      }
+
+      const isAssignedToUser = (performance.performance_borrowers ?? []).some(
+        (entry) => String(entry.borrower_user_id ?? "") === String(user?.id ?? "")
+      );
+
+      const existing = nextMap.get(dateKey);
+      if (existing === "today") {
+        return;
+      }
+
+      if (dateKey === todayKey) {
+        nextMap.set(dateKey, "today");
+      } else if (!existing && isAssignedToUser) {
+        nextMap.set(dateKey, "user");
+      } else if (!existing) {
+        nextMap.set(dateKey, "event");
+      }
+    });
+
+    return nextMap;
+  }, [scheduledPerformances, user?.id]);
 
   const calendarDays = useMemo(() => {
     const year = calendarMonth.getFullYear();
@@ -560,6 +626,7 @@ export default function AvailableItems() {
       isToday: boolean;
       isSelected: boolean;
       hasPerformance: boolean;
+      performanceStatus: "today" | "user" | "event" | null;
     }>;
 
     for (let index = 0; index < totalCells; index += 1) {
@@ -575,11 +642,36 @@ export default function AvailableItems() {
         isToday: dateKey === todayKey,
         isSelected: dateKey === selectedKey,
         hasPerformance: Boolean(dateKey && performanceDateKeys.has(dateKey)),
+        performanceStatus: dateKey ? performanceDayStatuses.get(dateKey) ?? null : null,
       });
     }
 
     return cells;
-  }, [calendarMonth, performanceDateKeys, selectedPerformanceDate]);
+  }, [calendarMonth, performanceDateKeys, performanceDayStatuses, selectedPerformanceDate]);
+
+  const selectedDayPerformances = useMemo(() => {
+    const sorted = [...scheduledPerformances].sort((left, right) => {
+      const leftTime = left.start_time ? new Date(left.start_time).getTime() : Number.POSITIVE_INFINITY;
+      const rightTime = right.start_time ? new Date(right.start_time).getTime() : Number.POSITIVE_INFINITY;
+      const timeDelta = leftTime - rightTime;
+
+      if (!selectedPerformanceDate) {
+        const leftDate = left.start_time ? new Date(left.start_time).getTime() : Number.POSITIVE_INFINITY;
+        const rightDate = right.start_time ? new Date(right.start_time).getTime() : Number.POSITIVE_INFINITY;
+        if (leftDate !== rightDate) {
+          return leftDate - rightDate;
+        }
+      }
+
+      return timeDelta;
+    });
+
+    if (!selectedPerformanceDate) {
+      return sorted;
+    }
+
+    return sorted.filter((performance) => getDateKey(performance.start_time) === selectedPerformanceDate);
+  }, [scheduledPerformances, selectedPerformanceDate]);
 
   const filteredItems = useMemo(() => {
     let nextItems = [...items];
@@ -595,8 +687,8 @@ export default function AvailableItems() {
       nextItems = nextItems.filter((item) => item.name?.toLowerCase().includes(searchLower));
     }
 
-    if (selectedDivision) {
-      const selectedDivisionName = selectedDivision.trim().toLowerCase();
+    if (divisionFilter) {
+      const selectedDivisionName = divisionFilter.trim().toLowerCase();
       nextItems = nextItems.filter((item) => {
         const divisionName = getItemDivisionName(item)?.trim().toLowerCase();
         return divisionName === selectedDivisionName;
@@ -631,7 +723,7 @@ export default function AvailableItems() {
     }
 
     return nextItems;
-  }, [items, recommendations, searchQuery, selectedCategory, selectedDivision, selectedPerformanceDate, user?.role]);
+  }, [divisionFilter, items, recommendations, searchQuery, selectedCategory, selectedPerformanceDate, user?.role]);
 
   const recommendedItemIds = useMemo(() => {
     return new Set(recommendations.map((recommendation) => recommendation.inventory_item_id));
@@ -642,7 +734,8 @@ export default function AvailableItems() {
     void fetchItems({ showLoader: false });
     void fetchDivisions();
     void fetchReservedRequest();
-  }, [fetchDivisions, fetchItems, fetchReservedRequest]);
+    void fetchPerformances();
+  }, [fetchDivisions, fetchItems, fetchPerformances, fetchReservedRequest]);
 
   const toggleCalendar = useCallback(() => {
     setCalendarExpanded((previous) => !previous);
@@ -689,33 +782,6 @@ export default function AvailableItems() {
         <View style={styles.filterWrap}>
           <View style={styles.filterButtonShell}>
             <Pressable
-              ref={divisionButtonRef}
-              onLayout={(event) => {
-                const { x, y, width, height } = event.nativeEvent.layout;
-                setDivisionButtonLayout({ x, y, width, height });
-              }}
-              onPress={() => {
-                if (activeFilterMenu === "division") {
-                  setActiveFilterMenu(null);
-                  setShowDivisionMenu(false);
-                  return;
-                }
-
-                setActiveFilterMenu("division");
-                setShowDivisionMenu(true);
-                setShowCategoryMenu(false);
-              }}
-              style={[styles.filterButton, selectedDivision && styles.filterButtonActive]}
-            >
-              <Text style={[styles.filterButtonText, selectedDivision && styles.filterButtonTextActive]}>
-                {selectedDivision || "Division"}
-              </Text>
-              <Ionicons name="chevron-down" size={16} color={selectedDivision ? "#ffffff" : "#166534"} />
-            </Pressable>
-          </View>
-
-          <View style={styles.filterButtonShell}>
-            <Pressable
               ref={categoryButtonRef}
               onLayout={(event) => {
                 const { x, y, width, height } = event.nativeEvent.layout;
@@ -730,7 +796,6 @@ export default function AvailableItems() {
 
                 setActiveFilterMenu("category");
                 setShowCategoryMenu(true);
-                setShowDivisionMenu(false);
               }}
               style={[styles.filterButton, selectedCategory !== "all" && styles.filterButtonActive]}
             >
@@ -775,11 +840,7 @@ export default function AvailableItems() {
             </Pressable>
           </View>
 
-          {selectedPerformanceDate ? (
-            <Pressable onPress={clearDateFilter} style={styles.clearFilterButton}>
-              <Text style={styles.clearFilterText}>Show all</Text>
-            </Pressable>
-          ) : null}
+        
 
           <View style={styles.weekdayRow}>
             {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
@@ -789,7 +850,7 @@ export default function AvailableItems() {
 
           <View style={styles.calendarGrid}>
             {calendarDays.map((day) => {
-              const dayStyle = [styles.dayCell];
+              const dayStyle: any[] = [styles.dayCell];
               if (!day.isCurrentMonth) {
                 dayStyle.push(styles.dayCellMuted);
               }
@@ -810,7 +871,19 @@ export default function AvailableItems() {
                   <Text style={[styles.dayText, !day.isCurrentMonth && styles.dayTextMuted, day.isSelected && styles.dayTextSelected]}>
                     {day.day}
                   </Text>
-                  {day.hasPerformance ? <Ionicons name="star" size={8} color={day.isSelected ? "#ffffff" : "#f59e0b"} /> : null}
+                  {day.hasPerformance ? (
+                    <Ionicons
+                      name="star"
+                      size={8}
+                      color={
+                        day.performanceStatus === "today"
+                          ? "#10b981"
+                          : day.performanceStatus === "user"
+                            ? "#ef4444"
+                            : "#f59e0b"
+                      }
+                    />
+                  ) : null}
                 </Pressable>
               );
             })}
@@ -818,49 +891,47 @@ export default function AvailableItems() {
         </View>
       </Animated.View>
 
-      {showDivisionMenu && divisionButtonLayout ? (
-        <View
-          pointerEvents="box-none"
-          style={[
-            styles.dropdownPanel,
-            {
-              top: divisionButtonLayout.y + divisionButtonLayout.height + 55,
-              left: divisionButtonLayout.x + 135,
-            },
-          ]}
-        >
-          <Pressable
-            onPress={() => {
-              setSelectedDivision(null);
-              setShowDivisionMenu(false);
-              setActiveFilterMenu(null);
-            }}
-            style={[styles.dropdownOption, !selectedDivision && styles.dropdownOptionActive]}
-          >
-            <Text style={[styles.dropdownOptionText, !selectedDivision && styles.dropdownOptionTextActive]}>All Divisions</Text>
-          </Pressable>
-
-          {divisions.map((division) => {
-            const active = selectedDivision === division.name;
-
-            return (
-              <Pressable
-                key={division.id}
-                onPress={() => {
-                  setSelectedDivision(division.name);
-                  setShowDivisionMenu(false);
-                  setActiveFilterMenu(null);
-                }}
-                style={[styles.dropdownOption, active && styles.dropdownOptionActive]}
-              >
-                <Text style={[styles.dropdownOptionText, active && styles.dropdownOptionTextActive]}>
-                  {division.name}
-                </Text>
-              </Pressable>
-            );
-          })}
+      <Animated.View
+        style={[
+          styles.scheduleSection,
+          {
+            opacity: calendarOpacity,
+            maxHeight: calendarExpanded ? 280 : 0,
+            overflow: "hidden",
+          },
+        ]}
+      >
+        <View style={styles.scheduleSectionHeader}>
+          <Text style={styles.scheduleSectionTitle}>
+            {selectedPerformanceDate ? "Selected day" : "Upcoming schedules"}
+          </Text>
         </View>
-      ) : null}
+
+        {selectedDayPerformances.length > 0 ? (
+          <View style={styles.scheduleList}>
+            {selectedDayPerformances.map((performance) => {
+              const performanceTime = performance.start_time
+                ? new Date(performance.start_time).toLocaleTimeString("en-US", {
+                    hour: "numeric",
+                    minute: "2-digit",
+                  })
+                : "Time TBD";
+              const locationText = performance.location?.trim() ? performance.location : "Location TBD";
+
+              return (
+                <View key={performance.id} style={styles.scheduleItem}>
+                  <Text style={styles.scheduleItemTitle} numberOfLines={1}>{performance.title || "Untitled performance"}</Text>
+                  <Text style={styles.scheduleItemMeta}>{`${performanceTime} • ${locationText}`}</Text>
+                </View>
+              );
+            })}
+          </View>
+        ) : (
+          <View style={styles.scheduleEmptyState}>
+            <Text style={styles.scheduleEmptyText}>No performances scheduled for this day.</Text>
+          </View>
+        )}
+      </Animated.View>
 
       {showCategoryMenu && categoryButtonLayout ? (
         <View
@@ -895,12 +966,11 @@ export default function AvailableItems() {
         </View>
       ) : null}
 
-      {(showCategoryMenu || showDivisionMenu) ? (
+      {showCategoryMenu ? (
         <Pressable
           style={styles.dropdownOverlay}
           onPress={() => {
             setShowCategoryMenu(false);
-            setShowDivisionMenu(false);
             setActiveFilterMenu(null);
           }}
         />
@@ -1213,7 +1283,7 @@ const styles = StyleSheet.create({
     zIndex: 20,
     backgroundColor: "#f9fafb",
     paddingTop: -2,
-    paddingBottom: 4,
+    paddingBottom: 0,
     paddingHorizontal: 14,
     borderBottomWidth: 1,
     borderBottomColor: "#f3f4f6",
@@ -1224,13 +1294,14 @@ const styles = StyleSheet.create({
   },
   listContent: {
     paddingHorizontal: 14,
-    paddingTop: 12,
+    paddingTop: 4,
     paddingBottom: 24,
   },
   calendarContainer: {
     overflow: "hidden",
     paddingHorizontal: 14,
-    paddingTop: 4,
+    paddingTop: 0,
+    paddingBottom: 0,
   },
   calendarCard: {
     width: "108%",
@@ -1322,9 +1393,9 @@ const styles = StyleSheet.create({
     color: "#ffffff",
   },
   header: {
-    gap: 8,
-    marginTop: 2,
-    marginBottom: 2,
+    gap: 6,
+    marginTop: 0,
+    marginBottom: 0,
     position: "relative",
     zIndex: 2,
   },
@@ -1420,6 +1491,58 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 0 },
     elevation: 0,
     zIndex: 30,
+  },
+  scheduleSection: {
+    marginTop: 0,
+    paddingTop: 6,
+    paddingBottom: 0,
+    borderTopWidth: 1,
+    borderTopColor: "#f3f4f6",
+    gap: 6,
+  },
+  scheduleSectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+  },
+  scheduleSectionTitle: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#111827",
+  },
+  scheduleSectionHint: {
+    fontSize: 11,
+    color: "#64748b",
+  },
+  scheduleList: {
+    gap: 8,
+  },
+  scheduleItem: {
+    backgroundColor: "#ffffff",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#f3f4f6",
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 2,
+  },
+  scheduleItemTitle: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#111827",
+  },
+  scheduleItemMeta: {
+    fontSize: 12,
+    color: "#64748b",
+  },
+  scheduleEmptyState: {
+    paddingVertical: 12,
+    paddingHorizontal: 4,
+  },
+  scheduleEmptyText: {
+    fontSize: 12,
+    color: "#64748b",
   },
   dropdownOption: {
     paddingHorizontal: 12,

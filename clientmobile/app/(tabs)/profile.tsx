@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  DeviceEventEmitter,
   Image,
   LayoutAnimation,
   Modal,
@@ -9,6 +10,7 @@ import {
   Pressable,
   RefreshControl,
   ScrollView,
+  Linking,
   StyleSheet,
   Text,
   TextInput,
@@ -19,7 +21,7 @@ import { PermissionStatus } from "expo-modules-core";
 import * as ImagePicker from "expo-image-picker";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { useAuth } from "../../src/hooks/useAuth";
 import { api } from "../../src/services/api";
 
@@ -57,18 +59,10 @@ type ProfileData = {
   updated_at?: string | null;
 };
 
-type DocumentKey =
-  | "birth_certificate_url"
-  | "class_schedule_url"
-  | "id_front_url"
-  | "id_back_url";
+type SectionKey = "personal" | "documents";
 
-type UploadField =
-  | "profile_pic"
-  | "birth_certificate"
-  | "class_schedule"
-  | "id_front"
-  | "id_back";
+type DocumentKey = "birth_certificate_url" | "class_schedule_url" | "id_front_url" | "id_back_url";
+type UploadField = "profile_pic" | "birth_certificate" | "class_schedule" | "id_front" | "id_back";
 
 type DocumentConfig = {
   key: DocumentKey;
@@ -81,6 +75,17 @@ type ProfileResponse = {
   profile?: ProfileData;
 } | ProfileData;
 
+type ProfileFieldConfig = {
+  label: string;
+  key: keyof ProfileData;
+  compact?: boolean;
+};
+
+type ProfileSection = {
+  title: string;
+  fields: ProfileFieldConfig[];
+};
+
 const documentsConfig: DocumentConfig[] = [
   { key: "birth_certificate_url", label: "Birth Certificate", uploadField: "birth_certificate", isIdCard: false },
   { key: "class_schedule_url", label: "Class Schedule", uploadField: "class_schedule", isIdCard: false },
@@ -88,8 +93,110 @@ const documentsConfig: DocumentConfig[] = [
   { key: "id_back_url", label: "School ID (Back)", uploadField: "id_back", isIdCard: true },
 ];
 
+const documentRows = [
+  {
+    title: "Birth Certificate",
+    subtitle: "Upload or replace your birth certificate",
+    icon: "document-text-outline",
+    route: "/(tabs)/documents/birth-certificate",
+  },
+  {
+    title: "School ID",
+    subtitle: "Front and back of your school ID",
+    icon: "id-card-outline",
+    route: "/(tabs)/documents/school-id",
+  },
+  {
+    title: "Class Schedule",
+    subtitle: "Upload your class schedule",
+    icon: "calendar-outline",
+    route: "/(tabs)/documents/class-schedule",
+  },
+] as const;
+
+const personalSections: ProfileSection[] = [
+  {
+    title: "Student Information",
+    fields: [
+      { label: "College", key: "college" },
+      { label: "Program", key: "program" },
+      { label: "Email", key: "email" },
+      { label: "Phone Number", key: "phone" },
+      { label: "Current Address", key: "current_address" },
+    ],
+  },
+  {
+    title: "Personal Information",
+    fields: [
+      { label: "Date of Birth", key: "date_of_birth" },
+      { label: "Citizenship", key: "citizenship" },
+      { label: "Marital Status", key: "marital_status" },
+      { label: "Religion", key: "religion" },
+      { label: "Height", key: "height" },
+      { label: "Weight", key: "weight" },
+      { label: "Eye Color", key: "eye_color" },
+    ],
+  },
+  {
+    title: "Family Information",
+    fields: [
+      { label: "Mother's Name", key: "mother_full_name" },
+      { label: "Mother's Birthday", key: "mother_birthday" },
+      { label: "Father's Name", key: "father_full_name" },
+      { label: "Father's Birthday", key: "father_birthday" },
+    ],
+  },
+  {
+    title: "Emergency Contact",
+    fields: [
+      { label: "Emergency Contact Name", key: "emergency_contact_name" },
+      { label: "Emergency Contact Number", key: "emergency_contact_mobile" },
+      { label: "Emergency Contact Relationship", key: "emergency_contact_relationship" },
+      { label: "Emergency Contact Occupation", key: "emergency_contact_occupation" },
+    ],
+  },
+];
+
+function formatFieldValue(value: unknown, fieldKey?: keyof ProfileData) {
+  if (value === null || value === undefined || value === "") {
+    return "Not provided";
+  }
+
+  if (fieldKey && ["date_of_birth", "mother_birthday", "father_birthday"].includes(fieldKey as string)) {
+    const date = new Date(String(value));
+    if (!Number.isNaN(date.getTime())) {
+      return new Intl.DateTimeFormat(undefined, {
+        month: "long",
+        day: "numeric",
+        year: "numeric",
+      }).format(date);
+    }
+  }
+
+  return String(value);
+}
+
+function getDivisionAccentColor(departmentName?: string | null) {
+  const normalized = departmentName?.toLowerCase() ?? "";
+
+  if (normalized.includes("budjong")) {
+    return "#f59e0b";
+  }
+
+  if (normalized.includes("kayam")) {
+    return "#dc2626";
+  }
+
+  if (normalized.includes("dulimbay")) {
+    return "#2563eb";
+  }
+
+  return "#2563eb";
+}
+
 export default function Profile() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ tab?: string }>();
   const { user, logout } = useAuth();
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -98,12 +205,15 @@ export default function Profile() {
   const [nameEditorOpen, setNameEditorOpen] = useState(false);
   const [nameDraft, setNameDraft] = useState("");
   const [nameSaving, setNameSaving] = useState(false);
-  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [activeTab, setActiveTab] = useState<SectionKey>("personal");
+  const [editingSection, setEditingSection] = useState<string | null>(null);
+  const [showAllDetails, setShowAllDetails] = useState(false);
   const [profileDraft, setProfileDraft] = useState<Partial<ProfileData>>({});
   const [profileSaving, setProfileSaving] = useState(false);
   const [uploadingField, setUploadingField] = useState<UploadField | null>(null);
   const [documentPreviewUrl, setDocumentPreviewUrl] = useState<string | null>(null);
   const [isDocumentPreviewOpen, setIsDocumentPreviewOpen] = useState(false);
+  const [isAvatarPreviewOpen, setIsAvatarPreviewOpen] = useState(false);
   const [idCameraOpen, setIdCameraOpen] = useState(false);
   const [idCameraTarget, setIdCameraTarget] = useState<DocumentConfig | null>(null);
   const [capturedUri, setCapturedUri] = useState<string | null>(null);
@@ -111,11 +221,10 @@ export default function Profile() {
   const cameraRef = useRef<any>(null);
 
   const profileData = profile ?? user;
+  const departmentName = profile?.department_name ?? (user as ProfileData | undefined)?.department_name ?? null;
+  const divisionAccentColor = useMemo(() => getDivisionAccentColor(departmentName), [departmentName]);
 
-  const uploadedCount = useMemo(
-    () => documentsConfig.filter((item) => Boolean(profile?.[item.key])).length,
-    [profile]
-  );
+  const uploadedCount = useMemo(() => documentsConfig.filter((item) => Boolean(profile?.[item.key])).length, [profile]);
 
   const loadProfile = useCallback(async () => {
     setError(null);
@@ -157,6 +266,12 @@ export default function Profile() {
     void loadProfile();
   }, [loadProfile]);
 
+  useEffect(() => {
+    if (params.tab === "documents") {
+      setActiveTab("documents");
+    }
+  }, [params.tab]);
+
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
     await loadProfile();
@@ -187,10 +302,29 @@ export default function Profile() {
     setIsDocumentPreviewOpen(true);
   }, []);
 
+  const handleDownloadFile = useCallback(async (url: string | null) => {
+    if (!url) {
+      Alert.alert("No file", "There is no uploaded file to download yet.");
+      return;
+    }
+
+    try {
+      const supported = await Linking.canOpenURL(url);
+      if (!supported) {
+        Alert.alert("Unable to download", "This file cannot be opened on this device.");
+        return;
+      }
+      await Linking.openURL(url);
+    } catch (err) {
+      console.error("Download failed", err);
+      Alert.alert("Download failed", "Please try again.");
+    }
+  }, []);
 
   const updateProfileData = useCallback((newProfile: ProfileData) => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setProfile(newProfile);
+    DeviceEventEmitter.emit("mobile:profile-updated", { profile: newProfile });
   }, []);
 
   const uploadFile = useCallback(
@@ -244,57 +378,43 @@ export default function Profile() {
     return true;
   }, [cameraPermission?.status, requestCameraPermission]);
 
-  const handleProfilePhotoSelection = useCallback(async () => {
-    Alert.alert("Update profile photo", undefined, [
-      {
-        text: "Take Photo",
-        onPress: async () => {
-          const granted = await ensureCameraPermission();
-          if (!granted) return;
+  const handleProfilePhotoSelection = useCallback(
+    async (source: "gallery" | "camera") => {
+      if (source === "camera") {
+        const granted = await ensureCameraPermission();
+        if (!granted) return;
 
-          const result = await ImagePicker.launchCameraAsync({
-            mediaTypes: ImagePicker.MediaTypeOptions.Images,
-            allowsEditing: true,
-            quality: 0.8,
-          });
+        const result = await ImagePicker.launchCameraAsync({
+          mediaTypes: ImagePicker.MediaTypeOptions.Images,
+          allowsEditing: true,
+          quality: 0.8,
+        });
 
-          if (!result.canceled && result.assets[0]?.uri) {
-            LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-            setProfile((current) =>
-              current
-                ? { ...current, profile_pic_url: result.assets[0].uri }
-                : current
-            );
-            await uploadFile("profile_pic", result.assets[0].uri);
-          }
-        },
-      },
-      {
-        text: "Upload from Gallery",
-        onPress: async () => {
-          const granted = await ensureMediaLibraryPermission();
-          if (!granted) return;
+        if (!result.canceled && result.assets[0]?.uri) {
+          LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+          setProfile((current) => (current ? { ...current, profile_pic_url: result.assets[0].uri } : current));
+          await uploadFile("profile_pic", result.assets[0].uri);
+        }
+        return;
+      }
 
-          const result = await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ImagePicker.MediaTypeOptions.Images,
-            allowsEditing: true,
-            quality: 0.8,
-          });
+      const granted = await ensureMediaLibraryPermission();
+      if (!granted) return;
 
-          if (!result.canceled && result.assets[0]?.uri) {
-            LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-            setProfile((current) =>
-              current
-                ? { ...current, profile_pic_url: result.assets[0].uri }
-                : current
-            );
-            await uploadFile("profile_pic", result.assets[0].uri);
-          }
-        },
-      },
-      { text: "Cancel", style: "cancel" },
-    ]);
-  }, [ensureCameraPermission, ensureMediaLibraryPermission, uploadFile]);
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets[0]?.uri) {
+        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+        setProfile((current) => (current ? { ...current, profile_pic_url: result.assets[0].uri } : current));
+        await uploadFile("profile_pic", result.assets[0].uri);
+      }
+    },
+    [ensureCameraPermission, ensureMediaLibraryPermission, uploadFile]
+  );
 
   const openNameEditor = useCallback(() => {
     setNameDraft(profileData?.name || "");
@@ -408,58 +528,28 @@ export default function Profile() {
 
   const profileAvatarUri = profile?.profile_pic_url || undefined;
 
-  const profileFieldGroups = [
-    {
-      title: "Personal",
-      items: [
-        { label: "Date of Birth", key: "date_of_birth" as const },
-        { label: "Citizenship", key: "citizenship" as const },
-        { label: "Religion", key: "religion" as const },
-        { label: "Marital Status", key: "marital_status" as const },
-      ],
-    },
-    {
-      title: "Academic",
-      items: [
-        { label: "College", key: "college" as const },
-        { label: "Program / Course", key: "program" as const },
-      ],
-    },
-    {
-      title: "Physical",
-      items: [
-        { label: "Height", key: "height" as const },
-        { label: "Weight", key: "weight" as const },
-        { label: "Eye Color", key: "eye_color" as const },
-      ],
-    },
-    {
-      title: "Parents",
-      items: [
-        { label: "Mother's Full Name", key: "mother_full_name" as const },
-        { label: "Mother's Birthday", key: "mother_birthday" as const },
-        { label: "Father's Full Name", key: "father_full_name" as const },
-        { label: "Father's Birthday", key: "father_birthday" as const },
-      ],
-    },
-    {
-      title: "Emergency Contact",
-      items: [
-        { label: "Emergency Contact Name", key: "emergency_contact_name" as const },
-        { label: "Emergency Contact Mobile", key: "emergency_contact_mobile" as const },
-        { label: "Relationship", key: "emergency_contact_relationship" as const },
-        { label: "Occupation", key: "emergency_contact_occupation" as const },
-      ],
-    },
-  ];
+  const switchTab = useCallback((section: SectionKey) => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setActiveTab(section);
+  }, []);
 
-  const saveExtendedProfile = useCallback(async () => {
+  const toggleShowMore = useCallback(() => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setShowAllDetails((current) => !current);
+  }, []);
+
+  const toggleSectionEdit = useCallback((sectionTitle: string) => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setEditingSection((current) => (current === sectionTitle ? null : sectionTitle));
+  }, []);
+
+  const saveSectionChanges = useCallback(async () => {
     setProfileSaving(true);
     try {
       const response = await api.patch("/api/profiles/me", profileDraft);
       const returnedProfile = response.data.profile || response.data;
       updateProfileData(returnedProfile);
-      setIsEditingProfile(false);
+      setEditingSection(null);
       Alert.alert("Saved", "Your profile details were updated.");
     } catch (err) {
       console.error("Profile update failed", err);
@@ -468,6 +558,122 @@ export default function Profile() {
       setProfileSaving(false);
     }
   }, [profileDraft, updateProfileData]);
+
+  const renderFieldValue = (field: ProfileFieldConfig, isEditingThisSection: boolean, isCompact = false) => {
+    const value = profile?.[field.key as keyof ProfileData];
+
+    if (isEditingThisSection) {
+      const draftValue = String(profileDraft[field.key as keyof typeof profileDraft] ?? "");
+      return (
+        <TextInput
+          style={styles.input}
+          value={draftValue}
+          onChangeText={(text) => setProfileDraft((current) => ({ ...current, [field.key]: text }))}
+          placeholder={field.label}
+          placeholderTextColor="#94a3b8"
+          multiline={isCompact}
+        />
+      );
+    }
+
+    return (
+      <Text style={isCompact ? styles.compactValue : styles.detailValue}>
+        {formatFieldValue(value, field.key as keyof ProfileData)}
+      </Text>
+    );
+  };
+
+  const renderTabContent = () => {
+    if (activeTab === "documents") {
+      return (
+        <View style={styles.tabContent}>
+          
+
+          <View style={styles.sectionBody}>
+            
+
+            {documentRows.map((document) => (
+              <Pressable
+                key={document.title}
+                style={styles.settingsRow}
+                onPress={() => router.push({ pathname: document.route as any, params: { returnTab: "documents" } })}
+              >
+                <View style={styles.settingsRowLeft}>
+                  <View style={styles.settingsIconWrap}>
+                    <Ionicons name={document.icon as any} size={18} color="#2563eb" />
+                  </View>
+                  <View style={styles.settingsTextWrap}>
+                    <Text style={styles.settingsRowTitle}>{document.title}</Text>
+                    <Text style={styles.settingsRowSubtitle}>{document.subtitle}</Text>
+                  </View>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
+              </Pressable>
+            ))}
+          </View>
+        </View>
+      );
+    }
+
+    return (
+      <View style={styles.tabContent}>
+        <View style={styles.sectionBody}>
+          {personalSections.slice(0, showAllDetails ? personalSections.length : 2).map((section) => {
+            const isEditingThisSection = editingSection === section.title;
+
+            return (
+              <View key={section.title} style={styles.sectionCard}>
+                <View style={styles.sectionHeaderRow}>
+                  <View style={styles.sectionTitleWrap}>
+                   
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.sectionTitle}>{section.title}</Text>
+                  
+                    </View>
+                  </View>
+                  <Pressable style={styles.sectionEditButton} onPress={() => toggleSectionEdit(section.title)}>
+                    <Ionicons name={isEditingThisSection ? "close-outline" : "create-outline"} size={18} color="#2563eb" />
+                  </Pressable>
+                </View>
+
+                <View style={styles.sectionBody}>
+                  {section.fields.map((field) => (
+                    <View key={field.key} style={styles.profileFieldRow}>
+                      <Text style={styles.detailLabel}>{field.label}</Text>
+                      {renderFieldValue(field, isEditingThisSection, field.compact)}
+                    </View>
+                  ))}
+
+                  {isEditingThisSection ? (
+                    <View style={styles.sectionActions}>
+                      <Pressable style={styles.sectionCancelButton} onPress={() => toggleSectionEdit(section.title)}>
+                        <Text style={styles.sectionCancelText}>Cancel</Text>
+                      </Pressable>
+                      <Pressable style={styles.primaryButton} onPress={saveSectionChanges} disabled={profileSaving}>
+                        {profileSaving ? <ActivityIndicator color="#ffffff" /> : <Text style={styles.primaryButtonText}>Save</Text>}
+                      </Pressable>
+                    </View>
+                  ) : null}
+                </View>
+              </View>
+            );
+          })}
+
+          {!showAllDetails && personalSections.length > 2 ? (
+            <Pressable style={styles.showMoreButton} onPress={toggleShowMore}>
+              <Text style={styles.showMoreButtonText}>See More</Text>
+            </Pressable>
+          ) : null}
+
+          {showAllDetails ? (
+            <Pressable style={styles.showMoreButton} onPress={toggleShowMore}>
+              <Text style={styles.showMoreButtonText}>Show Less</Text>
+            </Pressable>
+          ) : null}
+        </View>
+      </View>
+    );
+  };
 
   return (
     <SafeAreaView style={styles.screen}>
@@ -488,222 +694,71 @@ export default function Profile() {
               </View>
             ) : null}
 
-            <View style={styles.headerCard}>
-              <View style={styles.headerLeft}>
-                <View style={styles.avatarContainer}>
-                  {profileAvatarUri ? (
-                    <Image source={{ uri: profileAvatarUri }} style={styles.avatarImage} />
-                  ) : (
-                    <View style={styles.avatarPlaceholder}>
-                      <Text style={styles.avatarInitial}>
-                        {String(profileData?.name || "?").charAt(0).toUpperCase()}
-                      </Text>
-                    </View>
-                  )}
-
-                  <Pressable style={styles.photoButton} onPress={handleProfilePhotoSelection}>
-                    <Ionicons name="camera-outline" size={18} color="#ffffff" />
-                  </Pressable>
-                </View>
-              </View>
-
-              <View style={styles.headerRight}>
-                <View style={styles.nameRow}>
-                  <Text style={styles.headerName}>{profileData?.name || "Borrower"}</Text>
-                  <Pressable onPress={openNameEditor} style={styles.editIcon} hitSlop={10}>
-                    <Ionicons name="pencil" size={18} color="#475569" />
-                  </Pressable>
-                </View>
-                <Text style={styles.headerDivision}>{profile?.department_name || "No division assigned"}</Text>
-                <Text style={styles.headerRole}>{profileData?.role ? profileData.role.charAt(0).toUpperCase() + profileData.role.slice(1) : "Student"}</Text>
-              </View>
-            </View>
-
-            <View style={styles.detailsCard}>
-              <View style={styles.sectionHeaderRow}>
-                <Text style={styles.sectionTitle}>Profile Details</Text>
-                <Pressable onPress={() => {
-                  if (isEditingProfile) {
-                    setIsEditingProfile(false);
-                    setProfileDraft({
-                      date_of_birth: profile?.date_of_birth ?? "",
-                      citizenship: profile?.citizenship ?? "",
-                      religion: profile?.religion ?? "",
-                      marital_status: profile?.marital_status ?? "",
-                      college: profile?.college ?? "",
-                      program: profile?.program ?? "",
-                      current_address: profile?.current_address ?? "",
-                      height: profile?.height ?? "",
-                      weight: profile?.weight ?? "",
-                      eye_color: profile?.eye_color ?? "",
-                      mother_full_name: profile?.mother_full_name ?? "",
-                      mother_birthday: profile?.mother_birthday ?? "",
-                      father_full_name: profile?.father_full_name ?? "",
-                      father_birthday: profile?.father_birthday ?? "",
-                      emergency_contact_name: profile?.emergency_contact_name ?? "",
-                      emergency_contact_mobile: profile?.emergency_contact_mobile ?? "",
-                      emergency_contact_relationship: profile?.emergency_contact_relationship ?? "",
-                      emergency_contact_occupation: profile?.emergency_contact_occupation ?? "",
-                    });
-                  } else {
-                    setProfileDraft({
-                      date_of_birth: profile?.date_of_birth ?? "",
-                      citizenship: profile?.citizenship ?? "",
-                      religion: profile?.religion ?? "",
-                      marital_status: profile?.marital_status ?? "",
-                      college: profile?.college ?? "",
-                      program: profile?.program ?? "",
-                      current_address: profile?.current_address ?? "",
-                      height: profile?.height ?? "",
-                      weight: profile?.weight ?? "",
-                      eye_color: profile?.eye_color ?? "",
-                      mother_full_name: profile?.mother_full_name ?? "",
-                      mother_birthday: profile?.mother_birthday ?? "",
-                      father_full_name: profile?.father_full_name ?? "",
-                      father_birthday: profile?.father_birthday ?? "",
-                      emergency_contact_name: profile?.emergency_contact_name ?? "",
-                      emergency_contact_mobile: profile?.emergency_contact_mobile ?? "",
-                      emergency_contact_relationship: profile?.emergency_contact_relationship ?? "",
-                      emergency_contact_occupation: profile?.emergency_contact_occupation ?? "",
-                    });
-                    setIsEditingProfile(true);
-                  }
-                }} style={styles.ghostButton}>
-                  <Text style={styles.ghostButtonText}>{isEditingProfile ? "Cancel" : "Edit"}</Text>
-                </Pressable>
-              </View>
-
-              <View style={styles.detailRow}>
-                <View>
-                  <Text style={styles.detailLabel}>Email</Text>
-                  <Text style={styles.detailValue}>{profileData?.email || "Not available"}</Text>
-                </View>
-              </View>
-
-              <View style={styles.detailRow}>
-                <View>
-                  <Text style={styles.detailLabel}>Phone</Text>
-                  <Text style={styles.detailValue}>{profileData?.phone || "Not available"}</Text>
-                </View>
-              </View>
-
-              <View style={styles.detailRow}>
-                <View>
-                  <Text style={styles.detailLabel}>Current Address</Text>
-                  <Text style={styles.detailValue}>{profile?.current_address || "Not provided"}</Text>
-                </View>
-              </View>
-
-              <View style={styles.detailRow}>
-                <View>
-                  <Text style={styles.detailLabel}>Student ID</Text>
-                  <Text style={styles.detailValue}>{profileData?.id ?? "Unknown"}</Text>
-                </View>
-              </View>
-
-              {profileFieldGroups.map((group) => (
-                <View key={group.title} style={styles.profileGroupCard}>
-                  <Text style={styles.profileGroupTitle}>{group.title}</Text>
-                  {group.items.map((item) => (
-                    <View key={item.key} style={styles.profileFieldRow}>
-                      <Text style={styles.detailLabel}>{item.label}</Text>
-                      {isEditingProfile ? (
-                        <TextInput
-                          style={styles.modalInput}
-                          value={String(profileDraft[item.key as keyof typeof profileDraft] ?? "")}
-                          onChangeText={(value) => setProfileDraft((current) => ({ ...current, [item.key]: value }))}
-                          placeholder="Not provided"
-                        />
-                      ) : (
-                        <Text style={styles.detailValue}>{String(profile?.[item.key as keyof ProfileData] ?? "Not provided")}</Text>
-                      )}
-                    </View>
-                  ))}
-                </View>
-              ))}
-
-              {isEditingProfile ? (
-                <Pressable style={styles.primaryButton} onPress={saveExtendedProfile} disabled={profileSaving}>
-                  {profileSaving ? <ActivityIndicator color="#ffffff" /> : <Text style={styles.primaryButtonText}>Save Profile</Text>}
-                </Pressable>
-              ) : null}
-            </View>
-
-            <View style={styles.documentsCard}>
-              <View style={styles.documentsHeader}>
-                <Text style={styles.sectionTitle}>Documents</Text>
-                <Text style={styles.documentsCount}>{uploadedCount}/4 uploaded</Text>
-              </View>
-
-              {documentsConfig.map((document) => {
-                const url = profile?.[document.key] ?? null;
-                const isUploaded = Boolean(url);
-                const thumbnailSupported = url && !url.toLowerCase().includes(".pdf");
-
-                return (
-                  <View key={document.key} style={styles.documentCard}>
-                    <View style={styles.documentHeader}>
-                      <View>
-                        <Text style={styles.documentTitle}>{document.label}</Text>
-                        <Text style={styles.documentStatusText}>
-                          {isUploaded ? "Uploaded" : "Not uploaded"}
-                        </Text>
-                      </View>
-                      {isUploaded ? (
-                        <Pressable onPress={() => openDocumentPreview(url)} style={styles.previewChip}>
-                          <Text style={styles.previewChipText}>Preview</Text>
-                        </Pressable>
-                      ) : null}
-                    </View>
-
-                    {isUploaded ? (
-                      <Pressable
-                        onPress={() => openDocumentPreview(url)}
-                        style={styles.documentPreview}
-                      >
-                        {thumbnailSupported ? (
-                          <Image source={{ uri: url! }} style={styles.documentThumbnail} />
+            <View style={styles.headerSection}>
+              <View style={styles.headerBorderFrame}>
+                <View style={styles.headerAvatarWrap}>
+                  <View style={[styles.avatarWrapOuter]}>
+                    <Pressable
+                      onPress={() => {
+                        if (profileAvatarUri) setIsAvatarPreviewOpen(true);
+                        else Alert.alert("No photo", "You haven't uploaded a profile photo yet.");
+                      }}
+                      accessibilityLabel="View profile photo"
+                    >
+                      <View style={[styles.avatarContainer, { borderColor: divisionAccentColor, shadowColor: divisionAccentColor }] }>
+                        {profileAvatarUri ? (
+                          <Image source={{ uri: profileAvatarUri }} style={styles.avatarImage} />
                         ) : (
-                          <View style={styles.documentPlaceholder}>
-                            <Ionicons name="document-text-outline" size={24} color="#475569" />
+                          <View style={styles.avatarPlaceholder}>
+                            <Text style={styles.avatarInitial}>{String(profileData?.name || "?").charAt(0).toUpperCase()}</Text>
                           </View>
                         )}
-                        <View style={styles.documentMeta}>
-                          <Text style={styles.documentMetaText}>Tap to view full screen</Text>
-                        </View>
-                      </Pressable>
-                    ) : null}
+                      </View>
+                    </Pressable>
 
-                    <View style={styles.documentActions}>
-                      <Pressable
-                        style={[styles.actionButton, styles.uploadButton]}
-                        onPress={() => openGalleryForDocument(document)}
-                        disabled={uploadingField === document.uploadField}
-                      >
-                        {uploadingField === document.uploadField ? (
-                          <ActivityIndicator size="small" color="#ffffff" />
-                        ) : (
-                          <Text style={styles.actionButtonText}>Upload</Text>
-                        )}
-                      </Pressable>
-                      <Pressable
-                        style={[styles.actionButton, styles.cameraButton]}
-                        onPress={() => openCameraForDocument(document)}
-                        disabled={uploadingField === document.uploadField}
-                      >
-                        <Ionicons name="camera" size={16} color="#0f172a" />
-                        <Text style={styles.cameraButtonText}>Camera</Text>
-                      </Pressable>
-                    </View>
+                    <Pressable
+                      style={[styles.photoButton, { backgroundColor: divisionAccentColor }] }
+                      onPress={() => handleProfilePhotoSelection("camera") }
+                      accessibilityLabel="Change profile photo"
+                    >
+                      <Ionicons name="camera" size={12} color="#ffffff" />
+                    </Pressable>
                   </View>
-                );
-              })}
+                </View>
+
+                <View style={styles.headerInfo}>
+                  <View style={styles.headerNameRow}>
+                    <Text style={styles.headerName}>{profileData?.name || "Borrower"}</Text>
+                    <Pressable onPress={openNameEditor} style={[styles.headerActionButton, { backgroundColor: `${divisionAccentColor}12` }] }>
+                      <Ionicons name="create-outline" size={16} color={divisionAccentColor} />
+                    </Pressable>
+                  </View>
+                  <Text style={styles.headerDivision}>{profile?.department_name || "No division assigned"}</Text>
+                </View>
+
+                <View style={styles.tabRow}>
+                  {[
+                    { key: "personal", label: "Personal" },
+                    { key: "documents", label: "Documents" },
+                  ].map((tab) => {
+                    const isActive = activeTab === tab.key;
+                    return (
+                      <Pressable
+                        key={tab.key}
+                        style={[styles.tabButton, isActive && styles.tabButtonActive]}
+                        onPress={() => switchTab(tab.key as SectionKey)}
+                      >
+                        <Text style={[styles.tabButtonText, isActive && styles.tabButtonTextActive]}>{tab.label}</Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </View>
             </View>
 
-            <Pressable onPress={confirmLogout} style={styles.logoutButton}>
-              <Ionicons name="log-out-outline" size={18} color="#ffffff" />
-              <Text style={styles.logoutButtonText}>Log out</Text>
-            </Pressable>
+            {renderTabContent()}
+
+            
           </>
         )}
       </ScrollView>
@@ -744,9 +799,25 @@ export default function Profile() {
             maximumZoomScale={3}
             minimumZoomScale={1}
           >
-            {documentPreviewUrl ? (
-              <Image source={{ uri: documentPreviewUrl }} style={styles.previewImage} resizeMode="contain" />
-            ) : null}
+            {documentPreviewUrl ? <Image source={{ uri: documentPreviewUrl }} style={styles.previewImage} resizeMode="contain" /> : null}
+          </ScrollView>
+        </View>
+      </Modal>
+
+      <Modal visible={isAvatarPreviewOpen} animationType="fade" transparent>
+        <View style={styles.previewOverlay}>
+          <View style={styles.previewHeader}>
+            <Pressable onPress={() => setIsAvatarPreviewOpen(false)} style={styles.closeButton}>
+              <Ionicons name="close" size={24} color="#ffffff" />
+            </Pressable>
+          </View>
+          <ScrollView
+            style={styles.previewScroll}
+            contentContainerStyle={styles.previewScrollContent}
+            maximumZoomScale={3}
+            minimumZoomScale={1}
+          >
+            {profileAvatarUri ? <Image source={{ uri: profileAvatarUri }} style={styles.previewImage} resizeMode="contain" /> : null}
           </ScrollView>
         </View>
       </Modal>
@@ -809,9 +880,9 @@ const styles = StyleSheet.create({
   content: {
     flexGrow: 1,
     paddingHorizontal: 16,
-    paddingTop: 12,
+    paddingTop: 2,
     paddingBottom: 24,
-    gap: 16,
+    gap: 8,
   },
   loaderContainer: {
     flex: 1,
@@ -835,134 +906,319 @@ const styles = StyleSheet.create({
     color: "#991b1b",
     fontSize: 14,
   },
-  headerCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#ffffff",
-    borderRadius: 22,
-    borderWidth: 1,
-    borderColor: "#e2e8f0",
-    padding: 20,
-    gap: 18,
+  headerSection: {
+    width: "100%",
+    paddingVertical: 0,
   },
-  headerLeft: {
+  headerBorderFrame: {
+    position: "relative",
+    borderRadius: 20,
+    paddingTop: 2,
+    paddingBottom: 4,
+    paddingHorizontal: 0,
+    backgroundColor: "transparent",
+  },
+  headerAvatarWrap: {
     alignItems: "center",
   },
   avatarContainer: {
-    width: 108,
-    height: 108,
-    borderRadius: 54,
+    width: 72,
+    height: 72,
+    borderRadius: 36,
     overflow: "hidden",
     backgroundColor: "#e2e8f0",
     justifyContent: "center",
     alignItems: "center",
+    borderWidth: 2.5,
+    shadowOpacity: 0.16,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 2,
+  },
+  avatarWrapOuter: {
+    position: "relative",
+    alignItems: "center",
+    overflow: "visible",
+    paddingBottom: 0,
   },
   avatarImage: {
-    width: 108,
-    height: 108,
+    width: 72,
+    height: 72,
   },
   avatarPlaceholder: {
-    width: 108,
-    height: 108,
-    borderRadius: 54,
+    width: 72,
+    height: 72,
+    borderRadius: 36,
     backgroundColor: "#2563eb",
     alignItems: "center",
     justifyContent: "center",
   },
   avatarInitial: {
     color: "#ffffff",
-    fontSize: 36,
+    fontSize: 24,
     fontWeight: "900",
   },
   photoButton: {
     position: "absolute",
-    bottom: 8,
-    right: 8,
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    bottom: 2,
+    right: 2,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
     backgroundColor: "#2563eb",
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 2,
-    borderColor: "#ffffff",
+    shadowColor: "#000",
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 4,
   },
-  headerRight: {
-    flex: 1,
+  headerInfo: {
+    width: "100%",
+    alignItems: "center",
+    gap: 2,
+    paddingTop: 2,
   },
-  nameRow: {
+  headerNameRow: {
+    position: "relative",
+    width: "100%",
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
-    flexWrap: "wrap",
+    justifyContent: "center",
+    paddingHorizontal: 32,
   },
   headerName: {
-    fontSize: 24,
-    fontWeight: "900",
+    fontSize: 18,
+    fontWeight: "800",
     color: "#0f172a",
-    flexShrink: 1,
-  },
-  editIcon: {
-    padding: 6,
-    borderRadius: 999,
+    textAlign: "center",
   },
   headerDivision: {
-    marginTop: 6,
-    fontSize: 14,
+    fontSize: 12.5,
     color: "#475569",
+    textAlign: "center",
   },
-  headerRole: {
-    marginTop: 2,
-    fontSize: 14,
-    color: "#475569",
+  headerActionButton: {
+    position: "absolute",
+    right: 0,
+    top: "50%",
+    transform: [{ translateY: -10 }],
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 999,
+    padding: 4,
+    backgroundColor: "transparent",
+  },
+  headerActionText: {
+    color: "#2563eb",
+    fontSize: 12,
     fontWeight: "700",
   },
-  detailsCard: {
-    backgroundColor: "#ffffff",
-    borderRadius: 22,
-    borderWidth: 1,
-    borderColor: "#e2e8f0",
-    padding: 20,
-    gap: 16,
+  tabContent: {
+    width: "100%",
+    paddingVertical: 0,
+    gap: 6,
+  },
+  tabRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 8,
+    marginTop: 2,
+    paddingTop: 2,
+  },
+  tabButton: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+    borderRadius: 0,
+  },
+  tabButtonActive: {
+    borderBottomWidth: 2,
+    borderBottomColor: "#2563eb",
+  },
+  tabButtonText: {
+    color: "#64748b",
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  tabButtonTextActive: {
+    color: "#2563eb",
   },
   sectionHeaderRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 8,
+    paddingHorizontal: 0,
+    paddingVertical: 0,
+    paddingBottom: 4,
+  },
+  sectionTitleWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    flex: 1,
+  },
+  sectionCard: {
+    backgroundColor: "transparent",
+    borderRadius: 0,
+    borderWidth: 0,
+    paddingHorizontal: 0,
+    paddingVertical: 6,
+    gap: 6,
+  },
+  sectionIconBadge: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: "#eff6ff",
+    alignItems: "center",
+    justifyContent: "center",
   },
   sectionTitle: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: "800",
     color: "#0f172a",
   },
-  ghostButton: {
+  sectionSubtitle: {
+    fontSize: 11.5,
+    color: "#64748b",
+    marginTop: 1,
+  },
+  sectionBody: {
+    gap: 6,
+    paddingTop: 0,
+  },
+  sectionGroup: {
+    gap: 4,
+    paddingBottom: 6,
+  },
+  sectionEditButton: {
+    padding: 4,
+    marginLeft: 8,
+  },
+  sectionActions: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    gap: 8,
+    marginTop: 4,
+  },
+  sectionCancelButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    backgroundColor: "#f8fafc",
+  },
+  sectionCancelText: {
+    color: "#475569",
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  sectionGroupTitle: {
+    fontSize: 13,
+    fontWeight: "800",
+    color: "#0f172a",
+    marginBottom: 2,
+  },
+  showMoreButton: {
+    alignSelf: "flex-start",
+    paddingVertical: 8,
+    paddingHorizontal: 0,
+  },
+  showMoreButtonText: {
+    color: "#2563eb",
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  sectionMetaRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: 12,
+  },
+  sectionMetaText: {
+    color: "#64748b",
+    fontSize: 12,
+    flexShrink: 1,
+  },
+  settingsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#f1f5f9",
+  },
+  settingsRowLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+    gap: 12,
+  },
+  settingsIconWrap: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: "#eff6ff",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  settingsTextWrap: {
+    flex: 1,
+    gap: 2,
+  },
+  settingsRowTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#0f172a",
+  },
+  settingsRowSubtitle: {
+    fontSize: 12,
+    color: "#64748b",
+  },
+  secondaryButton: {
     borderRadius: 999,
     borderWidth: 1,
     borderColor: "#cbd5e1",
     paddingHorizontal: 12,
     paddingVertical: 6,
   },
-  ghostButtonText: {
+  secondaryButtonText: {
     color: "#2563eb",
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: "700",
   },
-  profileGroupCard: {
-    borderWidth: 1,
-    borderColor: "#e2e8f0",
-    borderRadius: 16,
-    padding: 12,
-    gap: 10,
-    backgroundColor: "#f8fafc",
+  profileFieldRow: {
+    gap: 2,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: "#f1f5f9",
   },
-  profileGroupTitle: {
+  detailLabel: {
+    fontSize: 11,
+    color: "#64748b",
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+  },
+  detailValue: {
     fontSize: 14,
-    fontWeight: "800",
     color: "#0f172a",
   },
-  profileFieldRow: {
-    gap: 4,
+  compactValue: {
+    fontSize: 13.5,
+    color: "#0f172a",
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: "#cbd5e1",
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 14,
+    color: "#0f172a",
+    backgroundColor: "#f8fafc",
   },
   primaryButton: {
     borderRadius: 16,
@@ -976,52 +1232,21 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "700",
   },
-  detailRow: {
+  documentRow: {
     borderTopWidth: 1,
-    borderTopColor: "#e2e8f0",
-    paddingTop: 14,
-  },
-  detailLabel: {
-    fontSize: 12,
-    color: "#64748b",
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-    marginBottom: 4,
-  },
-  detailValue: {
-    fontSize: 15,
-    color: "#0f172a",
-  },
-  documentsCard: {
-    backgroundColor: "#ffffff",
-    borderRadius: 22,
-    borderWidth: 1,
-    borderColor: "#e2e8f0",
-    padding: 20,
-    gap: 16,
-  },
-  documentsHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  documentsCount: {
-    fontSize: 12,
-    color: "#0f172a",
-    fontWeight: "700",
-  },
-  documentCard: {
-    backgroundColor: "#f8fafc",
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: "#e2e8f0",
-    padding: 16,
-    gap: 12,
+    borderTopColor: "#f1f5f9",
+    paddingTop: 12,
+    gap: 10,
   },
   documentHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
+    gap: 12,
+  },
+  documentHeaderText: {
+    flex: 1,
+    minWidth: 0,
   },
   documentTitle: {
     fontSize: 15,
@@ -1052,7 +1277,7 @@ const styles = StyleSheet.create({
     gap: 12,
     borderRadius: 16,
     overflow: "hidden",
-    backgroundColor: "#ffffff",
+    backgroundColor: "#f8fafc",
     borderWidth: 1,
     borderColor: "#e2e8f0",
   },
@@ -1077,18 +1302,17 @@ const styles = StyleSheet.create({
   },
   documentActions: {
     flexDirection: "row",
-    gap: 12,
-    flexWrap: "wrap",
+    gap: 8,
+    alignItems: "center",
+    flexShrink: 0,
   },
   actionButton: {
-    flex: 1,
-    minWidth: 120,
-    borderRadius: 16,
-    paddingVertical: 12,
+    minWidth: 40,
+    height: 40,
+    borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
     flexDirection: "row",
-    gap: 8,
   },
   uploadButton: {
     backgroundColor: "#2563eb",
@@ -1097,6 +1321,9 @@ const styles = StyleSheet.create({
     backgroundColor: "#f1f5f9",
     borderWidth: 1,
     borderColor: "#cbd5e1",
+  },
+  downloadButton: {
+    backgroundColor: "#0f766e",
   },
   actionButtonText: {
     color: "#ffffff",
