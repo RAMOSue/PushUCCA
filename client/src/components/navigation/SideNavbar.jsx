@@ -4,7 +4,7 @@ import { UserContext } from "../../../context/userContext";
 import { BorrowingContext } from "../../../context/borrowingContext";
 import { SidebarContext } from "../../context/SidebarContext";
 import axios from "axios";
-import { Package, ClipboardList, RefreshCw, Calendar, Users, Box, LogOut, User, ChevronRight, Plus, Database, Camera, Settings, Home, FileText, TrendingUp } from "lucide-react";
+import { Package, ClipboardList, RefreshCw, Calendar, Users, Box, LogOut, User, ChevronRight, Plus, Database, Camera, Settings, Home, FileText, TrendingUp, Megaphone } from "lucide-react";
 
 export default function SideNavbar({ role = "staff" }) {
   const { user, setUser, loading } = useContext(UserContext);
@@ -61,6 +61,7 @@ export default function SideNavbar({ role = "staff" }) {
       { path: "/staff/available-items", label: "Available Items", icon: Package },
       { path: "/staff/borrower-profiles", label: "Borrower Profiles", icon: Users },
       { path: "/staff/documents", label: "Documents", icon: FileText },
+      { path: "/staff/announcements", label: "Announcements", icon: Megaphone },
       { path: "/staff/master-list", label: "Master List", icon: Database },
     ];
 
@@ -68,6 +69,7 @@ export default function SideNavbar({ role = "staff" }) {
       { path: "/admin/reports", label: "Reports", icon: Package },
       { path: "/admin/detection-accuracy", label: "AI Accuracy", icon: TrendingUp },
       { path: "/admin/manage-inventory", label: "Inventory", icon: Box },
+      { path: "/admin/announcements", label: "Announcements", icon: Megaphone },
       { path: "/admin/users", label: "User Management", icon: Users },
       { path: "/admin/master-list", label: "Master List", icon: Database },
       { path: "/admin/history", label: "History", icon: RefreshCw },

@@ -44,6 +44,7 @@ import NotificationsPage from "./pages/Notifications/NotificationsPage"; // ✅ 
 import StaffAdminProfileFacebook from "./pages/Staff/StaffAdminProfileFacebook"; // ✅ Facebook-style UI
 import StaffDocuments from "./pages/Staff/StaffDocuments"; // ✅ Staff document management
 import MasterList from "./pages/Staff/MasterList";
+import Announcements from "./pages/Staff/Announcements";
 import StaffLayout from "./components/layout/StaffLayout"; // ✅ Staff layout shell
 import BorrowerLayout from "./components/layout/BorrowerLayout"; // ✅ Borrower layout shell
 import UnauthorizedAccess from "./components/UnauthorizedAccess"; // ✅ Security: logout on unauthorized access
@@ -407,6 +408,7 @@ function AppContent() {
             <Route path="return-items" element={<StaffBorrowTimeline />} />
             <Route path="available-items" element={<AvailableItems />} />
             <Route path="schedule" element={<StaffSchedule />} />
+            <Route path="announcements" element={<Announcements />} />
             <Route path="manage-inventory" element={<ManageInventory />} />
             <Route path="borrower-profiles" element={<BorrowerProfiles />} />
             <Route path="documents" element={<StaffDocuments />} />
@@ -443,6 +445,7 @@ function AppContent() {
             <Route path="available-items" element={<AvailableItems />} />
             <Route path="manage-requests" element={<StaffBorrowTimeline />} />
             <Route path="return-items" element={<StaffBorrowTimeline />} />
+            <Route path="announcements" element={<Announcements />} />
             <Route path="manage-inventory" element={<ManageInventory />} />
             <Route path="users" element={<AdminUserManagement />} />
             <Route path="master-list" element={<MasterList />} />
