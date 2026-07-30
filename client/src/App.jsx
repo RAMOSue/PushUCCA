@@ -445,7 +445,7 @@ function AppContent() {
             <Route path="available-items" element={<AvailableItems />} />
             <Route path="manage-requests" element={<StaffBorrowTimeline />} />
             <Route path="return-items" element={<StaffBorrowTimeline />} />
-            <Route path="announcements" element={<Announcements />} />
+            
             <Route path="manage-inventory" element={<ManageInventory />} />
             <Route path="users" element={<AdminUserManagement />} />
             <Route path="master-list" element={<MasterList />} />

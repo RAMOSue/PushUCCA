@@ -69,7 +69,6 @@ export default function SideNavbar({ role = "staff" }) {
       { path: "/admin/reports", label: "Reports", icon: Package },
       { path: "/admin/detection-accuracy", label: "AI Accuracy", icon: TrendingUp },
       { path: "/admin/manage-inventory", label: "Inventory", icon: Box },
-      { path: "/admin/announcements", label: "Announcements", icon: Megaphone },
       { path: "/admin/users", label: "User Management", icon: Users },
       { path: "/admin/master-list", label: "Master List", icon: Database },
       { path: "/admin/history", label: "History", icon: RefreshCw },

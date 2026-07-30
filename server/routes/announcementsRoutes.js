@@ -7,9 +7,9 @@ const requireRole = require('../middleware/requireRole');
 router.get('/', announcements.listAnnouncements);
 router.get('/:id', announcements.getAnnouncement);
 
-// Protected: create, update, delete (Staff and Admin)
-router.post('/', requireRole(['Staff','Admin']), announcements.createAnnouncement);
-router.put('/:id', requireRole(['Staff','Admin']), announcements.updateAnnouncement);
-router.delete('/:id', requireRole(['Staff','Admin']), announcements.deleteAnnouncement);
+// Protected: create, update, delete (Staff only)
+router.post('/', requireRole('staff'), announcements.createAnnouncement);
+router.put('/:id', requireRole('staff'), announcements.updateAnnouncement);
+router.delete('/:id', requireRole('staff'), announcements.deleteAnnouncement);
 
 module.exports = router;
