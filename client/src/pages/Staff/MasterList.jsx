@@ -894,25 +894,27 @@ export default function MasterList() {
               </div>
             </>
           ) : activeTab === "slideshow" ? (
-            <button
-              onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-              disabled={currentPage === 1}
-              className="p-2 hover:bg-slate-200 dark:hover:bg-[#222] rounded disabled:opacity-50 transition"
-            >
-              <ChevronLeft className="w-5 h-5" />
-            </button>
+            <>
+              <button
+                onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                disabled={currentPage === 1}
+                className="p-2 hover:bg-slate-200 dark:hover:bg-[#222] rounded disabled:opacity-50 transition"
+              >
+                <ChevronLeft className="w-5 h-5" />
+              </button>
 
-            <span className="text-sm font-medium text-on-surface dark:text-white">
-              Page {currentPage} of {totalPages}
-            </span>
+              <span className="text-sm font-medium text-on-surface dark:text-white">
+                Page {currentPage} of {totalPages}
+              </span>
 
-            <button
-              onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-              disabled={currentPage === totalPages}
-              className="p-2 hover:bg-slate-200 dark:hover:bg-[#222] rounded disabled:opacity-50 transition"
-            >
-              <ChevronRight className="w-5 h-5" />
-            </button>
+              <button
+                onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                disabled={currentPage === totalPages}
+                className="p-2 hover:bg-slate-200 dark:hover:bg-[#222] rounded disabled:opacity-50 transition"
+              >
+                <ChevronRight className="w-5 h-5" />
+              </button>
+            </>
           </div>
           </div>
         )}
