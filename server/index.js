@@ -9,6 +9,7 @@ const path = require("path");
 const fs = require("fs");
 const pool = require("./db");
 const startNotificationScheduler = require("./cron/notificationScheduler");
+const { exec } = require('child_process');
 
 // Import routes
 const authRoutes = require("./routes/authRoutes");
@@ -192,3 +193,16 @@ const port = process.env.PORT || 5000;
 app.listen(port, () =>
   console.log(`🚀 Server running at http://localhost:${port}`)
 );
+
+// Optionally run migrations on startup in production when explicitly requested
+if (process.env.RUN_MIGRATIONS_ON_STARTUP === 'true') {
+  console.log('🔁 RUN_MIGRATIONS_ON_STARTUP is true — running migrations now');
+  exec('node scripts/apply_migrations.js', { cwd: __dirname }, (err, stdout, stderr) => {
+    if (err) {
+      console.error('Migration process failed:', err);
+      return;
+    }
+    if (stdout) console.log('MIGRATIONS STDOUT:', stdout);
+    if (stderr) console.error('MIGRATIONS STDERR:', stderr);
+  });
+}
