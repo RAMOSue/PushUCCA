@@ -58,12 +58,6 @@ export default function MasterList() {
 
   // Tab configuration with API endpoints and form fields
   const tabs = {
-    positions: {
-      title: "Officer Positions",
-      icon: Shield,
-      endpoint: "/api/master-list/org-structures",
-      fields: [],
-    },
     units: {
       title: "Division",
       icon: Layers,
@@ -75,7 +69,7 @@ export default function MasterList() {
       ],
     },
     positions: {
-      title: "Positions",
+      title: "Officer Positions",
       icon: Shield,
       endpoint: "/api/master-list/positions",
       fields: [
@@ -196,7 +190,7 @@ export default function MasterList() {
           setOfficersList([]);
         }
         setOfficerLoading(false);
-        setDataList([]);
+        setDataList(Array.isArray(posRes.data) ? posRes.data : []);
         return;
       }
 
@@ -749,7 +743,7 @@ export default function MasterList() {
               <h1 className="text-3xl md:text-4xl font-bold text-on-surface dark:text-white mb-2">Master List</h1>
               <p className="text-on-surface-variant dark:text-gray-400 text-sm">Centralized configuration hub for the organization</p>
             </div>
-            {activeTab !== "slideshow" && activeTab !== "officers" && (
+            {activeTab !== "slideshow" && (
               <button
                 onClick={() => openModal()}
                 className="flex items-center gap-2 px-6 py-2.5 bg-primary dark:bg-blue-600 text-white rounded-lg font-semibold text-sm shadow-lg shadow-primary/20 dark:shadow-blue-600/20 hover:scale-[0.98] transition-all"
