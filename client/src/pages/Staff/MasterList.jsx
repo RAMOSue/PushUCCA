@@ -236,20 +236,17 @@ export default function MasterList() {
   };
 
   // Filter and search logic
-  const filteredData = dataList
-    .filter((item) => {
-      const matchSearch =
-        !searchTerm ||
-        Object.values(item)
-          .join(" ")
-          .toLowerCase()
-          .includes(searchTerm.toLowerCase());
+  const filteredData = dataList.filter((item) => {
+    const matchSearch =
+      !searchTerm ||
+      Object.values(item)
+        .join(" ")
+        .toLowerCase()
+        .includes(searchTerm.toLowerCase());
 
-      const matchStatus =
-        filterStatus === "all" || (item.status === filterStatus || item.is_active === (filterStatus === "active"));
-
-      return matchSearch && matchStatus;
-    });
+    // Do not hide inactive records — return everything that matches the search
+    return matchSearch;
+  });
 
   const paginatedData = filteredData.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
   const totalPages = Math.ceil(filteredData.length / itemsPerPage);
