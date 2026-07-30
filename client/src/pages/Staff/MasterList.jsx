@@ -27,6 +27,7 @@ import {
   EyeOff,
   Image,
   Upload,
+  Users,
 } from "lucide-react";
 
 export default function MasterList() {
@@ -57,6 +58,12 @@ export default function MasterList() {
 
   // Tab configuration with API endpoints and form fields
   const tabs = {
+    officers: {
+      title: "Officers",
+      icon: Users,
+      endpoint: "/api/master-list/org-structures",
+      fields: [],
+    },
     units: {
       title: "Division",
       icon: Layers,
@@ -156,11 +163,42 @@ export default function MasterList() {
 
   const currentTab = tabs[activeTab];
 
+  // Officers specific state
+  const [divisionsList, setDivisionsList] = useState([]);
+  const [positionsList, setPositionsList] = useState([]);
+  const [officersList, setOfficersList] = useState([]);
+  const [selectedDivision, setSelectedDivision] = useState(() => {
+    try { return localStorage.getItem('masterlistSelectedDivision') || 'Dulimbay'; } catch { return 'Dulimbay'; }
+  });
+  const [officerLoading, setOfficerLoading] = useState(false);
+
   // Fetch data
   const fetchData = async () => {
     try {
       setLoading(true);
       setImageError(null);
+      // For officers we'll fetch positions/divisions separately
+      if (activeTab === 'officers') {
+        setOfficerLoading(true);
+        const [divRes, posRes] = await Promise.all([
+          axios.get('/api/master-list/units'),
+          axios.get('/api/master-list/positions'),
+        ]);
+        setDivisionsList(Array.isArray(divRes.data) ? divRes.data : []);
+        setPositionsList(Array.isArray(posRes.data) ? posRes.data : []);
+        // find unit id for selectedDivision name
+        const unit = (divRes.data || []).find(u => (u.name||'').toLowerCase() === (selectedDivision||'').toLowerCase());
+        if (unit) {
+          const offRes = await axios.get(`/api/master-list/org-structures/unit/${unit.id}`);
+          setOfficersList(Array.isArray(offRes.data) ? offRes.data : []);
+        } else {
+          setOfficersList([]);
+        }
+        setOfficerLoading(false);
+        setDataList([]);
+        return;
+      }
+
       const res = await axios.get(currentTab.endpoint);
       setDataList(Array.isArray(res.data) ? res.data : [res.data]);
     } catch (err) {
@@ -179,6 +217,27 @@ export default function MasterList() {
   useEffect(() => {
     fetchData();
   }, [activeTab]);
+
+  // Persist selected division
+  useEffect(() => {
+    try { localStorage.setItem('masterlistSelectedDivision', selectedDivision); } catch(e){}
+  }, [selectedDivision]);
+
+  // Helper: refresh officers for current selectedDivision
+  const refreshOfficersForDivision = async (divisionName) => {
+    try {
+      setOfficerLoading(true);
+      const divRes = await axios.get('/api/master-list/units');
+      const unit = (divRes.data || []).find(u => (u.name||'').toLowerCase() === (divisionName||'').toLowerCase());
+      if (!unit) { setOfficersList([]); setOfficerLoading(false); return; }
+      const offRes = await axios.get(`/api/master-list/org-structures/unit/${unit.id}`);
+      setOfficersList(Array.isArray(offRes.data) ? offRes.data : []);
+    } catch (err) {
+      console.error('Failed to refresh officers:', err);
+    } finally {
+      setOfficerLoading(false);
+    }
+  };
 
   // Filter and search logic
   const filteredData = dataList
@@ -713,8 +772,8 @@ export default function MasterList() {
               }}
               className={`flex items-center gap-1 px-2.5 py-1 rounded-lg font-medium text-xs whitespace-nowrap transition-all ${
                 activeTab === key
-                  ? "bg-primary dark:bg-blue-600 text-white shadow-md"
-                  : "bg-surface-container-lowest dark:bg-[#222] text-slate-700 dark:text-gray-300 hover:bg-surface-container dark:hover:bg-[#2a2a2a]"
+                  ? "text-primary dark:text-blue-400"
+                  : "text-slate-700 dark:text-gray-300 hover:text-primary dark:hover:text-blue-400 bg-transparent"
               }`}
             >
               {getTabIcon(key)}
@@ -749,8 +808,92 @@ export default function MasterList() {
 
         {/* Pagination - Only for non-slideshow tabs */}
         {activeTab !== "slideshow" && totalPages > 1 && (
-          <div className="px-6 md:px-8 lg:px-12 mt-6">
-            <div className="flex items-center justify-center gap-4">
+          <div className="px-6 md:px-8 lg:px-12 mt-3">
+          {activeTab === "officers" ? (
+            <>
+              <div className="flex items-center gap-3 mb-4">
+                {['Dulimbay','Budjong','Kayam'].map((d) => (
+                  <button
+                    key={d}
+                    onClick={() => { setSelectedDivision(d); refreshOfficersForDivision(d); }}
+                    className={`px-3 py-1.5 rounded-full text-sm font-semibold transition-all ${selectedDivision === d ? 'text-primary dark:text-blue-400' : 'text-on-surface dark:text-gray-300 hover:text-primary dark:hover:text-blue-400'}`}
+                  >
+                    {d}
+                  </button>
+                ))}
+              </div>
+
+              <div className="bg-surface-container-low dark:bg-[#222] rounded-xl p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-3">
+                    <label className="text-sm font-medium text-on-surface dark:text-white mr-2">Position</label>
+                    <select
+                      id="newOfficerPosition"
+                      className="px-3 py-2 bg-white dark:bg-[#111] border border-outline-variant/20 rounded-md text-sm"
+                    >
+                      <option value="">Select position</option>
+                      {positionsList.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <button
+                      onClick={async () => {
+                        const sel = document.getElementById('newOfficerPosition').value;
+                        if (!sel) { toast.error('Select a position'); return; }
+                        try {
+                          const divRes = await axios.get('/api/master-list/units');
+                          const unit = (divRes.data||[]).find(u=> (u.name||'').toLowerCase()===selectedDivision.toLowerCase());
+                          if (!unit) { toast.error('Division not found'); return; }
+                          const payload = { unitId: unit.id, positionId: Number(sel), hierarchyLevel: 3 };
+                          const res = await axios.post('/api/master-list/org-structures', payload);
+                          toast.success('Officer added');
+                          refreshOfficersForDivision(selectedDivision);
+                        } catch (err) { console.error(err); toast.error(err.response?.data?.error || 'Add failed'); }
+                      }}
+                      className="btn btn-primary"
+                    >Add Officer</button>
+                  </div>
+                </div>
+
+                <div>
+                  {officerLoading ? (
+                    <div className="py-8 text-center">Loading officers...</div>
+                  ) : (
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="text-left text-on-surface-variant">
+                          <th className="py-2">Position</th>
+                          <th className="py-2">Unit</th>
+                          <th className="py-2">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {officersList.map(o => (
+                          <tr key={o.id} className="border-t border-outline-variant/10">
+                            <td className="py-2">{o.position_name}</td>
+                            <td className="py-2">{o.unit_name}</td>
+                            <td className="py-2">
+                              <button onClick={async ()=>{
+                                if (!confirm('Delete officer?')) return;
+                                try {
+                                  await axios.delete(`/api/master-list/org-structures/${o.id}`);
+                                  toast.success('Deleted');
+                                  refreshOfficersForDivision(selectedDivision);
+                                } catch (err) { console.error(err); toast.error(err.response?.data?.error || 'Delete failed'); }
+                              }} className="text-red-600">Delete</button>
+                            </td>
+                          </tr>
+                        ))}
+                        {officersList.length === 0 && (
+                          <tr><td colSpan={3} className="py-6 text-center text-on-surface-variant">No officers found</td></tr>
+                        )}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+              </div>
+            </>
+          ) : activeTab === "slideshow" ? (
             <button
               onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
               disabled={currentPage === 1}

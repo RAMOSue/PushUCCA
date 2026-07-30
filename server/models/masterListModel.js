@@ -171,8 +171,9 @@ class OrgStructureModel {
   }
 
   static async delete(id) {
+    // Perform hard delete to fully remove officer assignment records
     const result = await pool.query(
-      "UPDATE organizational_structures SET status = 'Inactive', updated_at = CURRENT_TIMESTAMP WHERE id = $1 RETURNING *",
+      "DELETE FROM organizational_structures WHERE id = $1 RETURNING *",
       [id]
     );
     return result.rows[0];
