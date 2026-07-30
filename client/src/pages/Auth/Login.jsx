@@ -21,7 +21,7 @@ export default function Login() {
         if (role === "admin") {
           navigate("/admin", { replace: true });
         } else if (role === "staff") {
-          navigate("/staff", { replace: true });
+          navigate("/staff/manage-requests", { replace: true });
         } else {
           navigate("/available-items", { replace: true });
         }
@@ -132,7 +132,7 @@ export default function Login() {
         if (role === "admin") {
           navigate("/admin");
         } else if (role === "staff") {
-          navigate("/staff");
+          navigate("/staff/manage-requests");
         } else {
           navigate("/available-items");
         }

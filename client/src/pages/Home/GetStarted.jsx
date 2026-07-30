@@ -430,7 +430,7 @@ export default function GetStarted() {
 			if (role === "admin") {
 				navigate("/admin", { replace: true });
 			} else if (role === "staff") {
-				navigate("/staff", { replace: true });
+				navigate("/staff/manage-requests", { replace: true });
 			} else {
 				navigate("/available-items", { replace: true });
 			}
@@ -484,7 +484,7 @@ export default function GetStarted() {
 					if (role === "admin") {
 						navigate("/admin", { replace: true });
 					} else if (role === "staff") {
-						navigate("/staff", { replace: true });
+						navigate("/staff/manage-requests", { replace: true });
 					} else {
 						navigate("/available-items", { replace: true });
 					}

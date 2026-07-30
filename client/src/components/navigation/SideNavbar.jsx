@@ -54,14 +54,18 @@ export default function SideNavbar({ role = "staff" }) {
       ["/performances", "/settings"].includes(item.path)
     ) : borrowerItems;
 
+    // Reordered for staff daily workflow
     const staffItems = [
+      // Daily Operations
       { path: "/staff/manage-requests", label: "Manage borrowing", icon: ClipboardList },
-      { path: "/staff/schedule", label: "Performance", icon: Calendar },
       { path: "/staff/manage-inventory", label: "Inventory", icon: Box },
       { path: "/staff/available-items", label: "Available Items", icon: Package },
+      { path: "/staff/schedule", label: "Performance", icon: Calendar },
+      { path: "/staff/announcements", label: "Announcements", icon: Megaphone },
+      // Member Management
       { path: "/staff/borrower-profiles", label: "Borrower Profiles", icon: Users },
       { path: "/staff/documents", label: "Documents", icon: FileText },
-      { path: "/staff/announcements", label: "Announcements", icon: Megaphone },
+      // Administration
       { path: "/staff/master-list", label: "Master List", icon: Database },
     ];
 
@@ -162,28 +166,7 @@ export default function SideNavbar({ role = "staff" }) {
 
       
 
-        {/* Home Button */}
-        <div className="px-2 sm:px-3 md:px-4 lg:px-4 mb-3 sm:mb-3 md:mb-4 lg:mb-4">
-          <Link
-            to="/dashboard"
-            onClick={() => {
-              if (isMobile) {
-                setSidebarOpen(false);
-              }
-            }}
-            className={`flex items-center justify-between px-3 sm:px-3 md:px-4 lg:px-4 py-2 sm:py-2 md:py-3 lg:py-3 rounded-lg text-xs sm:text-xs md:text-sm lg:text-sm font-medium transition-all duration-200 gap-2 sm:gap-3 ${
-              isActive("/dashboard")
-                ? "bg-surface-container-lowest dark:bg-[#2a2a2a] text-primary dark:text-blue-400 shadow-sm border border-primary/20 dark:border-blue-500/30"
-                : "text-on-surface-variant dark:text-gray-400 hover:bg-surface-container-highest dark:hover:bg-[#2a2a2a] hover:text-on-surface dark:hover:text-white"
-            }`}
-          >
-            <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
-              <Home className="w-4 sm:w-4 md:w-5 lg:w-5 h-4 sm:h-4 md:h-5 lg:h-5 flex-shrink-0" />
-              <span className="text-[9px] sm:text-[9px] md:text-[10px] lg:text-[10px] uppercase tracking-widest font-semibold truncate">Home</span>
-            </div>
-            {isActive("/dashboard") && <ChevronRight className="w-3 sm:w-3 md:w-4 lg:w-4 h-3 sm:h-3 md:h-4 lg:h-4 flex-shrink-0" />}
-          </Link>
-        </div>
+        {/* Home removed — staff workflow streamlines to Manage Borrowing as landing */}
 
         {/* Navigation Items */}
         <nav className="flex-1 flex flex-col px-2 sm:px-3 md:px-4 lg:px-4 space-y-1 sm:space-y-1 md:space-y-2 lg:space-y-2">

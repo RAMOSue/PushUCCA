@@ -39,7 +39,7 @@ export default function Login() {
         if (role === "admin") {
           navigate("/admin/dashboard"); // ✅ corrected path
         } else if (role === "staff") {
-          navigate("/staff"); // ✅ fixed from /staff/dashboard
+          navigate("/staff/manage-requests"); // Redirect staff to Manage Borrowing
         } else {
           navigate("/dashboard"); // borrower default
         }
