@@ -4,7 +4,7 @@ import toast from 'react-hot-toast';
 import PageLayout from '../../components/layout/PageLayout';
 import { UserContext } from '../../../context/userContext';
 import { motion } from 'framer-motion';
-import { Plus, Edit2, Trash2, Image as ImgIcon, Pin, Calendar as CalendarIcon, Search, Filter } from 'lucide-react';
+import { Plus, Edit2, Trash2, Image as ImgIcon, Pin, Search, MoreVertical } from 'lucide-react';
 
 function Badge({ children, color = 'gray' }) {
   const bg = color === 'green' ? 'bg-green-100 text-green-800' : color === 'orange' ? 'bg-orange-100 text-orange-800' : 'bg-gray-100 text-gray-800';
@@ -18,8 +18,13 @@ export default function Announcements() {
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [priorityFilter, setPriorityFilter] = useState('all');
-  const [activeDivision, setActiveDivision] = useState('All');
+  const [activeDivision, setActiveDivision] = useState(() => {
+    if (typeof window === 'undefined') return 'All';
+    return localStorage.getItem('announcementsActiveDivision') || 'All';
+  });
   const [divisions, setDivisions] = useState([]);
+  const [openMenuId, setOpenMenuId] = useState(null);
+  const [processingId, setProcessingId] = useState(null);
 
   // Composer state
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -59,6 +64,26 @@ export default function Announcements() {
     fetchDivisions();
   }, []);
 
+  useEffect(() => {
+    localStorage.setItem('announcementsActiveDivision', activeDivision);
+  }, [activeDivision]);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (!event.target.closest('[data-announcement-menu]')) {
+        setOpenMenuId(null);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const activeDivisionId = useMemo(() => {
+    if (activeDivision === 'All') return '';
+    return divisions.find((division) => (division.name || '').toLowerCase() === activeDivision.toLowerCase())?.id || '';
+  }, [activeDivision, divisions]);
+
   const filtered = useMemo(() => {
     return items.filter((it) => {
       if (activeDivision !== 'All' && (it.division_name || '').toLowerCase() !== activeDivision.toLowerCase()) return false;
@@ -72,6 +97,10 @@ export default function Announcements() {
   }, [items, query, statusFilter, priorityFilter, activeDivision]);
 
   function openCreate() {
+    if (activeDivision === 'All') {
+      toast.error('Select a division section before creating an announcement.');
+      return;
+    }
     setEditing(null);
     setForm({ title: '', content: '', priority: 'Normal', pinned: false, publishNow: true, scheduledAt: '', division_id: '' });
     setImageFile(null);
@@ -108,7 +137,12 @@ export default function Announcements() {
       fd.append('content', form.content || '');
       fd.append('priority', form.priority || 'Normal');
       fd.append('pinned', form.pinned ? 'true' : 'false');
-      fd.append('division_id', form.division_id || '');
+      const divisionId = editing ? form.division_id : activeDivisionId;
+      if (!divisionId) {
+        toast.error('Select a valid division section before creating an announcement.');
+        return;
+      }
+      fd.append('division_id', divisionId);
 
       if (form.publishNow) {
         fd.append('is_published', 'true');
@@ -138,6 +172,7 @@ export default function Announcements() {
 
   async function removeItem(id) {
     if (!confirm('Delete this announcement?')) return;
+    setProcessingId(id);
     try {
       await axios.delete(`/api/announcements/${id}`);
       toast.success('Deleted');
@@ -145,10 +180,13 @@ export default function Announcements() {
     } catch (err) {
       console.error(err);
       toast.error(err.response?.data?.error || 'Delete failed');
+    } finally {
+      setProcessingId(null);
     }
   }
 
   async function togglePublish(item) {
+    setProcessingId(item.id);
     try {
       const fields = { is_published: item.is_published ? false : true };
       if (!item.is_published) fields.published_at = new Date().toISOString();
@@ -157,16 +195,21 @@ export default function Announcements() {
     } catch (err) {
       console.error(err);
       toast.error('Failed to update publish status');
+    } finally {
+      setProcessingId(null);
     }
   }
 
   async function togglePin(item) {
+    setProcessingId(item.id);
     try {
       await axios.put(`/api/announcements/${item.id}`, { pinned: !item.pinned });
       fetchAnnouncements();
     } catch (err) {
       console.error(err);
       toast.error('Failed to update pin status');
+    } finally {
+      setProcessingId(null);
     }
   }
 
@@ -190,10 +233,19 @@ export default function Announcements() {
         </div>
 
         {user?.role === 'staff' && (
-          <button onClick={openCreate} className="btn btn-primary inline-flex items-center">
-            <Plus className="mr-2" />
-            Create Announcement
-          </button>
+          <div className="flex flex-col items-end gap-2">
+            <button
+              onClick={openCreate}
+              disabled={activeDivision === 'All'}
+              className="btn btn-primary inline-flex items-center disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <Plus className="mr-2" />
+              Create Announcement
+            </button>
+            {activeDivision === 'All' && (
+              <div className="text-sm text-on-surface-variant">Select a division tab before creating an announcement.</div>
+            )}
+          </div>
         )}
       </div>
 
@@ -222,7 +274,6 @@ export default function Announcements() {
               <option value="Important">Important</option>
               <option value="Urgent">Urgent</option>
             </select>
-            <button title="More filters" className="btn btn-ghost"><Filter/></button>
             <span className="text-sm text-on-surface-variant">{filtered.length} shown</span>
           </div>
         </div>
@@ -278,7 +329,7 @@ export default function Announcements() {
                 <div className="min-w-0">
                   <p className="font-semibold text-on-surface truncate">{it.title}</p>
                   <p className="mt-1 text-sm text-on-surface-variant line-clamp-2">{it.content || 'No description provided.'}</p>
-                  <div className="mt-2 text-xs text-on-surface-variant">
+                  <div className="mt-1 text-xs text-on-surface-variant">
                     by {it.author?.name || 'Unknown'} • {new Date(it.created_at).toLocaleDateString()}
                   </div>
                 </div>
@@ -292,11 +343,54 @@ export default function Announcements() {
                 {it.is_published ? <Badge color="green">Published</Badge> : it.published_at ? <Badge color="orange">Scheduled</Badge> : <Badge>Draft</Badge>}
                 {it.published_at && <div className="mt-2 text-xs text-on-surface-variant">{new Date(it.published_at).toLocaleDateString()}</div>}
               </div>
-              <div className="flex flex-wrap justify-end gap-2">
-                <button onClick={() => openEdit(it)} className="rounded-lg border border-outline-variant/20 px-3 py-2 text-sm font-medium text-on-surface-variant transition hover:bg-surface-container-high dark:border-gray-700 dark:text-gray-300 dark:hover:bg-[#2a2a2a]">Edit</button>
-                <button onClick={() => removeItem(it.id)} className="rounded-lg border border-outline-variant/20 px-3 py-2 text-sm font-medium text-red-600 transition hover:bg-red-50 dark:hover:bg-[#3b1717]">Delete</button>
-                <button onClick={() => togglePublish(it)} className="btn btn-ghost btn-sm">{it.is_published ? 'Unpublish' : 'Publish'}</button>
-                <button onClick={() => togglePin(it)} className="btn btn-ghost btn-sm">{it.pinned ? 'Unpin' : 'Pin'}</button>
+              <div className="flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => openEdit(it)}
+                  className="btn btn-ghost btn-sm p-2"
+                  title="Edit announcement"
+                >
+                  <Edit2 className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => togglePublish(it)}
+                  disabled={processingId === it.id}
+                  className={`btn btn-sm ${it.is_published ? 'btn-secondary' : 'btn-primary'} ${processingId === it.id ? 'opacity-70 cursor-not-allowed' : ''}`}
+                  title={it.is_published ? 'Unpublish announcement' : 'Publish announcement'}
+                >
+                  {it.is_published ? 'Unpublish' : 'Publish'}
+                </button>
+                <div className="relative" data-announcement-menu>
+                  <button
+                    type="button"
+                    onClick={() => setOpenMenuId(openMenuId === it.id ? null : it.id)}
+                    className="btn btn-ghost btn-sm p-2"
+                    title="More actions"
+                  >
+                    <MoreVertical className="h-4 w-4" />
+                  </button>
+                  {openMenuId === it.id && (
+                    <div className="absolute right-0 top-full z-10 mt-2 w-44 rounded-lg border border-outline-variant/20 bg-surface-container-low p-2 shadow-lg dark:border-gray-700 dark:bg-[#222]">
+                      <button
+                        type="button"
+                        onClick={() => { togglePin(it); setOpenMenuId(null); }}
+                        className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-on-surface-variant transition hover:bg-surface-container-high dark:hover:bg-[#2a2a2a]"
+                      >
+                        <Pin className="h-4 w-4" />
+                        {it.pinned ? 'Unpin' : 'Pin'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { removeItem(it.id); setOpenMenuId(null); }}
+                        className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-red-600 transition hover:bg-red-50 dark:hover:bg-[#3b1717]"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        Delete
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
             </motion.div>
           ))}
@@ -320,13 +414,7 @@ export default function Announcements() {
                   <option>Important</option>
                   <option>Urgent</option>
                 </select>
-                <select value={form.division_id || ''} onChange={(e) => setForm({ ...form, division_id: e.target.value })} className="select">
-                  <option value="">No division</option>
-                  {divisions.map((division) => (
-                    <option key={division.id} value={division.id}>{division.name}</option>
-                  ))}
-                </select>
-                <label className="flex items-center gap-2"><input type="checkbox" checked={form.pinned} onChange={(e) => setForm({ ...form, pinned: e.target.checked })} /> Pin</label>
+                    <label className="flex items-center gap-2"><input type="checkbox" checked={form.pinned} onChange={(e) => setForm({ ...form, pinned: e.target.checked })} /> Pin</label>
                 <label className="flex items-center gap-2"><input type="radio" name="publishMode" checked={form.publishNow} onChange={() => setForm({ ...form, publishNow: true, scheduledAt: '' })} /> Publish now</label>
                 <label className="flex items-center gap-2"><input type="radio" name="publishMode" checked={!form.publishNow} onChange={() => setForm({ ...form, publishNow: false })} /> Schedule</label>
                 {!form.publishNow && (
