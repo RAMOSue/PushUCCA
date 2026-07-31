@@ -93,15 +93,15 @@ export default function SideNavbar({ role = "staff" }) {
       <style>{`
         @media (min-width: 1024px) {
           aside.left-sidebar {
-            transition: width 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), 
-                        box-shadow 0.3s ease-in-out,
-                        padding 0.3s ease-in-out;
+            transition: width 250ms ease-in-out,
+                        box-shadow 250ms ease-in-out,
+                        padding 250ms ease-in-out;
           }
         }
         @media (max-width: 1023px) {
           aside.left-sidebar {
-            transition: width 0.25s cubic-bezier(0.34, 1.56, 0.64, 1),
-                        box-shadow 0.25s ease-in-out;
+            transition: width 220ms ease-in-out,
+                        box-shadow 220ms ease-in-out;
           }
         }
       `}</style>

@@ -552,7 +552,7 @@ export default function Navbar() {
               animation: fadeIn 0.3s ease-out;
             }
             .animate-slideUp {
-              animation: slideUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+              animation: slideUp 0.3s ease;
             }
           `}</style>
         </>
@@ -563,19 +563,7 @@ export default function Navbar() {
   // Updated header with reference design (green/gold theme)
   return (
     <>
-      {user && (
-        <button
-          type="button"
-          aria-label={rightSidebarOpen ? "Hide right sidebar" : "Show right sidebar"}
-          onClick={() => setRightSidebarOpen((prev) => !prev)}
-          className="fixed right-0 top-1/2 z-[1000] -translate-y-1/2 flex h-12 w-8 items-center justify-center rounded-l-xl border border-[#FBBC38]/40 bg-[#001800] text-[#FBBC38] shadow-lg transition-all duration-300 ease-in-out hover:bg-[#0d2b12] dark:bg-[#1f1f1f] dark:text-blue-400 dark:hover:bg-[#2a2a2a]"
-          title={rightSidebarOpen ? "Hide right sidebar" : "Show right sidebar"}
-        >
-          <span className="text-lg font-bold leading-none">{rightSidebarOpen ? "◀" : "▶"}</span>
-        </button>
-      )}
-
-      <header className="sticky top-0 z-40 border-b border-slate-200 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.04)] transition-colors duration-300">
+      <header className="sticky top-0 z-40 border-b border-slate-200 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.04)] transition-all duration-300 ease-in-out">
         <div className="flex items-center justify-between gap-3 px-3 py-3 sm:px-4 sm:py-4 md:px-6">
           <div className="flex min-w-0 items-center gap-3">
             <div className="flex min-w-0 flex-col">
@@ -591,7 +579,7 @@ export default function Navbar() {
                   onClick={() => setDivisionMenuOpen((prev) => !prev)}
                   className="flex items-center gap-1.5 text-left text-[11px] font-semibold text-slate-600 transition hover:text-slate-900 sm:text-xs"
                 >
-                  <span>{selectedDivision === "All" ? "All Divisions" : selectedDivision}</span>
+                  <span>{selectedDivision === "All" ? "ᜇᜓᜊᜓᜇ᜔ᜃ" : selectedDivision}</span>
                   <ChevronDown className={`h-3.5 w-3.5 transition ${divisionMenuOpen ? "rotate-180" : ""}`} />
                 </button>
 

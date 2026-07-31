@@ -145,12 +145,11 @@ export default function RightNavbar() {
 
   return (
     <>
-      {/* Global Animation Styles */}
       <style>{`
         @media (min-width: 1024px) {
           aside.right-navbar {
-            transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), 
-                        opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: width 250ms ease-in-out,
+                        opacity 250ms ease-in-out;
             background-color: var(--bg-dark, transparent);
           }
 
@@ -171,7 +170,7 @@ export default function RightNavbar() {
             background: rgba(255, 255, 255, 0.2);
           }
         }
-        
+
         .calendar-wrapper .react-calendar {
           background: transparent;
           border: none;
@@ -218,169 +217,187 @@ export default function RightNavbar() {
         }
       `}</style>
 
-      {/* Right Navbar - Synchronized with Sidebar (Desktop Only) */}
       <aside
-        className={`right-navbar hidden lg:flex fixed right-0 top-16 h-[calc(100vh-64px)] bg-surface-container-low dark:bg-[#1f1f1f] shadow-2xl dark:shadow-[inset_-1px_0_0_rgba(255,255,255,0.05)] border-l border-outline-variant/10 dark:border-[#2a2a2a] z-30 transition-all duration-300 ease-in-out ${
-          rightSidebarOpen ? "translate-x-0 w-72 opacity-100" : "translate-x-full w-0 opacity-0"
+        className={`right-navbar hidden lg:flex sticky right-0 top-0 h-screen shrink-0 border-l border-outline-variant/10 bg-surface-container-low dark:border-[#2a2a2a] dark:bg-[#1f1f1f] shadow-2xl dark:shadow-[inset_-1px_0_0_rgba(255,255,255,0.05)] z-30 transition-all duration-250 ease-in-out ${
+          rightSidebarOpen ? "w-56 opacity-100" : "w-12 opacity-100"
         }`}
         style={{
-          overflowY: rightSidebarOpen ? "auto" : "hidden",
+          overflowY: "auto",
           overflowX: "hidden",
-          willChange: "transform, width",
+          willChange: "width",
           backfaceVisibility: "hidden",
           perspective: 1000,
-          transform: rightSidebarOpen ? "translateX(0)" : "translateX(100%)",
+          transform: "translateZ(0)",
         }}
       >
-        {/* Inner Content Wrapper - Fixed width prevents distortion */}
         <div
-          className="w-72 flex flex-col h-full mt-2"
+          className="flex h-full flex-col transition-all duration-250 ease-in-out"
           style={{
+            width: rightSidebarOpen ? "224px" : "48px",
             flexShrink: 0,
-            pointerEvents: rightSidebarOpen ? "auto" : "none",
+            pointerEvents: "auto",
           }}
         >
-          {/* Clock Section - Sticky Top */}
-          
-          <div className="sticky top-0  dark:bg-[#1f1f1f] z-10 p-4 border-b border-outline-variant/10 dark:border-[#2a2a2a] flex-shrink-0 transition-colors duration-300 mt-1 mb-4">
-            <div className="text-center">
-              <p className="text-[10px] uppercase tracking-widest text-on-surface-variant dark:text-gray-400 font-bold mb-2">
-                Current Time
-              </p>
-              <p className="text-3xl font-mono font-bold text-on-surface dark:text-white">{formattedTime}</p>
-              <p className="text-xs text-on-surface-variant dark:text-gray-400 mt-1">{formattedDate}</p>
-            </div>
-          </div>
-
-          {/* Status Section - Scrollable Part */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-3">
-            {/* STAFF/ADMIN: Pending Approval Card */}
-            {(user?.role === "staff" || user?.role === "admin") && (
-              <button
-                onClick={() => navigate("/staff/manage-requests")}
-                className="w-full bg-orange/10 dark:bg-orange/5 border border-orange/20 dark:border-orange/20 rounded-lg p-4 flex-shrink-0 transition-all duration-300 hover:bg-orange/20 dark:hover:bg-orange/10 hover:border-orange/40 dark:hover:border-orange/30 active:scale-95 text-left group"
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <p className="text-[9px] uppercase tracking-widest text-on-surface-variant dark:text-gray-400 font-bold group-hover:text-orange transition-colors">
-                    Pending Requests
+          {rightSidebarOpen && (
+            <div className="flex min-h-0 flex-1 flex-col">
+              <div className="sticky top-0 z-10 mb-4 mt-1 border-b border-outline-variant/10 bg-surface-container-low p-4 dark:border-[#2a2a2a] dark:bg-[#1f1f1f] transition-colors duration-300">
+                <div className="text-center">
+                  <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant dark:text-gray-400">
+                    Current Time
                   </p>
-                  <div>
-                    {loading ? (
-                      <Loader className="w-4 h-4 text-orange animate-spin" />
-                    ) : (
-                      <Clock className="w-4 h-4 text-orange group-hover:scale-110 transition-transform" />
-                    )}
-                  </div>
+                  <p className="text-3xl font-mono font-bold text-on-surface dark:text-white">{formattedTime}</p>
+                  <p className="mt-1 text-xs text-on-surface-variant dark:text-gray-400">{formattedDate}</p>
                 </div>
-                <p className="text-3xl font-serif font-bold text-orange">{pendingApproval}</p>
-                <p className="text-[11px] text-on-surface-variant dark:text-gray-400 mt-1 group-hover:text-orange/70 transition-colors">
-                  Borrow requests awaiting approval
-                </p>
-              </button>
-            )}
-
-          
-
-            {/* Request Calendar Section */}
-            <div className="border-t border-outline-variant/10 dark:border-[#2a2a2a] pt-3 flex-shrink-0 flex-1 flex flex-col min-h-0">
-              <h3 className="text-xs font-bold uppercase tracking-widest text-on-surface dark:text-white mb-2">Event Calendar</h3>
-              <div className="calendar-wrapper bg-surface-container-lowest dark:bg-[#2a2a2a] border border-outline-variant/10 dark:border-[#3a3a3a] rounded p-2 flex-1 overflow-hidden flex flex-col transition-colors duration-300">
-                <Calendar
-                  onClickDay={handleCalendarDateClick}
-                  tileContent={({ date }) =>
-                    performanceDates.has(date.toDateString()) ? (
-                      <div className="flex justify-center mt-0.5">
-                        <span className="w-1.5 h-1.5 bg-primary rounded-full"></span>
-                      </div>
-                    ) : null
-                  }
-                  tileClassName={({ date }) =>
-                    performanceDates.has(date.toDateString()) ? 'bg-primary/10' : null
-                  }
-                  className="w-full text-xs [&_.react-calendar]:text-xs [&_.react-calendar__tile]:p-0.5"
-                />
               </div>
 
-              {/* Show performances for selected date */}
-              {selectedCalendarDate && getPerformancesForDate(selectedCalendarDate).length > 0 && (
-                <div className="border-t border-outline-variant/10 dark:border-[#2a2a2a] mt-2 pt-2 flex-shrink-0 max-h-16 overflow-y-auto transition-colors duration-300">
-                  <p className="text-[9px] font-bold uppercase tracking-widest text-on-surface-variant dark:text-gray-400 mb-1">
-                    {selectedCalendarDate.toLocaleDateString("en-US", {
-                      month: "short",
-                      day: "numeric",
-                    })}
-                  </p>
-                  <div className="space-y-1">
-                    {getPerformancesForDate(selectedCalendarDate).map((perf) => (
-                      <div
-                        key={perf.id}
-                        className="bg-surface-container-low dark:bg-[#2a2a2a] border border-outline-variant/10 dark:border-[#3a3a3a] rounded px-2 py-1 hover:border-primary/30 dark:hover:border-blue-500/30 transition-colors cursor-pointer"
-                      >
-                        <p className="text-[8px] font-semibold text-on-surface dark:text-white truncate">{perf.title}</p>
-                        <p className="text-[7px] text-on-surface-variant dark:text-gray-400">
-                          {new Date(perf.start_time).toLocaleTimeString("en-US", {
-                            hour: "numeric",
-                            minute: "2-digit",
-                            hour12: true,
-                          })}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-
-             {/* Upcoming Events Section */}
-            <div className="border-t border-outline-variant/10 dark:border-[#2a2a2a] pt-2 flex-shrink-0 transition-colors duration-300">
-              <h3 className="text-xs font-bold uppercase tracking-widest text-on-surface dark:text-white mb-2 flex items-center gap-2">
-                <Music className="w-3 h-3 text-primary dark:text-blue-400" />
-                Upcoming Events
-              </h3>
-
-              {upcomingEvents.length === 0 ? (
-                <div className="bg-surface-container-lowest dark:bg-[#2a2a2a] border border-outline-variant/10 dark:border-[#3a3a3a] rounded p-2 text-center transition-colors duration-300">
-                  <CalendarIcon className="w-5 h-5 text-on-surface-variant dark:text-gray-500/30 mx-auto mb-1" />
-                  <p className="text-[10px] text-on-surface-variant dark:text-gray-400">No upcoming events</p>
-                </div>
-              ) : (
-                <div className="space-y-1 max-h-20 overflow-y-auto">
-                  {upcomingEvents.slice(0, 3).map((event, idx) => (
-                    <div
-                      key={event.id || idx}
-                      className="bg-surface-container-lowest dark:bg-[#2a2a2a] border border-outline-variant/10 dark:border-[#3a3a3a] rounded p-2 hover:border-primary/30 dark:hover:border-blue-500/30 transition-colors"
-                    >
-                      <div className="flex items-start gap-2">
-                        <div className="flex-shrink-0 w-8 h-8 bg-primary/10 dark:bg-blue-900/30 rounded flex items-center justify-center">
-                          <Music className="w-3 h-3 text-primary dark:text-blue-400" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-[8px] uppercase tracking-widest font-bold text-primary dark:text-blue-400">
-                            {formatEventDate(event.start_time)}
-                          </p>
-                          <p className="text-[10px] font-semibold text-on-surface dark:text-white truncate">
-                            {event.title || "Performance"}
-                          </p>
-                          <p className="text-[9px] text-on-surface-variant dark:text-gray-400">
-                            {formatEventTime(event.start_time)}
-                          </p>
-                        </div>
+              <div className="flex-1 space-y-3 overflow-y-auto p-4">
+                {(user?.role === "staff" || user?.role === "admin") && (
+                  <button
+                    onClick={() => navigate("/staff/manage-requests")}
+                    className="w-full rounded-lg border border-orange/20 bg-orange/10 p-4 text-left transition-all duration-300 hover:border-orange/40 hover:bg-orange/20 dark:border-orange/20 dark:bg-orange/5 dark:hover:bg-orange/10 group"
+                  >
+                    <div className="mb-2 flex items-center justify-between">
+                      <p className="text-[9px] font-bold uppercase tracking-widest text-on-surface-variant transition-colors group-hover:text-orange dark:text-gray-400">
+                        Pending Requests
+                      </p>
+                      <div>
+                        {loading ? (
+                          <Loader className="h-4 w-4 animate-spin text-orange" />
+                        ) : (
+                          <Clock className="h-4 w-4 text-orange transition-transform group-hover:scale-110" />
+                        )}
                       </div>
                     </div>
-                  ))}
+                    <p className="text-3xl font-serif font-bold text-orange">{pendingApproval}</p>
+                    <p className="mt-1 text-[11px] text-on-surface-variant transition-colors group-hover:text-orange/70 dark:text-gray-400">
+                      Borrow requests awaiting approval
+                    </p>
+                  </button>
+                )}
+
+                <div className="flex min-h-0 flex-1 flex-col border-t border-outline-variant/10 pt-3 dark:border-[#2a2a2a]">
+                  <h3 className="mb-2 text-xs font-bold uppercase tracking-widest text-on-surface dark:text-white">Event Calendar</h3>
+                  <div className="calendar-wrapper flex flex-1 flex-col overflow-hidden rounded border border-outline-variant/10 bg-surface-container-lowest p-2 dark:border-[#3a3a3a] dark:bg-[#2a2a2a] transition-colors duration-300">
+                    <Calendar
+                      onClickDay={handleCalendarDateClick}
+                      tileContent={({ date }) =>
+                        performanceDates.has(date.toDateString()) ? (
+                          <div className="mt-0.5 flex justify-center">
+                            <span className="h-1.5 w-1.5 rounded-full bg-primary"></span>
+                          </div>
+                        ) : null
+                      }
+                      tileClassName={({ date }) =>
+                        performanceDates.has(date.toDateString()) ? "bg-primary/10" : null
+                      }
+                      className="w-full text-xs [&_.react-calendar]:text-xs [&_.react-calendar__tile]:p-0.5"
+                    />
+                  </div>
+
+                  {selectedCalendarDate && getPerformancesForDate(selectedCalendarDate).length > 0 && (
+                    <div className="mt-2 max-h-16 overflow-y-auto border-t border-outline-variant/10 pt-2 transition-colors duration-300 dark:border-[#2a2a2a]">
+                      <p className="mb-1 text-[9px] font-bold uppercase tracking-widest text-on-surface-variant dark:text-gray-400">
+                        {selectedCalendarDate.toLocaleDateString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                        })}
+                      </p>
+                      <div className="space-y-1">
+                        {getPerformancesForDate(selectedCalendarDate).map((perf) => (
+                          <div
+                            key={perf.id}
+                            className="cursor-pointer rounded border border-outline-variant/10 bg-surface-container-low px-2 py-1 transition-colors hover:border-primary/30 dark:border-[#3a3a3a] dark:bg-[#2a2a2a] dark:hover:border-blue-500/30"
+                          >
+                            <p className="truncate text-[8px] font-semibold text-on-surface dark:text-white">{perf.title}</p>
+                            <p className="text-[7px] text-on-surface-variant dark:text-gray-400">
+                              {new Date(perf.start_time).toLocaleTimeString("en-US", {
+                                hour: "numeric",
+                                minute: "2-digit",
+                                hour12: true,
+                              })}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="border-t border-outline-variant/10 pt-2 transition-colors duration-300 dark:border-[#2a2a2a]">
+                  <h3 className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-on-surface dark:text-white">
+                    <Music className="h-3 w-3 text-primary dark:text-blue-400" />
+                    Upcoming Events
+                  </h3>
+
+                  {upcomingEvents.length === 0 ? (
+                    <div className="rounded border border-outline-variant/10 bg-surface-container-lowest p-2 text-center transition-colors duration-300 dark:border-[#3a3a3a] dark:bg-[#2a2a2a]">
+                      <CalendarIcon className="mx-auto mb-1 h-5 w-5 text-on-surface-variant dark:text-gray-500/30" />
+                      <p className="text-[10px] text-on-surface-variant dark:text-gray-400">No upcoming events</p>
+                    </div>
+                  ) : (
+                    <div className="max-h-20 space-y-1 overflow-y-auto">
+                      {upcomingEvents.slice(0, 3).map((event, idx) => (
+                        <div
+                          key={event.id || idx}
+                          className="rounded border border-outline-variant/10 bg-surface-container-lowest p-2 transition-colors hover:border-primary/30 dark:border-[#3a3a3a] dark:bg-[#2a2a2a] dark:hover:border-blue-500/30"
+                        >
+                          <div className="flex items-start gap-2">
+                            <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded bg-primary/10 dark:bg-blue-900/30">
+                              <Music className="h-3 w-3 text-primary dark:text-blue-400" />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="text-[8px] font-bold uppercase tracking-widest text-primary dark:text-blue-400">
+                                {formatEventDate(event.start_time)}
+                              </p>
+                              <p className="truncate text-[10px] font-semibold text-on-surface dark:text-white">
+                                {event.title || "Performance"}
+                              </p>
+                              <p className="text-[9px] text-on-surface-variant dark:text-gray-400">
+                                {formatEventTime(event.start_time)}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {lastUpdated && (
+                <div className="border-t border-outline-variant/10 bg-surface-container-low p-3 text-center text-[10px] text-on-surface-variant dark:border-[#2a2a2a] dark:bg-[#1f1f1f] dark:text-gray-400 transition-colors duration-300">
+                  Updated {lastUpdated.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                 </div>
               )}
             </div>
-              
-            
-          </div>
-
-          {/* Last Updated - Footer */}
-          {lastUpdated && (
-            <div className="border-t border-outline-variant/10 dark:border-[#2a2a2a] p-3 text-[10px] text-on-surface-variant dark:text-gray-400 text-center flex-shrink-0 bg-surface-container-low dark:bg-[#1f1f1f] transition-colors duration-300">
-              Updated {lastUpdated.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-            </div>
           )}
+
+          <div className="mt-auto flex justify-end p-2">
+            <button
+              type="button"
+              onClick={() => setRightSidebarOpen((prev) => !prev)}
+              className="group flex h-8 w-8 items-center justify-center rounded-md border border-slate-200 bg-white/90 text-slate-700 shadow-sm transition-all duration-200 ease-in-out hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+              title={rightSidebarOpen ? "Collapse right sidebar" : "Expand right sidebar"}
+              aria-label={rightSidebarOpen ? "Collapse right sidebar" : "Expand right sidebar"}
+            >
+              <svg
+                viewBox="0 0 24 24"
+                className={`h-4 w-4 transition-transform duration-200 ease-in-out ${rightSidebarOpen ? "group-hover:translate-x-1.5" : "group-hover:-translate-x-1.5"} ${rightSidebarOpen ? "translate-x-1" : "-translate-x-1"}`}
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                {rightSidebarOpen ? (
+                  <path d="M9 6l6 6-6 6" />
+                ) : (
+                  <path d="M15 6l-6 6 6 6" />
+                )}
+              </svg>
+            </button>
+          </div>
         </div>
       </aside>
     </>
