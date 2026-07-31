@@ -20,7 +20,7 @@ const MaterialIcon = ({ icon, className = "" }) => (
 export default function Navbar() {
   const { user, setUser, loading } = useContext(UserContext);
   const { cart } = useContext(BorrowingContext);
-  const { sidebarOpen, setSidebarOpen, leftSidebarCollapsed, setLeftSidebarCollapsed, rightSidebarOpen, setRightSidebarOpen } = useContext(SidebarContext);
+  const { rightSidebarOpen, setRightSidebarOpen } = useContext(SidebarContext);
   const { openLoginModal } = useContext(LoginModalContext);
   const { selectedDivision, setSelectedDivision } = useSidebarStore();
   const location = useLocation();
@@ -578,18 +578,6 @@ export default function Navbar() {
       <header className="sticky top-0 z-40 border-b border-slate-200 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.04)] transition-colors duration-300">
         <div className="flex items-center justify-between gap-3 px-3 py-3 sm:px-4 sm:py-4 md:px-6">
           <div className="flex min-w-0 items-center gap-3">
-            {user && (
-              <button
-                type="button"
-                onClick={() => setLeftSidebarCollapsed((prev) => !prev)}
-                className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-slate-50 text-slate-700 transition hover:bg-slate-100"
-                title={leftSidebarCollapsed ? "Expand navigation" : "Collapse navigation"}
-                aria-label={leftSidebarCollapsed ? "Expand navigation" : "Collapse navigation"}
-              >
-                <Menu className="h-4 w-4" />
-              </button>
-            )}
-
             <div className="flex min-w-0 flex-col">
               <div className="flex items-center leading-none text-[20px] font-black tracking-[-0.08em] sm:text-[22px]">
                 <span className="text-[#004aad]">Du</span>

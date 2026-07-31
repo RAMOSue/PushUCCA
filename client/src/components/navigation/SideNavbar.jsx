@@ -109,10 +109,10 @@ export default function SideNavbar({ role = "staff" }) {
 
       {/* Sidebar */}
       <aside
-        className={`left-sidebar fixed left-0 top-0 h-screen bg-surface-container-low dark:bg-[#1f1f1f] shadow-lg dark:shadow-none z-50 transition-all duration-300 ease-in-out ${
+        className={`left-sidebar sticky left-0 top-0 h-screen shrink-0 border-r border-outline-variant/20 bg-surface-container-low dark:border-[#2a2a2a] dark:bg-[#1f1f1f] shadow-lg dark:shadow-none z-30 transition-all duration-300 ease-in-out ${
           isMobile
             ? sidebarOpen ? "w-64" : "w-0"
-            : leftSidebarCollapsed ? "lg:w-[72px] w-0" : "lg:w-64 md:w-56 sm:w-48 w-40"
+            : leftSidebarCollapsed ? "w-20" : "w-64"
         }`}
         style={{
           overflowY: "auto",
@@ -133,38 +133,75 @@ export default function SideNavbar({ role = "staff" }) {
         `}</style>
 
         {/* User Profile Section at Top */}
-        <div className={`px-3 sm:px-4 md:px-5 lg:px-6 py-3 sm:py-3 md:py-3 lg:py-4 border-b border-outline-variant/20 dark:border-[#2a2a2a] sticky top-0 bg-surface-container-low dark:bg-[#1f1f1f] z-10 transition-all duration-300 mb-3 mt-2 ${leftSidebarCollapsed ? "lg:px-2" : ""}`}>
-          <button
-            onClick={() => {
-              handleViewProfile();
-              if (isMobile) {
-                setSidebarOpen(false);
-              }
-            }}
-            className={`w-full flex items-center justify-center text-center hover:opacity-80 transition-opacity duration-200 ${leftSidebarCollapsed ? "lg:flex-col lg:gap-0" : "lg:flex-col"}`}
-            title="View Profile"
-          >
-            <div className={`${leftSidebarCollapsed ? "mb-0" : "mb-2"}`}>
-              {profilePic ? (
-                <img
-                  src={profilePic}
-                  alt={user?.name}
-                  className={`${leftSidebarCollapsed ? "w-8 h-8" : "w-12 sm:w-13 md:w-14 lg:w-16 h-12 sm:h-13 md:h-14 lg:h-16"} rounded-full object-cover border border-primary dark:border-blue-500 shadow-lg hover:border-primary/70 dark:hover:border-blue-400 transition-all duration-200`}
-                />
-              ) : (
-                <div className={`${leftSidebarCollapsed ? "w-8 h-8" : "w-12 sm:w-13 md:w-14 lg:w-16 h-12 sm:h-13 md:h-14 lg:h-16"} rounded-full bg-primary/10 dark:bg-blue-900/20 flex items-center justify-center border border-primary/20 dark:border-blue-500/30 shadow-lg hover:border-primary/30 dark:hover:border-blue-500/50 transition-all duration-200`}>
-                  <User className={`${leftSidebarCollapsed ? "w-4 h-4" : "w-6 sm:w-6 md:w-7 lg:w-8 h-6 sm:h-6 md:h-7 lg:h-8"} text-primary dark:text-blue-400`} />
-                </div>
-              )}
-            </div>
+        <div className={`sticky top-0 z-10 border-b border-outline-variant/20 bg-surface-container-low px-2 py-3 dark:border-[#2a2a2a] dark:bg-[#1f1f1f] transition-all duration-300 ${leftSidebarCollapsed ? "flex justify-center" : "px-3 sm:px-4 md:px-5 lg:px-6"}`}>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setLeftSidebarCollapsed((prev) => !prev)}
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white/80 text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+              title={leftSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+              aria-label={leftSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            >
+              <ChevronRight className={`h-4 w-4 transition-transform duration-300 ${leftSidebarCollapsed ? "rotate-180" : ""}`} />
+            </button>
 
             {!leftSidebarCollapsed && (
-              <div className="w-full">
-                <h3 className="font-bold text-on-surface dark:text-white text-xs sm:text-xs md:text-sm lg:text-sm truncate w-full">{user?.name || "User"}</h3>
-                <p className="text-[10px] sm:text-[10px] md:text-xs lg:text-xs text-on-surface-variant dark:text-gray-400 capitalize font-medium mt-0.5 truncate w-full">{user?.role}</p>
-              </div>
+              <button
+                onClick={() => {
+                  handleViewProfile();
+                  if (isMobile) {
+                    setSidebarOpen(false);
+                  }
+                }}
+                className="flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left transition hover:bg-surface-container-highest dark:hover:bg-[#2a2a2a]"
+                title="View Profile"
+              >
+                <div className="shrink-0">
+                  {profilePic ? (
+                    <img
+                      src={profilePic}
+                      alt={user?.name}
+                      className="h-10 w-10 rounded-full object-cover border border-primary dark:border-blue-500 shadow-lg"
+                    />
+                  ) : (
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full border border-primary/20 bg-primary/10 text-primary dark:border-blue-500/30 dark:bg-blue-900/20 dark:text-blue-400">
+                      <User className="h-5 w-5" />
+                    </div>
+                  )}
+                </div>
+
+                <div className="min-w-0 flex-1">
+                  <h3 className="truncate text-xs font-bold text-on-surface dark:text-white">{user?.name || "User"}</h3>
+                  <p className="truncate text-[10px] capitalize text-on-surface-variant dark:text-gray-400">{user?.role}</p>
+                </div>
+              </button>
             )}
-          </button>
+
+            {leftSidebarCollapsed && (
+              <button
+                onClick={() => {
+                  handleViewProfile();
+                  if (isMobile) {
+                    setSidebarOpen(false);
+                  }
+                }}
+                className="flex items-center justify-center rounded-lg p-1.5 transition hover:bg-surface-container-highest dark:hover:bg-[#2a2a2a]"
+                title="View Profile"
+              >
+                {profilePic ? (
+                  <img
+                    src={profilePic}
+                    alt={user?.name}
+                    className="h-8 w-8 rounded-full object-cover border border-primary dark:border-blue-500"
+                  />
+                ) : (
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full border border-primary/20 bg-primary/10 text-primary dark:border-blue-500/30 dark:bg-blue-900/20 dark:text-blue-400">
+                    <User className="h-4 w-4" />
+                  </div>
+                )}
+              </button>
+            )}
+          </div>
         </div>
 
       

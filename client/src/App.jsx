@@ -224,15 +224,15 @@ function AppContent() {
         darkMode ? "bg-[#171717] text-white" : "bg-gray-50 text-gray-900"
       }`}
     >
-      <div className="flex min-h-screen">
+      <div className="flex h-screen w-full overflow-hidden">
         {user && (user?.role === "borrower" || user?.role === "staff" || user?.role === "admin") && (
           <SideNavbar role={user?.role} />
         )}
 
-        <div className="flex min-w-0 flex-1 flex-col">
+        <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
           <Navbar />
 
-          <div className="relative flex-1 min-h-screen">
+          <main className="min-h-0 flex-1 overflow-y-auto">
             <Routes>
               {/* ==============================
                   PUBLIC ROUTES
@@ -420,13 +420,13 @@ function AppContent() {
                 <Route path="detection-accuracy" element={<DetectionAccuracy />} />
               </Route>
             </Routes>
-          </div>
+          </main>
         </div>
-      </div>
 
-      {user && (user?.role === "borrower" || user?.role === "staff" || user?.role === "admin") && (
-        <RightNavbar />
-      )}
+        {user && (user?.role === "borrower" || user?.role === "staff" || user?.role === "admin") && (
+          <RightNavbar />
+        )}
+      </div>
 
       {user?.role === "borrower" && <ScannerSelection />}
       {user?.role === "staff" && <StaffScannerSelection />}
