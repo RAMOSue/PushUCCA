@@ -12,6 +12,7 @@ import { UserContext } from "../../../context/userContext"
 import { BorrowingContext } from "../../../context/borrowingContext"
 import StaffReturnPhotoCaptureModal from "../../components/modals/StaffReturnPhotoCaptureModal"
 import { getInventoryDivisionInfo } from "../../utils/inventoryDivisionStorage"
+import { useSidebarStore } from "../../../context/sidebarStore"
 
 dayjs.extend(utc)
 dayjs.extend(timezone)
@@ -19,6 +20,7 @@ dayjs.extend(timezone)
 export default function StaffBorrowTimeline() {
   const { user } = useContext(UserContext)
   const { refreshAfterReturn } = useContext(BorrowingContext)
+  const { selectedDivision } = useSidebarStore()
 
   // ========== STATE MANAGEMENT ==========
   const [requests, setRequests] = useState([])
@@ -29,8 +31,6 @@ export default function StaffBorrowTimeline() {
   const [filterDropdownOpen, setFilterDropdownOpen] = useState(false)
   const [filterHovering, setFilterHovering] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
-  const [divisions, setDivisions] = useState([])
-  const [selectedDivision, setSelectedDivision] = useState(null)
   const [borrowerProfiles, setBorrowerProfiles] = useState({})
   const [dueDates] = useState({})
 
@@ -147,31 +147,29 @@ export default function StaffBorrowTimeline() {
     }
   }
 
-  const fetchDivisions = async () => {
-    try {
-      const res = await axios.get("/api/master-list/units")
-      if (res.data && Array.isArray(res.data)) {
-        const activeDivisions = res.data.filter(d => d.status?.toLowerCase() === 'active')
-        setDivisions(activeDivisions)
-      }
-    } catch (err) {
-      console.error("Failed to fetch divisions:", err.message)
-    }
-  }
-
   useEffect(() => {
     fetchRequests()
     fetchBorrowerProfiles()
-    fetchDivisions()
   }, [])
 
   // ========== FILTERING & GROUPING ==========
   useEffect(() => {
     let filtered = filter === "all" ? requests : requests.filter((r) => r.status === filter)
 
-    // Filter by division if selected
-    if (selectedDivision) {
-      filtered = filtered.filter((r) => r.division_id === selectedDivision)
+    const normalizedSelectedDivision = selectedDivision?.toString().trim().toLowerCase()
+    if (normalizedSelectedDivision && normalizedSelectedDivision !== "all") {
+      filtered = filtered.filter((request) => {
+        const divisionCandidates = [
+          request.borrower_division,
+          request.division_name,
+          request.division?.name,
+          request.division?.division_name,
+        ].filter(Boolean)
+
+        return divisionCandidates.some((value) =>
+          String(value).trim().toLowerCase() === normalizedSelectedDivision
+        )
+      })
     }
 
     // Filter by search query
@@ -453,30 +451,6 @@ export default function StaffBorrowTimeline() {
           </div>
 
           <div className="flex gap-2 flex-wrap items-center mb-2">
-            <button
-              onClick={() => setSelectedDivision(null)}
-              className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
-                selectedDivision === null
-                  ? "bg-primary text-on-primary shadow-sm"
-                  : "bg-surface-container-low dark:bg-[#222] text-on-surface dark:text-white border border-outline-variant/30 dark:border-gray-700 hover:bg-surface-container-high dark:hover:bg-[#2a2a2a]"
-              }`}
-            >
-              All
-            </button>
-            {divisions.map((div) => (
-              <button
-                key={div.id}
-                onClick={() => setSelectedDivision(div.id)}
-                className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
-                  selectedDivision === div.id
-                    ? "bg-primary text-on-primary shadow-sm"
-                    : "bg-surface-container-low dark:bg-[#222] text-on-surface dark:text-white border border-outline-variant/30 dark:border-gray-700 hover:bg-surface-container-high dark:hover:bg-[#2a2a2a]"
-                }`}
-              >
-                {div.name}
-              </button>
-            ))}
-
             <div
               className="relative bg-surface-container-low dark:bg-[#222] rounded-lg border border-outline-variant/20 dark:border-gray-700 shadow-sm dark:shadow-black/40 ml-auto transition-colors"
               onMouseEnter={() => setFilterHovering(true)}
