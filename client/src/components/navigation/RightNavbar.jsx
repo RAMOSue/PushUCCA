@@ -105,12 +105,6 @@ export default function RightNavbar() {
     hour12: true,
   });
 
-  const formattedDate = currentTime.toLocaleDateString("en-US", {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-  });
-
   const formatEventDate = (dateString) => {
     const date = new Date(dateString);
     return date.toLocaleDateString("en-US", {
@@ -142,6 +136,19 @@ export default function RightNavbar() {
   const getPerformancesForDate = (date) => {
     const dateString = date.toDateString();
     return allPerformances.filter((p) => new Date(p.start_time).toDateString() === dateString);
+  };
+
+  const getOrderedEvents = () => {
+    if (!selectedCalendarDate) return upcomingEvents;
+
+    const selectedEvents = getPerformancesForDate(selectedCalendarDate);
+    if (selectedEvents.length === 0) return upcomingEvents;
+
+    const otherEvents = upcomingEvents.filter(
+      (event) => !selectedEvents.some((selectedEvent) => selectedEvent.id === event.id)
+    );
+
+    return [...selectedEvents, ...otherEvents];
   };
 
   const isBorrowerScannerOpen = location.pathname === "/scan" || location.pathname === "/scanner";
@@ -322,13 +329,9 @@ export default function RightNavbar() {
             </div>
           ) : (
             <div className="flex min-h-0 flex-1 flex-col transition-all duration-300 ease-in-out">
-              <div className="sticky top-0 z-10 mb-3 mt-1 flex h-12 items-center justify-center border-b border-outline-variant/10 bg-surface-container-low px-3 dark:border-[#2a2a2a] dark:bg-[#1f1f1f] transition-colors duration-300">
-                <p className="text-base font-semibold tracking-wide text-on-surface dark:text-white">{formattedTime}</p>
-              </div>
-
               <div className="flex-1 space-y-3 overflow-y-auto p-4">
-                <div className="flex min-h-0 flex-1 flex-col border-t border-outline-variant/10 pt-3 dark:border-[#2a2a2a]">
-                  <h3 className="mb-2 text-xs font-bold uppercase tracking-widest text-on-surface dark:text-white">Event Calendar</h3>
+                <div className="flex min-h-0 flex-1 flex-col gap-2">
+                  <h3 className="text-center text-xs font-bold uppercase tracking-widest text-on-surface dark:text-white">Upcoming Events</h3>
                   <div className="calendar-wrapper flex flex-1 flex-col overflow-hidden rounded border border-outline-variant/10 bg-surface-container-lowest p-2 dark:border-[#3a3a3a] dark:bg-[#2a2a2a] transition-colors duration-300">
                     <Calendar
                       onClickDay={handleCalendarDateClick}
@@ -346,49 +349,13 @@ export default function RightNavbar() {
                     />
                   </div>
 
-                  {selectedCalendarDate && getPerformancesForDate(selectedCalendarDate).length > 0 && (
-                    <div className="mt-2 max-h-16 overflow-y-auto border-t border-outline-variant/10 pt-2 transition-colors duration-300 dark:border-[#2a2a2a]">
-                      <p className="mb-1 text-[9px] font-bold uppercase tracking-widest text-on-surface-variant dark:text-gray-400">
-                        {selectedCalendarDate.toLocaleDateString("en-US", {
-                          month: "short",
-                          day: "numeric",
-                        })}
-                      </p>
-                      <div className="space-y-1">
-                        {getPerformancesForDate(selectedCalendarDate).map((perf) => (
-                          <div
-                            key={perf.id}
-                            className="cursor-pointer rounded border border-outline-variant/10 bg-surface-container-low px-2 py-1 transition-colors hover:border-primary/30 dark:border-[#3a3a3a] dark:bg-[#2a2a2a] dark:hover:border-blue-500/30"
-                          >
-                            <p className="truncate text-[8px] font-semibold text-on-surface dark:text-white">{perf.title}</p>
-                            <p className="text-[7px] text-on-surface-variant dark:text-gray-400">
-                              {new Date(perf.start_time).toLocaleTimeString("en-US", {
-                                hour: "numeric",
-                                minute: "2-digit",
-                                hour12: true,
-                              })}
-                            </p>
-                          </div>
-                        ))}
+                  <div className="max-h-40 space-y-1 overflow-y-auto">
+                    {getOrderedEvents().length === 0 ? (
+                      <div className="rounded border border-outline-variant/10 bg-surface-container-lowest p-2 text-center transition-colors duration-300 dark:border-[#3a3a3a] dark:bg-[#2a2a2a]">
+                        <p className="text-[10px] text-on-surface-variant dark:text-gray-400">No upcoming events</p>
                       </div>
-                    </div>
-                  )}
-                </div>
-
-                <div className="border-t border-outline-variant/10 pt-2 transition-colors duration-300 dark:border-[#2a2a2a]">
-                  <h3 className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-on-surface dark:text-white">
-                    <Music className="h-3 w-3 text-primary dark:text-blue-400" />
-                    Performances
-                  </h3>
-
-                  {upcomingEvents.length === 0 ? (
-                    <div className="rounded border border-outline-variant/10 bg-surface-container-lowest p-2 text-center transition-colors duration-300 dark:border-[#3a3a3a] dark:bg-[#2a2a2a]">
-                      <CalendarIcon className="mx-auto mb-1 h-5 w-5 text-on-surface-variant dark:text-gray-500/30" />
-                      <p className="text-[10px] text-on-surface-variant dark:text-gray-400">No upcoming events</p>
-                    </div>
-                  ) : (
-                    <div className="max-h-20 space-y-1 overflow-y-auto">
-                      {upcomingEvents.slice(0, 3).map((event, idx) => (
+                    ) : (
+                      getOrderedEvents().map((event, idx) => (
                         <div
                           key={event.id || idx}
                           className="rounded border border-outline-variant/10 bg-surface-container-lowest p-2 transition-colors hover:border-primary/30 dark:border-[#3a3a3a] dark:bg-[#2a2a2a] dark:hover:border-blue-500/30"
@@ -410,17 +377,11 @@ export default function RightNavbar() {
                             </div>
                           </div>
                         </div>
-                      ))}
-                    </div>
-                  )}
+                      ))
+                    )}
+                  </div>
                 </div>
               </div>
-
-              {lastUpdated && (
-                <div className="border-t border-outline-variant/10 bg-surface-container-low p-3 text-center text-[10px] text-on-surface-variant dark:border-[#2a2a2a] dark:bg-[#1f1f1f] dark:text-gray-400 transition-colors duration-300">
-                  Updated {lastUpdated.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                </div>
-              )}
             </div>
           )}
 
