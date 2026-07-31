@@ -13,6 +13,10 @@ export default function BorrowerProfiles() {
   const [expandedProfiles, setExpandedProfiles] = useState({});
   const [selectedDivision, setSelectedDivision] = useState("ALL");
   const [selectedStatus, setSelectedStatus] = useState("ALL");
+  const [positions, setPositions] = useState([]);
+  const [positionsLoading, setPositionsLoading] = useState(true);
+  const [positionsError, setPositionsError] = useState(null);
+  const [positionFilters, setPositionFilters] = useState({});
 
   useEffect(() => {
     const fetchProfiles = async () => {
@@ -29,6 +33,41 @@ export default function BorrowerProfiles() {
     };
     fetchProfiles();
   }, []);
+
+  // Fetch master list positions for dropdown
+  useEffect(() => {
+    const fetchPositions = async () => {
+      try {
+        setPositionsLoading(true);
+        const { data } = await axios.get("/api/master-list/positions", { withCredentials: true });
+        setPositions(Array.isArray(data) ? data : []);
+        setPositionsLoading(false);
+      } catch (err) {
+        console.error("Error fetching positions:", err);
+        setPositionsError(err?.message || "Failed to load positions");
+        setPositionsLoading(false);
+      }
+    };
+    fetchPositions();
+  }, []);
+
+  const handlePositionChange = async (borrowerId, value) => {
+    try {
+      // allow clearing by sending null
+      const payload = { position_id: value === "" ? null : Number(value) };
+      const { data } = await axios.patch(`/api/profiles/${borrowerId}`, payload, { withCredentials: true });
+      // Update local profiles state with returned profile
+      if (data && data.profile) {
+        setProfiles((prev) => prev.map((p) => (p.id === borrowerId ? { ...p, position_id: data.profile.position_id, position_name: data.profile.position_name } : p)));
+        toast.success("Position updated");
+      } else {
+        toast.success("Position updated");
+      }
+    } catch (err) {
+      console.error("Error updating position:", err);
+      toast.error("Failed to update position");
+    }
+  };
 
   if (loading) {
     return (
@@ -468,6 +507,38 @@ export default function BorrowerProfiles() {
                                 )}
                               </div>
                             </div>
+                          </div>
+
+                          {/* Position Selector (Master List positions) */}
+                          <div className="space-y-2">
+                            <p className="text-[10px] text-on-surface-variant dark:text-gray-500 uppercase font-medium">Position</p>
+                            {positionsLoading ? (
+                              <p className="text-sm text-on-surface-variant">Loading positions...</p>
+                            ) : positionsError ? (
+                              <p className="text-sm text-red-500">Failed to load positions</p>
+                            ) : (
+                              <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                                <input
+                                  type="text"
+                                  placeholder="Filter positions..."
+                                  value={positionFilters[borrower.id] || ""}
+                                  onChange={(e) => setPositionFilters({ ...positionFilters, [borrower.id]: e.target.value })}
+                                  className="text-xs px-2 py-1 rounded bg-surface-container-high dark:bg-[#222] border border-outline-variant/20 dark:border-gray-700 w-full sm:w-44"
+                                />
+                                <select
+                                  value={borrower.position_id || ""}
+                                  onChange={(e) => handlePositionChange(borrower.id, e.target.value)}
+                                  className="text-xs px-2 py-1 rounded bg-surface-container-high dark:bg-[#222] border border-outline-variant/20 dark:border-gray-700 w-full sm:w-64"
+                                >
+                                  <option value="">(None)</option>
+                                  {positions
+                                    .filter((p) => (positionFilters[borrower.id] || "").trim() === "" ? true : p.name.toLowerCase().includes((positionFilters[borrower.id] || "").toLowerCase()))
+                                    .map((p) => (
+                                      <option key={p.id} value={p.id}>{p.name}</option>
+                                    ))}
+                                </select>
+                              </div>
+                            )}
                           </div>
                         </div>
                       )}

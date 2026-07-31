@@ -42,4 +42,7 @@ router.get("/all", ensureAuth, requireRole(["admin", "staff"]), profileControlle
 // Fetch a specific profile by ID
 router.get("/:id", ensureAuth, requireRole(["admin", "staff"]), profileController.getProfileById);
 
+// Admin/Staff: update another user's profile (position, division, etc.)
+router.patch("/:id", ensureAuth, requireRole(["admin", "staff"]), profileController.updateProfileInfoByAdmin);
+
 module.exports = router;

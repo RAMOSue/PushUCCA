@@ -63,6 +63,8 @@ function buildProfileResponse(profile) {
     email: profile.email ?? null,
     phone: profile.phone ?? null,
     role: profile.role ?? null,
+    position_id: profile.position_id ?? null,
+    position_name: profile.position_name ?? null,
     division_id: profile.division_id ?? null,
     department_name: profile.department_name ?? null,
     department_description: profile.department_description ?? null,
@@ -146,6 +148,7 @@ async function getProfileWithDivision(userId) {
     const qWithDivision = `
       SELECT u.id, u.name, u.email, u.phone, u.role, u.division_id,
              d.name as department_name, d.description as department_description,
+             u.position_id, pos.name as position_name,
              p.profile_pic_url, p.birth_certificate_url, p.class_schedule_url,
              p.id_front_url, p.id_back_url, p.updated_at,
              p.date_of_birth, p.citizenship, p.religion, p.marital_status,
@@ -155,6 +158,7 @@ async function getProfileWithDivision(userId) {
       FROM users u
       LEFT JOIN user_profiles p ON u.id = p.user_id
       LEFT JOIN divisions d ON u.division_id = d.id
+      LEFT JOIN positions pos ON u.position_id = pos.id
       WHERE u.id = $1;
     `;
     const { rows } = await pool.query(qWithDivision, [userId]);
@@ -165,8 +169,9 @@ async function getProfileWithDivision(userId) {
       console.warn("⚠️ division_id column not found - running migration will enable department tracking");
       const qWithoutDivision = `
         SELECT u.id, u.name, u.email, u.phone, u.role,
-               p.profile_pic_url, p.birth_certificate_url, p.class_schedule_url,
-               p.id_front_url, p.id_back_url, p.updated_at,
+             u.position_id, NULL::text as position_name,
+             p.profile_pic_url, p.birth_certificate_url, p.class_schedule_url,
+             p.id_front_url, p.id_back_url, p.updated_at,
                p.date_of_birth, p.citizenship, p.religion, p.marital_status,
                p.college, p.program, p.current_address, p.height, p.weight, p.eye_color,
                p.mother_full_name, p.mother_birthday, p.father_full_name, p.father_birthday,
@@ -189,6 +194,7 @@ async function getAllProfilesWithDivisions() {
     const qWithDivision = `
       SELECT u.id, u.name, u.email, u.phone, u.role, u.division_id,
              d.name as department_name, d.description as department_description,
+             u.position_id, pos.name as position_name,
              p.profile_pic_url, p.birth_certificate_url, p.class_schedule_url,
              p.id_front_url, p.id_back_url, p.updated_at,
              p.date_of_birth, p.citizenship, p.religion, p.marital_status,
@@ -198,6 +204,7 @@ async function getAllProfilesWithDivisions() {
       FROM users u
       LEFT JOIN user_profiles p ON u.id = p.user_id
       LEFT JOIN divisions d ON u.division_id = d.id
+      LEFT JOIN positions pos ON u.position_id = pos.id
       ORDER BY u.id;
     `;
     const { rows } = await pool.query(qWithDivision);
@@ -207,8 +214,9 @@ async function getAllProfilesWithDivisions() {
       console.warn("⚠️ division_id column not found - running migration will enable department tracking");
       const qWithoutDivision = `
         SELECT u.id, u.name, u.email, u.phone, u.role,
-               p.profile_pic_url, p.birth_certificate_url, p.class_schedule_url,
-               p.id_front_url, p.id_back_url, p.updated_at,
+             u.position_id, NULL::text as position_name,
+             p.profile_pic_url, p.birth_certificate_url, p.class_schedule_url,
+             p.id_front_url, p.id_back_url, p.updated_at,
                p.date_of_birth, p.citizenship, p.religion, p.marital_status,
                p.college, p.program, p.current_address, p.height, p.weight, p.eye_color,
                p.mother_full_name, p.mother_birthday, p.father_full_name, p.father_birthday,
@@ -420,6 +428,16 @@ exports.updateProfileInfo = async (req, res) => {
       paramCount++;
     }
 
+    if (req.body.position_id !== undefined) {
+      const positionVal = req.body.position_id === "" || req.body.position_id === null ? null : parseInt(req.body.position_id, 10);
+      if (req.body.position_id !== "" && req.body.position_id !== null && Number.isNaN(positionVal)) {
+        return res.status(400).json({ error: "position_id must be a number" });
+      }
+      userUpdates.push(`position_id = $${paramCount}`);
+      userValues.push(positionVal ?? null);
+      paramCount++;
+    }
+
     if (userUpdates.length > 0) {
       userValues.push(userId);
       const updateQuery = `UPDATE users SET ${userUpdates.join(", ")} WHERE id = $${paramCount}`;
@@ -502,6 +520,79 @@ exports.updateProfileInfo = async (req, res) => {
   } catch (err) {
     console.error("updateProfileInfo error:", err);
     res.status(500).json({ error: "Failed to update profile", details: err.message });
+  }
+};
+
+// ---------------------------
+// Admin/Staff: update another user's profile (position, division, etc.)
+// ---------------------------
+exports.updateProfileInfoByAdmin = async (req, res) => {
+  try {
+    const userId = parseInt(req.params.id, 10);
+    if (!userId) return res.status(400).json({ error: "Missing or invalid user id" });
+
+    // Reuse logic from updateProfileInfo but target a different user id
+    const {
+      name,
+      phone,
+      division_id,
+      position_id,
+    } = req.body;
+
+    const userUpdates = [];
+    const userValues = [];
+    let paramCount = 1;
+
+    if (name !== undefined) {
+      const normalizedName = typeof name === "string" ? name.trim() : name;
+      userUpdates.push(`name = $${paramCount}`);
+      userValues.push(normalizedName || null);
+      paramCount++;
+    }
+
+    if (phone !== undefined) {
+      const normalizedPhone = typeof phone === "string" ? phone.trim() : phone;
+      userUpdates.push(`phone = $${paramCount}`);
+      userValues.push(normalizedPhone || null);
+      paramCount++;
+    }
+
+    if (division_id !== undefined) {
+      const normalizedDivision = division_id === "" || division_id === null ? null : parseInt(division_id, 10);
+      if (division_id !== "" && division_id !== null && Number.isNaN(normalizedDivision)) {
+        return res.status(400).json({ error: "division_id must be a number" });
+      }
+      userUpdates.push(`division_id = $${paramCount}`);
+      userValues.push(normalizedDivision ?? null);
+      paramCount++;
+    }
+
+    if (position_id !== undefined) {
+      const normalizedPosition = position_id === "" || position_id === null ? null : parseInt(position_id, 10);
+      if (position_id !== "" && position_id !== null && Number.isNaN(normalizedPosition)) {
+        return res.status(400).json({ error: "position_id must be a number" });
+      }
+      userUpdates.push(`position_id = $${paramCount}`);
+      userValues.push(normalizedPosition ?? null);
+      paramCount++;
+    }
+
+    if (userUpdates.length > 0) {
+      userValues.push(userId);
+      const updateQuery = `UPDATE users SET ${userUpdates.join(", ")} WHERE id = $${paramCount}`;
+      await pool.query(updateQuery, userValues);
+    }
+
+    // No profile fields handled here for admin endpoint; they can be added if needed
+
+    // Return updated profile
+    const profile = await getProfileWithDivision(userId);
+    if (!profile) return res.status(404).json({ error: "Profile not found" });
+
+    res.json({ success: true, profile: buildProfileResponse(profile) });
+  } catch (err) {
+    console.error("updateProfileInfoByAdmin error:", err);
+    res.status(500).json({ error: "Failed to update profile (admin)", details: err.message });
   }
 };
 
