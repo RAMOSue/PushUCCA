@@ -50,13 +50,10 @@ export default function RightNavbar() {
         withCredentials: true,
       });
       const data = Array.isArray(performancesRes.data) ? performancesRes.data : [];
-      data.sort((a, b) => new Date(a.start_time) - new Date(b.start_time));
+      const sortedData = [...data].sort((a, b) => new Date(a.start_time) - new Date(b.start_time));
 
-      const now = new Date();
-      const upcomingPerfs = data.filter((p) => new Date(p.start_time) > now);
-
-      setAllPerformances(data);
-      setUpcomingEvents(upcomingPerfs);
+      setAllPerformances(sortedData);
+      setUpcomingEvents(sortedData);
       setLastUpdated(new Date());
       setLoading(false);
     } catch (error) {
@@ -97,20 +94,22 @@ export default function RightNavbar() {
 
   // ✅ Calendar function: Get set of dates with performances
   const performanceDates = new Set(
-    upcomingEvents.map((p) => new Date(p.start_time).toDateString())
+    allPerformances.map((p) => new Date(p.start_time).toDateString())
   );
 
   const getOrderedEvents = () => {
-    if (!selectedCalendarDate) return upcomingEvents;
+    const baseEvents = allPerformances.length > 0 ? allPerformances : upcomingEvents;
+
+    if (!selectedCalendarDate) return baseEvents;
 
     const selectedDateString = selectedCalendarDate.toDateString();
-    const selectedEvents = upcomingEvents.filter(
+    const selectedEvents = baseEvents.filter(
       (event) => new Date(event.start_time).toDateString() === selectedDateString
     );
 
-    if (selectedEvents.length === 0) return upcomingEvents;
+    if (selectedEvents.length === 0) return baseEvents;
 
-    const otherEvents = upcomingEvents.filter(
+    const otherEvents = baseEvents.filter(
       (event) => !selectedEvents.some((selectedEvent) => selectedEvent.id === event.id)
     );
 
@@ -339,7 +338,7 @@ export default function RightNavbar() {
                     {orderedEvents.length === 0 ? (
                       <div className="rounded border border-outline-variant/10 bg-surface-container-lowest p-2 text-center transition-colors duration-300 dark:border-[#3a3a3a] dark:bg-[#2a2a2a]">
                         <p className="text-[10px] text-on-surface-variant dark:text-gray-400">
-                          {loading ? "Loading events..." : "No upcoming events"}
+                          {loading ? "Loading events..." : "No scheduled performances"}
                         </p>
                       </div>
                     ) : (
