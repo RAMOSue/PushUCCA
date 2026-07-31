@@ -16,9 +16,7 @@ export default function AvailableItems() {
   const [loadingItems, setLoadingItems] = useState(true);
   const [selectedItem, setSelectedItem] = useState(null);
   const [selectedCategory, setSelectedCategory] = useState(null);
-  const { selectedDivision, setSelectedDivision, globalSearchQuery, setGlobalSearchQuery } = useSidebarStore();
-  const [selectedGroup, setSelectedGroup] = useState("Dulimbay");
-  const [divisions, setDivisions] = useState([]);
+  const { selectedDivision, globalSearchQuery } = useSidebarStore();
   const [showAddToCartModal, setShowAddToCartModal] = useState(false);
   const [addedItemName, setAddedItemName] = useState("");
   const [selectedUnits, setSelectedUnits] = useState([]);
@@ -86,20 +84,9 @@ export default function AvailableItems() {
     }
   };
 
-  const fetchDivisions = async () => {
-    try {
-      const { data } = await axios.get('/api/inventory/divisions');
-      const activeDivisions = Array.isArray(data) ? data.filter((division) => (division.status || 'Active').toLowerCase() !== 'inactive') : [];
-      setDivisions(activeDivisions);
-    } catch (error) {
-      console.error('Error fetching divisions:', error.response?.data || error.message);
-    }
-  };
-
   useEffect(() => {
     if (!loading) {
       fetchItems();
-      fetchDivisions();
     }
   }, [loading, user?.id, user?.role, refreshAvailableItems]);
 
@@ -250,13 +237,10 @@ export default function AvailableItems() {
 
   // ============ STAFF/ADMIN VIEW ============
   if (user?.role === 'admin' || user?.role === 'staff') {
-    const GROUP_TABS = ["Dulimbay", "Budjong", "Kayam"];
-    const groupFor = (item) => (item.collection_group || item.group || '').toString().trim() || 'Uncategorized';
-
-    let filteredItems = items.filter(it => groupFor(it).toLowerCase() === selectedGroup.toLowerCase());
+    let filteredItems = items;
 
     if (selectedCategory) {
-      filteredItems = filteredItems.filter(it =>
+      filteredItems = filteredItems.filter((it) =>
         (it.category || '').toString().toLowerCase().includes(selectedCategory.toLowerCase())
       );
     }
@@ -274,7 +258,7 @@ export default function AvailableItems() {
 
     if (globalSearchQuery.trim()) {
       const searchLower = globalSearchQuery.toLowerCase();
-      filteredItems = filteredItems.filter(it =>
+      filteredItems = filteredItems.filter((it) =>
         it.name?.toLowerCase().includes(searchLower)
       );
     }
@@ -282,51 +266,19 @@ export default function AvailableItems() {
     return (
       <PageLayout>
         <div className="min-h-screen bg-surface dark:bg-[#171717] transition-colors duration-300 scroll-smooth">
-          {/* Header - Mobile Optimized */}
-          <div className="px-3 sm:px-6 md:px-8 lg:px-12 pt-4 sm:pt-8 pb-3 sm:pb-6">
-            <h1 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold text-on-surface dark:text-white mb-1 sm:mb-2">
-              Available Items
-            </h1>
-            <p className="text-xs sm:text-sm text-on-surface-variant dark:text-gray-400">
-              Take what you need and preserve the spirit.
-            </p>
-          </div>
+          <div className="px-4 sm:px-6 lg:px-8 pt-4 pb-6">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
+              <div className="text-sm text-on-surface-variant dark:text-gray-400">
+                Filter by category
+              </div>
 
-          <div className="px-3 sm:px-6 md:px-8 lg:px-12 space-y-3 sm:space-y-4">
-            {/* Filters - Mobile Optimized */}
-            <div className="flex gap-2 flex-wrap items-center overflow-x-auto pb-1">
-              {GROUP_TABS.map((grp) => (
-                <button
-                  key={grp}
-                  onClick={() => setSelectedGroup(grp)}
-                  className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-medium transition-all flex-shrink-0 ${
-                    selectedGroup === grp
-                      ? 'bg-primary text-on-primary shadow-sm'
-                      : 'bg-surface-container-low text-on-surface border border-outline-variant/30 hover:bg-surface-container-high'
-                  }`}
-                >
-                  {grp}
-                </button>
-              ))}
-
-              <div className="ml-auto flex-shrink-0 flex gap-2">
-                <select
-                  value={selectedDivision}
-                  onChange={(e) => setSelectedDivision(e.target.value)}
-                  className="px-2 sm:px-4 py-1.5 sm:py-2 bg-surface-container-low dark:bg-[#222] border border-outline-variant/30 dark:border-gray-700 rounded-lg text-xs sm:text-sm font-medium text-on-surface dark:text-white dark:placeholder-gray-400 focus:ring-2 focus:ring-primary dark:focus:ring-blue-400 focus:border-transparent"
-                >
-                  <option value="All">All Divisions</option>
-                  {divisions.map((division) => (
-                    <option key={division.id} value={division.name}>{division.name}</option>
-                  ))}
-                </select>
-
+              <div className="flex items-center gap-2">
                 <select
                   value={selectedCategory || 'all'}
                   onChange={(e) => setSelectedCategory(e.target.value === 'all' ? null : e.target.value)}
-                  className="px-2 sm:px-4 py-1.5 sm:py-2 bg-surface-container-low dark:bg-[#222] border border-outline-variant/30 dark:border-gray-700 rounded-lg text-xs sm:text-sm font-medium text-on-surface dark:text-white dark:placeholder-gray-400 focus:ring-2 focus:ring-primary dark:focus:ring-blue-400 focus:border-transparent"
+                  className="px-3 py-2 bg-surface-container-low dark:bg-[#222] border border-outline-variant/30 dark:border-gray-700 rounded-lg text-sm font-medium text-on-surface dark:text-white focus:ring-2 focus:ring-primary dark:focus:ring-blue-400 focus:border-transparent"
                 >
-                  <option value="all">All</option>
+                  <option value="all">All Categories</option>
                   <option value="costume">Costume</option>
                   <option value="instrument">Instrument</option>
                   <option value="accessories">Accessories</option>
@@ -334,7 +286,6 @@ export default function AvailableItems() {
               </div>
             </div>
 
-            {/* Items Grid - Mobile Optimized */}
             {filteredItems.length === 0 ? (
               <div className="py-8 sm:py-16 text-center">
                 <Package className="w-8 sm:w-12 h-8 sm:h-12 text-on-surface-variant/30 dark:text-gray-500/30 mx-auto mb-2 sm:mb-4" />
@@ -725,16 +676,6 @@ export default function AvailableItems() {
   return (
     <PageLayout>
       <div className="min-h-screen bg-surface dark:bg-[#171717] transition-colors duration-300 scroll-smooth">
-        {/* Header - Mobile Optimized */}
-        <div className="px-3 sm:px-6 md:px-8 lg:px-12 pt-4 sm:pt-8 pb-3 sm:pb-6">
-          <h1 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold text-on-surface dark:text-white mb-1 sm:mb-2">
-            Find what you need
-          </h1>
-          <p className="text-xs sm:text-sm text-on-surface-variant dark:text-gray-400">
-            Browse and borrow items easily
-          </p>
-        </div>
-
         <div className="px-3 sm:px-6 md:px-8 lg:px-12 space-y-3 sm:space-y-4 pb-6 sm:pb-8">
           {/* Filters - Mobile Optimized */}
           <div className="flex gap-2 flex-wrap items-center overflow-x-auto pb-1">

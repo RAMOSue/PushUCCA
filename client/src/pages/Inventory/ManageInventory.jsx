@@ -135,8 +135,14 @@ export default function ManageInventory() {
   const [filterCategory, setFilterCategory] = useState(null);
   const [formPanelOpen, setFormPanelOpen] = useState(false);
   const [expandedItems, setExpandedItems] = useState({});
+  const [activeItemId, setActiveItemId] = useState(null);
   const [divisions, setDivisions] = useState([]);
   const [divisionLoading, setDivisionLoading] = useState(false);
+
+  const activeItem = useMemo(
+    () => items.find((item) => (item.uuid || item.id) === activeItemId),
+    [activeItemId, items]
+  );
 
   /* ------------------------------------------------------------ */
   const rebuildIndigenousAndDanceMaps = useCallback((data) => {
@@ -243,6 +249,17 @@ export default function ManageInventory() {
     });
   }, [items, selectedDivision, filterCategory, globalSearchQuery]);
 
+  useEffect(() => {
+    if (filteredItems.length === 0) {
+      setActiveItemId(null);
+      return;
+    }
+
+    const selectedIds = filteredItems.map((item) => item.uuid || item.id);
+    if (!selectedIds.includes(activeItemId)) {
+      setActiveItemId(selectedIds[0]);
+    }
+  }, [filteredItems, activeItemId]);
 
   const upsertIndigenousGroup = (gRaw) => {
     const g = gRaw?.trim();
@@ -652,32 +669,22 @@ export default function ManageInventory() {
     <PageLayout>
       <div className="dark:bg-[#171717]">
         {/* Header Section */}
-        <div className="px-6 md:px-8 lg:px-12 pt-8 pb-6">
-          <h1 className="text-3xl md:text-4xl font-bold text-on-surface dark:text-white mb-2">Manage Inventory</h1>
-          <p className="text-on-surface-variant dark:text-gray-400 text-sm"> You’re doing a great job keeping everything organized!</p>
-        </div>
-
-        {/* Main Content Area */}
-        <div className="px-6 md:px-8 lg:px-12 space-y-4 pb-8">
-          <div className="flex items-center gap-3">
-            {/* Filters (center) */}
-            <div className="flex gap-2 flex-wrap items-center">
-              <div>
-                <select
-                  value={filterCategory || 'all'}
-                  onChange={(e) => setFilterCategory(e.target.value === 'all' ? null : e.target.value)}
-                  className="px-4 py-2 bg-surface-container-low dark:bg-[#222] border border-outline-variant/30 dark:border-gray-700 rounded-lg text-sm font-medium text-on-surface dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent dark:focus:border-transparent"
-                >
-                  <option value="all">All</option>
-                  <option value="costume">Costume</option>
-                  <option value="instrument">Instrument</option>
-                  <option value="accessories">Accessories</option>
-                </select>
-              </div>
+        <div className="px-6 md:px-8 lg:px-12 pt-6 pb-4">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="text-sm text-on-surface-variant dark:text-gray-400">
+              Inventory list with global search and division filters applied.
             </div>
-
-            {/* Add New Item (right) */}
-            <div className="ml-auto">
+            <div className="flex items-center gap-3">
+              <select
+                value={filterCategory || 'all'}
+                onChange={(e) => setFilterCategory(e.target.value === 'all' ? null : e.target.value)}
+                className="px-4 py-2 bg-surface-container-low dark:bg-[#222] border border-outline-variant/30 dark:border-gray-700 rounded-lg text-sm font-medium text-on-surface dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent dark:focus:border-transparent"
+              >
+                <option value="all">All</option>
+                <option value="costume">Costume</option>
+                <option value="instrument">Instrument</option>
+                <option value="accessories">Accessories</option>
+              </select>
               <button
                 onClick={() => {
                   setNewItem(buildEmptyItem(selectedGroup));
@@ -692,38 +699,47 @@ export default function ManageInventory() {
               </button>
             </div>
           </div>
+        </div>
 
-          {/* Inventory List - Row Layout */}
-          <div className="max-w-5xl mx-auto">
-            {filteredItems.length === 0 ? (
-              <div className="py-16 text-center">
-                <Package className="w-12 h-12 text-on-surface-variant/30 dark:text-gray-700 mx-auto mb-4" />
-                <p className="text-on-surface-variant dark:text-gray-400">
-                  {globalSearchQuery ? "No items match your search" : "No items found"}
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {filteredItems.map((item) => {
-                  const isExpanded = expandedItems[item.uuid];
-                  const itemImage = item.image_url?.startsWith('http') ? item.image_url : item.image_url ? `${import.meta.env.VITE_API_URL || window.location.origin}${item.image_url}` : null;
-                  const totalQty = item.category === "costume" && item.garment_type?.toLowerCase() !== "accessory"
-                    ? (item.qty_small || 0) + (item.qty_medium || 0) + (item.qty_large || 0)
-                    : item.quantity || 0;
-                  const status = (item.units?.length || 0) > 0 ? "In Stock" : "Out";
+        {/* Main Content Area */}
+        <div className="px-6 md:px-8 lg:px-12 pb-8">
+          <div className="grid gap-6 xl:grid-cols-[38%_62%]">
+            <div className="space-y-4">
+              {filteredItems.length === 0 ? (
+                <div className="py-16 text-center rounded-3xl border border-outline-variant/20 dark:border-gray-700 bg-surface-container-low dark:bg-[#1a1a1a]">
+                  <Package className="w-12 h-12 text-on-surface-variant/30 dark:text-gray-700 mx-auto mb-4" />
+                  <p className="text-on-surface-variant dark:text-gray-400">
+                    {globalSearchQuery ? "No items match your search" : "No items found"}
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {filteredItems.map((item) => {
+                    const isExpanded = expandedItems[item.uuid];
+                    const itemKey = item.uuid || item.id;
+                    const itemImage = item.image_url?.startsWith('http') ? item.image_url : item.image_url ? `${import.meta.env.VITE_API_URL || window.location.origin}${item.image_url}` : null;
+                    const totalQty = item.category === "costume" && item.garment_type?.toLowerCase() !== "accessory"
+                      ? (item.qty_small || 0) + (item.qty_medium || 0) + (item.qty_large || 0)
+                      : item.quantity || 0;
+                    const status = (item.units?.length || 0) > 0 ? "In Stock" : "Out";
+                    const isActiveRow = activeItemId === itemKey;
 
-                  return (
-                    <div
-                      key={item.uuid}
-                      className="bg-surface-container-low dark:bg-[#1a1a1a] rounded-lg border border-outline-variant/20 dark:border-gray-700 shadow-sm hover:shadow-md dark:hover:shadow-black/40 overflow-hidden transition-all duration-200"
-                    >
+                    return (
+                      <div
+                        key={itemKey}
+                        className={`rounded-lg border border-outline-variant/20 dark:border-gray-700 shadow-sm transition-all duration-200 overflow-hidden ${isActiveRow ? 'bg-surface-container-high dark:bg-[#222] border-primary/20 dark:border-blue-400/30' : 'bg-surface-container-low dark:bg-[#1a1a1a] hover:shadow-md dark:hover:shadow-black/40'}`}
+                      >
                       {/* Row Header - Clickable */}
                       <button
-                        onClick={() => setExpandedItems({
-                          ...expandedItems,
-                          [item.uuid]: !isExpanded
-                        })}
-                        className="w-full px-3 py-2 flex items-center gap-2 hover:bg-surface-container-high dark:hover:bg-[#222] transition-colors text-left"
+                        onClick={() => {
+                          const itemKey = item.uuid || item.id;
+                          setActiveItemId(itemKey);
+                          setExpandedItems({
+                            ...expandedItems,
+                            [itemKey]: !isExpanded
+                          });
+                        }}
+                        className={`w-full px-3 py-2 flex items-center gap-2 transition-colors text-left ${activeItemId === (item.uuid || item.id) ? 'bg-surface-container-high dark:bg-[#222]' : 'hover:bg-surface-container-high dark:hover:bg-[#222]'}`}
                       >
                         {/* Item Thumbnail */}
                         <div className="flex-shrink-0 w-10 h-10 rounded-lg overflow-hidden border border-primary/30 dark:border-blue-500/30 bg-surface-container-high dark:bg-[#222]">
@@ -870,7 +886,118 @@ export default function ManageInventory() {
               </div>
             )}
           </div>
+
+          <div className="space-y-4">
+            <div className="rounded-3xl border border-outline-variant/20 dark:border-gray-700 bg-surface-container-low dark:bg-[#1a1a1a] p-6 min-h-[420px]">
+              {activeItem ? (
+                <div className="space-y-6">
+                  <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
+                    <div className="w-full lg:w-44 h-44 rounded-3xl overflow-hidden bg-surface-container-high dark:bg-[#222] border border-outline-variant/20 dark:border-gray-700">
+                      {activeItem.image_url ? (
+                        <img
+                          src={activeItem.image_url?.startsWith('http') ? activeItem.image_url : `${import.meta.env.VITE_API_URL || window.location.origin}${activeItem.image_url}`}
+                          alt={activeItem.name}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-on-surface-variant dark:text-gray-400">
+                          <Package className="w-10 h-10" />
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[10px] uppercase tracking-[0.22em] text-on-surface-variant mb-2">Selected item</p>
+                      <h2 className="text-xl font-bold text-on-surface dark:text-white mb-2 line-clamp-2">{activeItem.name}</h2>
+                      <p className="text-sm text-on-surface-variant dark:text-gray-400 mb-3">{activeItem.category?.charAt(0).toUpperCase() + activeItem.category?.slice(1) || 'Item'}</p>
+                      <div className="flex flex-wrap gap-2">
+                        {getInventoryDivisionInfo(activeItem)?.division_name ? (
+                          <span className="inline-flex items-center rounded-full border border-primary/20 bg-primary/10 px-2 py-1 text-[10px] font-medium text-primary dark:border-blue-400/20 dark:bg-blue-500/10 dark:text-blue-300">
+                            {getInventoryDivisionInfo(activeItem).division_name}
+                          </span>
+                        ) : null}
+                        <span className={`inline-flex items-center rounded-full px-2 py-1 text-[10px] font-medium ${activeItem.units?.length ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' : 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300'}`}>
+                          {activeItem.units?.length ? 'In Stock' : 'Out of stock'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4 text-sm text-on-surface dark:text-white">
+                    <div>
+                      <p className="text-[10px] uppercase tracking-[0.2em] text-on-surface-variant mb-2">Quantity</p>
+                      <p className="font-semibold">{activeItem.quantity ?? costumeTotal(activeItem) ?? 0}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] uppercase tracking-[0.2em] text-on-surface-variant mb-2">Garment Type</p>
+                      <p className="font-semibold">{activeItem.garment_type || '—'}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] uppercase tracking-[0.2em] text-on-surface-variant mb-2">Region</p>
+                      <p className="font-semibold">{activeItem.region || '—'}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] uppercase tracking-[0.2em] text-on-surface-variant mb-2">Gender</p>
+                      <p className="font-semibold">{activeItem.gender || '—'}</p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3 text-sm text-on-surface dark:text-white">
+                    {activeItem.description && (
+                      <div>
+                        <p className="text-[10px] uppercase tracking-[0.18em] text-on-surface-variant mb-2">Notes</p>
+                        <p>{activeItem.description}</p>
+                      </div>
+                    )}
+                    {activeItem.instrument_classification && (
+                      <div>
+                        <p className="text-[10px] uppercase tracking-[0.18em] text-on-surface-variant mb-2">Classification</p>
+                        <p>{activeItem.instrument_classification}</p>
+                      </div>
+                    )}
+                    {activeItem.instrument_type && (
+                      <div>
+                        <p className="text-[10px] uppercase tracking-[0.18em] text-on-surface-variant mb-2">Instrument Type</p>
+                        <p>{activeItem.instrument_type}</p>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex flex-wrap gap-3 pt-4 border-t border-outline-variant/20 dark:border-gray-700">
+                    <button
+                      onClick={() => handleEdit(activeItem)}
+                      className="px-4 py-2 rounded-lg bg-primary text-white text-sm font-semibold hover:bg-primary-container transition"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => {
+                        setSelectedItemForQR(activeItem);
+                        setUnitModalOpen(true);
+                      }}
+                      className="px-4 py-2 rounded-lg border border-outline-variant/30 dark:border-gray-700 text-sm font-semibold text-on-surface hover:bg-surface-container-high dark:hover:bg-[#222] transition"
+                    >
+                      View QR Codes
+                    </button>
+                    <button
+                      onClick={() => handleDelete(activeItem.uuid)}
+                      className="px-4 py-2 rounded-lg bg-error/10 dark:bg-red-900/30 text-error dark:text-red-400 text-sm font-semibold hover:bg-error/20 dark:hover:bg-red-900/50 transition"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="h-full flex flex-col items-center justify-center text-center text-on-surface-variant dark:text-gray-400">
+                  <Package className="w-12 h-12 mb-3" />
+                  <p className="text-sm font-semibold mb-2">Select an item to view details</p>
+                  <p className="text-xs">Use the list on the left to inspect inventory details and actions.</p>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
+      </div>
 
         {/* Right Sidebar Form Panel */}
         {formPanelOpen && (
