@@ -3,6 +3,7 @@ import axios from 'axios';
 import toast from 'react-hot-toast';
 import PageLayout from '../../components/layout/PageLayout';
 import { UserContext } from '../../../context/userContext';
+import { useSidebarStore } from '../../../context/sidebarStore';
 import { motion } from 'framer-motion';
 import { Plus, Edit2, Trash2, Image as ImgIcon, Pin, Search, MoreVertical } from 'lucide-react';
 
@@ -13,15 +14,13 @@ function Badge({ children, color = 'gray' }) {
 
 export default function Announcements() {
   const { user } = useContext(UserContext);
+  const { selectedDivision, setSelectedDivision } = useSidebarStore();
   const [loading, setLoading] = useState(false);
   const [items, setItems] = useState([]);
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [priorityFilter, setPriorityFilter] = useState('all');
-  const [activeDivision, setActiveDivision] = useState(() => {
-    if (typeof window === 'undefined') return 'All';
-    return localStorage.getItem('announcementsActiveDivision') || 'All';
-  });
+  const activeDivision = selectedDivision || 'All';
   const [divisions, setDivisions] = useState([]);
   const [openMenuId, setOpenMenuId] = useState(null);
   const [processingId, setProcessingId] = useState(null);
@@ -63,10 +62,6 @@ export default function Announcements() {
     fetchAnnouncements();
     fetchDivisions();
   }, []);
-
-  useEffect(() => {
-    localStorage.setItem('announcementsActiveDivision', activeDivision);
-  }, [activeDivision]);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -221,7 +216,7 @@ export default function Announcements() {
               <button
                 key={tab}
                 type="button"
-                onClick={() => setActiveDivision(tab)}
+                onClick={() => setSelectedDivision(tab)}
                 className={`rounded-full px-4 py-2 text-sm font-semibold transition-all duration-300 ${isActive ? 'bg-primary text-white shadow-sm dark:bg-blue-600' : 'text-on-surface-variant hover:bg-surface-container-high dark:text-gray-300 dark:hover:bg-[#2a2a2a]'}`}
               >
                 {tab}

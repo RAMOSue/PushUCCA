@@ -1,6 +1,7 @@
 import { useEffect, useState, useContext, useMemo } from "react";
 import axios from "axios";
 import toast from "react-hot-toast";
+import { useSidebarStore } from "../../../context/sidebarStore";
 import {
   Users,
   User,
@@ -46,10 +47,10 @@ function isOfficerPosition(positionName) {
 
 export default function BorrowerProfiles() {
   const { user } = useContext(UserContext);
+  const { selectedDivision, setSelectedDivision } = useSidebarStore();
   const [profiles, setProfiles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedDivision, setSelectedDivision] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("ALL");
   const [selectedBorrowerId, setSelectedBorrowerId] = useState(null);
   const [positions, setPositions] = useState([]);

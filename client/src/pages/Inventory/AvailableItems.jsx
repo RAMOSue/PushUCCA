@@ -8,6 +8,7 @@ import PageLayout from '../../components/layout/PageLayout.jsx';
 import AddToCartModal from '../../components/modals/AddToCartModal.jsx';
 import { UserContext } from '../../../context/userContext.jsx';
 import { BorrowingContext } from '../../../context/borrowingContext.jsx';
+import { useSidebarStore } from '../../../context/sidebarStore.js';
 import { getInventoryDivisionInfo } from '../../utils/inventoryDivisionStorage.js';
 
 export default function AvailableItems() {
@@ -15,7 +16,7 @@ export default function AvailableItems() {
   const [loadingItems, setLoadingItems] = useState(true);
   const [selectedItem, setSelectedItem] = useState(null);
   const [selectedCategory, setSelectedCategory] = useState(null);
-  const [selectedDivision, setSelectedDivision] = useState(null);
+  const { selectedDivision, setSelectedDivision } = useSidebarStore();
   const [selectedGroup, setSelectedGroup] = useState("Dulimbay");
   const [divisions, setDivisions] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -272,10 +273,12 @@ export default function AvailableItems() {
       );
     }
 
-    if (selectedDivision) {
+    const activeDivisionFilter = selectedDivision === 'All' ? null : selectedDivision;
+
+    if (activeDivisionFilter) {
       filteredItems = filteredItems.filter((it) => {
         const divisionInfo = getInventoryDivisionInfo(it);
-        const selectedDivisionName = String(selectedDivision).trim().toLowerCase();
+        const selectedDivisionName = String(activeDivisionFilter).trim().toLowerCase();
         const itemDivisionName = (divisionInfo?.division_name || it.division_name || '').toString().trim().toLowerCase();
         return itemDivisionName === selectedDivisionName;
       });
@@ -340,11 +343,11 @@ export default function AvailableItems() {
 
               <div className="ml-auto flex-shrink-0 flex gap-2">
                 <select
-                  value={selectedDivision || 'all'}
-                  onChange={(e) => setSelectedDivision(e.target.value === 'all' ? null : e.target.value)}
+                  value={selectedDivision}
+                  onChange={(e) => setSelectedDivision(e.target.value)}
                   className="px-2 sm:px-4 py-1.5 sm:py-2 bg-surface-container-low dark:bg-[#222] border border-outline-variant/30 dark:border-gray-700 rounded-lg text-xs sm:text-sm font-medium text-on-surface dark:text-white dark:placeholder-gray-400 focus:ring-2 focus:ring-primary dark:focus:ring-blue-400 focus:border-transparent"
                 >
-                  <option value="all">All Divisions</option>
+                  <option value="All">All Divisions</option>
                   {divisions.map((division) => (
                     <option key={division.id} value={division.name}>{division.name}</option>
                   ))}
