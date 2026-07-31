@@ -198,15 +198,15 @@ export default function RightNavbar() {
   };
 
   const scannerButtons = (
-    <div className={`flex flex-1 flex-col items-center justify-center gap-3 px-2 transition-all duration-300 ease-in-out ${rightSidebarOpen ? "pointer-events-none opacity-0" : "opacity-100"}`}>
+    <div className={`flex flex-1 flex-col items-center gap-2 px-2 pt-3 transition-all duration-300 ease-in-out ${rightSidebarOpen ? "pointer-events-none opacity-0" : "opacity-100"}`}>
       <button
         type="button"
         title="QR Scanner"
         aria-label="QR Scanner"
         onClick={handleQRScannerClick}
-        className="group flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-lg transition-all duration-300 ease-in-out hover:scale-105 hover:from-blue-600 hover:to-blue-700 active:scale-95"
+        className="group flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 bg-white/90 text-slate-700 shadow-sm transition-all duration-200 ease-in-out hover:bg-slate-100 hover:text-slate-900 active:scale-95 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 dark:hover:text-white"
       >
-        <QrCode className="h-5 w-5 transition-transform duration-200 ease-in-out group-hover:scale-110" />
+        <QrCode className="h-4 w-4 transition-transform duration-200 ease-in-out group-hover:scale-110" />
       </button>
 
       <button
@@ -214,9 +214,9 @@ export default function RightNavbar() {
         title="AI Scanner"
         aria-label="AI Scanner"
         onClick={handleInstrumentScannerClick}
-        className="group flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-br from-purple-500 to-purple-600 text-white shadow-lg transition-all duration-300 ease-in-out hover:scale-105 hover:from-purple-600 hover:to-purple-700 active:scale-95"
+        className="group flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 bg-white/90 text-slate-700 shadow-sm transition-all duration-200 ease-in-out hover:bg-slate-100 hover:text-slate-900 active:scale-95 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 dark:hover:text-white"
       >
-        <Camera className="h-5 w-5 transition-transform duration-200 ease-in-out group-hover:scale-110" />
+        <Camera className="h-4 w-4 transition-transform duration-200 ease-in-out group-hover:scale-110" />
       </button>
     </div>
   );
@@ -322,41 +322,11 @@ export default function RightNavbar() {
             </div>
           ) : (
             <div className="flex min-h-0 flex-1 flex-col transition-all duration-300 ease-in-out">
-              <div className="sticky top-0 z-10 mb-4 mt-1 border-b border-outline-variant/10 bg-surface-container-low p-4 dark:border-[#2a2a2a] dark:bg-[#1f1f1f] transition-colors duration-300">
-                <div className="text-center">
-                  <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant dark:text-gray-400">
-                    Current Time
-                  </p>
-                  <p className="text-3xl font-mono font-bold text-on-surface dark:text-white">{formattedTime}</p>
-                  <p className="mt-1 text-xs text-on-surface-variant dark:text-gray-400">{formattedDate}</p>
-                </div>
+              <div className="sticky top-0 z-10 mb-3 mt-1 flex h-12 items-center justify-center border-b border-outline-variant/10 bg-surface-container-low px-3 dark:border-[#2a2a2a] dark:bg-[#1f1f1f] transition-colors duration-300">
+                <p className="text-base font-semibold tracking-wide text-on-surface dark:text-white">{formattedTime}</p>
               </div>
 
               <div className="flex-1 space-y-3 overflow-y-auto p-4">
-                {(user?.role === "staff" || user?.role === "admin") && (
-                  <button
-                    onClick={() => navigate("/staff/manage-requests")}
-                    className="w-full rounded-lg border border-orange/20 bg-orange/10 p-4 text-left transition-all duration-300 hover:border-orange/40 hover:bg-orange/20 dark:border-orange/20 dark:bg-orange/5 dark:hover:bg-orange/10 group"
-                  >
-                    <div className="mb-2 flex items-center justify-between">
-                      <p className="text-[9px] font-bold uppercase tracking-widest text-on-surface-variant transition-colors group-hover:text-orange dark:text-gray-400">
-                        Pending Requests
-                      </p>
-                      <div>
-                        {loading ? (
-                          <Loader className="h-4 w-4 animate-spin text-orange" />
-                        ) : (
-                          <Clock className="h-4 w-4 text-orange transition-transform group-hover:scale-110" />
-                        )}
-                      </div>
-                    </div>
-                    <p className="text-3xl font-serif font-bold text-orange">{pendingApproval}</p>
-                    <p className="mt-1 text-[11px] text-on-surface-variant transition-colors group-hover:text-orange/70 dark:text-gray-400">
-                      Borrow requests awaiting approval
-                    </p>
-                  </button>
-                )}
-
                 <div className="flex min-h-0 flex-1 flex-col border-t border-outline-variant/10 pt-3 dark:border-[#2a2a2a]">
                   <h3 className="mb-2 text-xs font-bold uppercase tracking-widest text-on-surface dark:text-white">Event Calendar</h3>
                   <div className="calendar-wrapper flex flex-1 flex-col overflow-hidden rounded border border-outline-variant/10 bg-surface-container-lowest p-2 dark:border-[#3a3a3a] dark:bg-[#2a2a2a] transition-colors duration-300">
@@ -408,7 +378,7 @@ export default function RightNavbar() {
                 <div className="border-t border-outline-variant/10 pt-2 transition-colors duration-300 dark:border-[#2a2a2a]">
                   <h3 className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-on-surface dark:text-white">
                     <Music className="h-3 w-3 text-primary dark:text-blue-400" />
-                    Upcoming Events
+                    Performances
                   </h3>
 
                   {upcomingEvents.length === 0 ? (
