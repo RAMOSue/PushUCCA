@@ -1,18 +1,57 @@
-import { useEffect, useState, useContext } from "react";
+import { useEffect, useState, useContext, useMemo } from "react";
 import axios from "axios";
 import toast from "react-hot-toast";
-import { Users, User, Mail, BadgeCheck, Download, Printer, FileText, X, ChevronLeft, ChevronRight, Camera, Search, Building } from "lucide-react";
+import {
+  Users,
+  User,
+  Download,
+  Printer,
+  Search,
+  Building,
+  Mail,
+  BadgeCheck,
+  Camera,
+  FileText,
+} from "lucide-react";
 import { UserContext } from "../../../context/userContext";
 import PageLayout from "../../components/layout/PageLayout";
+
+const OFFICER_TITLES = [
+  "president",
+  "vice president",
+  "secretary",
+  "treasurer",
+  "auditor",
+  "pro",
+  "public relations officer",
+  "public relations",
+  "committee chair",
+  "chairperson",
+  "chair",
+  "lead",
+  "manager",
+  "officer",
+];
+
+function normalizeTitle(title) {
+  return String(title || "").trim().toLowerCase();
+}
+
+function isOfficerPosition(positionName) {
+  const normalized = normalizeTitle(positionName);
+  if (!normalized) return false;
+
+  return OFFICER_TITLES.some((title) => normalized.includes(title));
+}
 
 export default function BorrowerProfiles() {
   const { user } = useContext(UserContext);
   const [profiles, setProfiles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
-  const [expandedProfiles, setExpandedProfiles] = useState({});
-  const [selectedDivision, setSelectedDivision] = useState("ALL");
+  const [selectedDivision, setSelectedDivision] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("ALL");
+  const [selectedBorrowerId, setSelectedBorrowerId] = useState(null);
   const [positions, setPositions] = useState([]);
   const [positionsLoading, setPositionsLoading] = useState(true);
   const [positionsError, setPositionsError] = useState(null);
@@ -24,67 +63,133 @@ export default function BorrowerProfiles() {
         const { data } = await axios.get("/api/profiles/all", {
           withCredentials: true,
         });
-        setProfiles(data);
-        setLoading(false);
+        setProfiles(Array.isArray(data) ? data : []);
       } catch (err) {
         console.error("Error fetching profiles:", err);
+        setProfiles([]);
+      } finally {
         setLoading(false);
       }
     };
+
     fetchProfiles();
   }, []);
 
-  // Fetch master list positions for dropdown
   useEffect(() => {
     const fetchPositions = async () => {
       try {
         setPositionsLoading(true);
         const { data } = await axios.get("/api/master-list/positions", { withCredentials: true });
         setPositions(Array.isArray(data) ? data : []);
-        setPositionsLoading(false);
       } catch (err) {
         console.error("Error fetching positions:", err);
         setPositionsError(err?.message || "Failed to load positions");
+        setPositions([]);
+      } finally {
         setPositionsLoading(false);
       }
     };
+
     fetchPositions();
   }, []);
 
+  const divisions = useMemo(() => {
+    return [...new Set(profiles.filter((p) => p.role !== "admin" && p.department_name).map((p) => p.department_name))].sort();
+  }, [profiles]);
+
+  useEffect(() => {
+    if (!divisions.length) {
+      setSelectedDivision("");
+      setSelectedBorrowerId(null);
+      return;
+    }
+
+    if (!selectedDivision || !divisions.includes(selectedDivision)) {
+      setSelectedDivision(divisions[0]);
+    }
+  }, [divisions, selectedDivision]);
+
+  const getCompletionStatus = (profile) => {
+    const hasPhoto = !!profile.profile_pic_url;
+    const hasIDFront = !!profile.id_front_url;
+    const hasBirthCert = !!profile.birth_certificate_url;
+    const completed = hasPhoto && hasIDFront && hasBirthCert;
+
+    if (completed) return "COMPLETE";
+    if (hasPhoto && hasIDFront) return "MISSING_DOCS";
+    if (hasPhoto) return "PARTIAL";
+    return "NO_PHOTO";
+  };
+
+  const filteredProfiles = useMemo(() => {
+    const lowerQuery = searchQuery.trim().toLowerCase();
+
+    return profiles.filter((profile) => {
+      if (profile.role === "admin") return false;
+      if (selectedDivision && profile.department_name !== selectedDivision) return false;
+
+      const matchesSearch =
+        !lowerQuery ||
+        (profile.name && profile.name.toLowerCase().includes(lowerQuery)) ||
+        (profile.email && profile.email.toLowerCase().includes(lowerQuery)) ||
+        (profile.department_name && profile.department_name.toLowerCase().includes(lowerQuery)) ||
+        (profile.position_name && profile.position_name.toLowerCase().includes(lowerQuery));
+
+      if (!matchesSearch) return false;
+
+      return selectedStatus === "ALL" ? true : getCompletionStatus(profile) === selectedStatus;
+    });
+  }, [profiles, searchQuery, selectedDivision, selectedStatus]);
+
+  const groupedProfiles = useMemo(() => {
+    const officers = filteredProfiles.filter((profile) => isOfficerPosition(profile.position_name));
+    const members = filteredProfiles.filter((profile) => !isOfficerPosition(profile.position_name));
+
+    return { officers, members };
+  }, [filteredProfiles]);
+
+  useEffect(() => {
+    if (!filteredProfiles.length) {
+      setSelectedBorrowerId(null);
+      return;
+    }
+
+    if (!selectedBorrowerId || !filteredProfiles.some((profile) => profile.id === selectedBorrowerId)) {
+      setSelectedBorrowerId(filteredProfiles[0].id);
+    }
+  }, [filteredProfiles, selectedBorrowerId]);
+
+  const selectedBorrower = profiles.find((profile) => profile.id === selectedBorrowerId) || null;
+
+  const statusCounts = {
+    COMPLETE: filteredProfiles.filter((profile) => getCompletionStatus(profile) === "COMPLETE").length,
+    MISSING_DOCS: filteredProfiles.filter((profile) => getCompletionStatus(profile) === "MISSING_DOCS").length,
+    PARTIAL: filteredProfiles.filter((profile) => getCompletionStatus(profile) === "PARTIAL").length,
+    NO_PHOTO: filteredProfiles.filter((profile) => getCompletionStatus(profile) === "NO_PHOTO").length,
+  };
+
   const handlePositionChange = async (borrowerId, value) => {
     try {
-      // allow clearing by sending null
       const payload = { position_id: value === "" ? null : Number(value) };
       const { data } = await axios.patch(`/api/profiles/${borrowerId}`, payload, { withCredentials: true });
-      // Update local profiles state with returned profile
+
       if (data && data.profile) {
-        setProfiles((prev) => prev.map((p) => (p.id === borrowerId ? { ...p, position_id: data.profile.position_id, position_name: data.profile.position_name } : p)));
-        toast.success("Position updated");
-      } else {
-        toast.success("Position updated");
+        setProfiles((prev) =>
+          prev.map((profile) =>
+            profile.id === borrowerId
+              ? { ...profile, position_id: data.profile.position_id, position_name: data.profile.position_name }
+              : profile
+          )
+        );
       }
+
+      toast.success("Position updated");
     } catch (err) {
       console.error("Error updating position:", err);
       toast.error("Failed to update position");
     }
   };
 
-  if (loading) {
-    return (
-      <PageLayout>
-        <div className="bg-surface dark:bg-[#171717] min-h-screen flex items-center justify-center px-4">
-          <div className="text-center">
-            <Users className="w-12 h-12 text-primary dark:text-blue-400 mx-auto mb-3 animate-pulse" />
-            <p className="text-on-surface-variant dark:text-gray-400 text-sm">Loading profiles...</p>
-          </div>
-        </div>
-      </PageLayout>
-    );
-  }
-
-  if (!user) return <p className="text-center mt-6 text-gray-600">Loading user info...</p>;
-
-  // ✅ Enhanced Download Function
   const handleDownload = async (url, borrowerName = "Borrower", docType = "Document") => {
     try {
       if (!url) throw new Error("No file URL provided");
@@ -106,11 +211,9 @@ export default function BorrowerProfiles() {
 
       const blob = await response.blob();
       const downloadUrl = window.URL.createObjectURL(blob);
-
       const a = document.createElement("a");
       a.href = downloadUrl;
 
-      // Format borrower name for filename
       const safeName = borrowerName.replace(/\s+/g, "-");
       const ext = url.split(".").pop().split("?")[0];
       const fileName = `${safeName}_${docType}.${ext}`;
@@ -119,7 +222,6 @@ export default function BorrowerProfiles() {
       document.body.appendChild(a);
       a.click();
       a.remove();
-
       window.URL.revokeObjectURL(downloadUrl);
     } catch (err) {
       console.error("❌ Error downloading file:", err);
@@ -127,7 +229,6 @@ export default function BorrowerProfiles() {
     }
   };
 
-  // ✅ Print Image
   const handlePrint = (url) => {
     const win = window.open("");
     win.document.write(
@@ -138,64 +239,33 @@ export default function BorrowerProfiles() {
     win.print();
   };
 
-  // Calculate stats (kept for potential future use)
-  const totalBorrowers = profiles.length;
-  const profilesWithPictures = profiles.filter(p => p.profile_pic_url).length;
-  const profilesComplete = profiles.filter(p => p.profile_pic_url && p.id_front_url && p.birth_certificate_url).length;
+  if (loading) {
+    return (
+      <PageLayout>
+        <div className="bg-surface dark:bg-[#171717] min-h-screen flex items-center justify-center px-4">
+          <div className="text-center">
+            <Users className="w-12 h-12 text-primary dark:text-blue-400 mx-auto mb-3 animate-pulse" />
+            <p className="text-on-surface-variant dark:text-gray-400 text-sm">Loading profiles...</p>
+          </div>
+        </div>
+      </PageLayout>
+    );
+  }
 
-  // Filter profiles based on search query and division
-  const filteredProfiles = profiles.filter(p => {
-    const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (p.email && p.email.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      (p.department_name && p.department_name.toLowerCase().includes(searchQuery.toLowerCase()));
-    const matchesDivision = selectedDivision === "ALL" || p.department_name === selectedDivision;
-    return matchesSearch && matchesDivision;
-  });
-
-  // Organize into sections by completion status
-  const getCompletionStatus = (profile) => {
-    const hasPhoto = !!profile.profile_pic_url;
-    const hasIDFront = !!profile.id_front_url;
-    const hasBirthCert = !!profile.birth_certificate_url;
-    const completed = hasPhoto && hasIDFront && hasBirthCert;
-
-    if (completed) return "COMPLETE";
-    if (hasPhoto && hasIDFront) return "MISSING_DOCS";
-    if (hasPhoto) return "PARTIAL";
-    return "NO_PHOTO";
-  };
-
-  // Filter by status
-  const getStatusCounts = () => {
-    return {
-      COMPLETE: filteredProfiles.filter(p => getCompletionStatus(p) === "COMPLETE").length,
-      MISSING_DOCS: filteredProfiles.filter(p => getCompletionStatus(p) === "MISSING_DOCS").length,
-      PARTIAL: filteredProfiles.filter(p => getCompletionStatus(p) === "PARTIAL").length,
-      NO_PHOTO: filteredProfiles.filter(p => getCompletionStatus(p) === "NO_PHOTO").length,
-    };
-  };
-  
-  const statusCounts = getStatusCounts();
-  
-  const statusFilteredProfiles = selectedStatus === "ALL" 
-    ? filteredProfiles 
-    : filteredProfiles.filter(p => getCompletionStatus(p) === selectedStatus);
-
-  const divisions = [...new Set(profiles.filter(p => p.role !== 'admin').map(p => p.department_name).filter(Boolean))].sort();
+  if (!user) return <p className="text-center mt-6 text-gray-600">Loading user info...</p>;
 
   return (
     <PageLayout>
-      <div className="dark:bg-[#171717]">
-        {/* Search at top */}
+      <div className="bg-[#f8fafc] dark:bg-[#171717] min-h-screen">
         <div className="px-4 md:px-8 lg:px-12 pt-4">
-          <div className="w-full max-w-5xl mx-auto">
-            <div className="bg-surface-container-low dark:bg-[#222] rounded-lg px-3 py-2.5 border border-transparent dark:border-gray-700 hover:border-primary/20 dark:hover:border-blue-400/30 focus-within:ring-2 focus-within:ring-primary dark:focus-within:ring-blue-400 transition shadow-sm">
+          <div className="max-w-7xl mx-auto">
+            <div className="bg-surface-container-low dark:bg-[#222] rounded-xl border border-outline-variant/20 dark:border-gray-700 p-3 shadow-sm">
               <div className="flex items-center gap-3">
                 <Search className="w-4 h-4 text-on-surface-variant dark:text-gray-400 flex-shrink-0" />
                 <input
                   type="text"
                   aria-label="Search Borrower"
-                  placeholder="Search by name, email, or department..."
+                  placeholder="Search by name, email, position, or division..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="flex-1 bg-transparent focus:outline-none text-sm text-on-surface dark:text-white dark:placeholder-gray-500"
@@ -211,323 +281,283 @@ export default function BorrowerProfiles() {
                 )}
               </div>
             </div>
-          </div>
-        </div>
 
-        <div className="px-4 md:px-8 lg:px-12 mt-4">
-          <div className="max-w-5xl mx-auto space-y-4">
-            {/* Status Dropdown */}
-            <div className="flex items-center gap-3">
-              <label className="text-xs text-on-surface-variant">Status</label>
-              <select
-                value={selectedStatus}
-                onChange={(e) => setSelectedStatus(e.target.value)}
-                className="text-sm px-3 py-1 rounded bg-surface-container-low dark:bg-[#222] border border-outline-variant/20 dark:border-gray-700"
-              >
-                <option value="ALL">All</option>
-                <option value="COMPLETE">✅ Complete ({statusCounts.COMPLETE})</option>
-                <option value="MISSING_DOCS">🟡 Missing Documents ({statusCounts.MISSING_DOCS})</option>
-                <option value="PARTIAL">🟠 Partial ({statusCounts.PARTIAL})</option>
-                <option value="NO_PHOTO">⚪ No Photo ({statusCounts.NO_PHOTO})</option>
-              </select>
+            <div className="mt-4 flex flex-col gap-4">
+              <div className="flex items-center gap-3">
+                <label className="text-xs text-on-surface-variant dark:text-gray-400">Status</label>
+                <select
+                  value={selectedStatus}
+                  onChange={(e) => setSelectedStatus(e.target.value)}
+                  className="text-sm px-3 py-1.5 rounded-lg bg-surface-container-low dark:bg-[#222] border border-outline-variant/20 dark:border-gray-700 text-on-surface dark:text-white"
+                >
+                  <option value="ALL">All</option>
+                  <option value="COMPLETE">✅ Complete ({statusCounts.COMPLETE})</option>
+                  <option value="MISSING_DOCS">🟡 Missing Documents ({statusCounts.MISSING_DOCS})</option>
+                  <option value="PARTIAL">🟠 Partial ({statusCounts.PARTIAL})</option>
+                  <option value="NO_PHOTO">⚪ No Photo ({statusCounts.NO_PHOTO})</option>
+                </select>
+              </div>
+
+              {divisions.length > 0 && (
+                <div className="flex gap-5 overflow-x-auto pb-1 border-b border-outline-variant/20 dark:border-gray-700">
+                  {divisions.map((division) => (
+                    <button
+                      key={division}
+                      onClick={() => setSelectedDivision(division)}
+                      className={`text-sm whitespace-nowrap py-2 px-1 transition-colors ${
+                        selectedDivision === division
+                          ? "text-primary dark:text-blue-400 font-semibold border-b-2 border-primary/70 pb-[9px]"
+                          : "text-on-surface-variant dark:text-gray-400 hover:text-on-surface dark:hover:text-white"
+                      }`}
+                    >
+                      {division}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
-            {/* Division Tabs */}
-            {divisions.length > 0 && (
-              <div className="flex gap-6 items-center overflow-x-auto py-2">
-                {divisions.map((division) => (
-                  <button
-                    key={division}
-                    onClick={() => setSelectedDivision(division)}
-                    className={`text-sm transition-colors duration-200 ${selectedDivision === division ? 'text-primary dark:text-blue-400 font-semibold border-b-2 border-primary/60 pb-1' : 'text-on-surface-variant dark:text-gray-400'}`}
-                  >
-                    {division}
-                  </button>
-                ))}
-                <button
-                  onClick={() => setSelectedDivision('ALL')}
-                  className={`text-sm transition-colors duration-200 ${selectedDivision === 'ALL' ? 'text-primary dark:text-blue-400 font-semibold border-b-2 border-primary/60 pb-1' : 'text-on-surface-variant dark:text-gray-400'}`}
-                >
-                  All
-                </button>
+            {!selectedDivision ? (
+              <div className="py-20 text-center text-on-surface-variant dark:text-gray-400">
+                <Users className="w-12 h-12 mx-auto mb-3 opacity-60" />
+                <p>No division assigned yet.</p>
               </div>
-            )}
-
-            {/* (Status buttons and old division chips removed; using dropdown and text tabs above) */}
-
-            {/* Content */}
-            {statusFilteredProfiles.length === 0 ? (
-              <div className="py-16 text-center">
-                <Users className="w-12 h-12 text-on-surface-variant/30 dark:text-gray-600 mx-auto mb-4" />
-                <p className="text-on-surface-variant dark:text-gray-400 text-sm">{searchQuery ? "No matching profiles" : "No borrower profiles found"}</p>
+            ) : filteredProfiles.length === 0 ? (
+              <div className="py-20 text-center text-on-surface-variant dark:text-gray-400">
+                <Users className="w-12 h-12 mx-auto mb-3 opacity-60" />
+                <p>No matching borrowers in {selectedDivision}.</p>
               </div>
             ) : (
-              <div className="space-y-2 pb-10">
-                {statusFilteredProfiles.map((borrower) => {
-                  const isExpanded = expandedProfiles[borrower.id];
-                  const hasPhoto = !!borrower.profile_pic_url;
-                  const hasIDFront = !!borrower.id_front_url;
-                  const hasBirthCert = !!borrower.birth_certificate_url;
+              <div className="mt-6 grid grid-cols-1 xl:grid-cols-[420px_minmax(0,1fr)] gap-5">
+                <aside className="bg-white dark:bg-[#1b1b1b] rounded-2xl border border-outline-variant/20 dark:border-gray-700 shadow-sm overflow-hidden">
+                  <div className="max-h-[75vh] overflow-y-auto p-3 space-y-5">
+                    {[
+                      { key: "officers", label: "Officers" },
+                      { key: "members", label: "Members" },
+                    ].map(({ key, label }) => {
+                      const items = groupedProfiles[key];
 
-                  return (
-                    <div
-                      key={borrower.id}
-                      className="bg-surface-container-low dark:bg-[#1a1a1a] rounded-lg border border-outline-variant/20 dark:border-gray-700 shadow-sm hover:shadow-md dark:hover:shadow-black/40 overflow-hidden transition-all duration-200"
-                    >
-                      {/* Row Header - Clickable */}
-                      <button
-                        onClick={() => setExpandedProfiles({
-                          ...expandedProfiles,
-                          [borrower.id]: !isExpanded
-                        })}
-                        className="w-full px-3 py-2 flex items-center gap-2 hover:bg-surface-container-high dark:hover:bg-[#222] transition-colors text-left"
-                      >
-                        {/* Profile Picture Thumbnail */}
-                        <div className="flex-shrink-0 w-10 h-10 rounded-full overflow-hidden border border-primary/30 dark:border-blue-500/30 bg-surface-container-high dark:bg-[#222]">
-                          {borrower.profile_pic_url ? (
-                            <img
-                              src={borrower.profile_pic_url}
-                              alt={borrower.name}
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center text-on-surface-variant dark:text-gray-400">
-                              <User className="w-5 h-5" />
+                      return (
+                        <div key={key} className="space-y-2">
+                          <div className="flex items-center justify-between px-2 py-1.5">
+                            <h3 className="text-xs font-semibold uppercase tracking-[0.15em] text-on-surface-variant dark:text-gray-400">
+                              {label}
+                            </h3>
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 dark:bg-blue-500/10 text-primary dark:text-blue-400">
+                              {items.length}
+                            </span>
+                          </div>
+
+                          {items.length === 0 ? (
+                            <div className="px-2 py-3 text-xs text-on-surface-variant dark:text-gray-500 border border-dashed border-outline-variant/30 dark:border-gray-700 rounded-lg">
+                              No {label.toLowerCase()} found.
                             </div>
+                          ) : (
+                            items.map((borrower) => {
+                              const isSelected = selectedBorrowerId === borrower.id;
+
+                              return (
+                                <button
+                                  key={borrower.id}
+                                  onClick={() => setSelectedBorrowerId(borrower.id)}
+                                  className={`w-full text-left rounded-xl border px-3 py-3 transition-all duration-200 ${
+                                    isSelected
+                                      ? "border-primary/60 bg-primary/5 dark:bg-blue-500/10 shadow-sm"
+                                      : "border-outline-variant/20 dark:border-gray-700 bg-surface-container-low dark:bg-[#222] hover:border-primary/30 hover:bg-surface-container-high dark:hover:bg-[#2a2a2a]"
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-full overflow-hidden border border-primary/20 dark:border-blue-500/30 bg-surface-container-high dark:bg-[#1f1f1f] flex-shrink-0">
+                                      {borrower.profile_pic_url ? (
+                                        <img src={borrower.profile_pic_url} alt={borrower.name} className="w-full h-full object-cover" />
+                                      ) : (
+                                        <div className="w-full h-full flex items-center justify-center text-on-surface-variant dark:text-gray-400">
+                                          <User className="w-5 h-5" />
+                                        </div>
+                                      )}
+                                    </div>
+
+                                    <div className="min-w-0 flex-1">
+                                      <p className="font-semibold text-sm text-on-surface dark:text-white truncate">{borrower.name}</p>
+                                      <p className="text-[11px] text-on-surface-variant dark:text-gray-400 truncate">
+                                        {borrower.position_name || (key === "officers" ? "Officer" : "Member")}
+                                      </p>
+                                    </div>
+                                  </div>
+                                </button>
+                              );
+                            })
                           )}
                         </div>
+                      );
+                    })}
+                  </div>
+                </aside>
 
-                        {/* Profile Info - Two Lines */}
-                        <div className="flex-1 min-w-0">
-                          {/* Line 1: Name + Status Badges */}
-                          <div className="flex items-center justify-between gap-2 mb-0.5">
-                            <p className="text-xs font-semibold truncate text-on-surface dark:text-white">{borrower.name}</p>
-                            <div className="flex gap-1 flex-shrink-0">
-                              {hasPhoto && <span className="text-[9px] px-1.5 py-0.5 rounded bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 font-medium">Photo</span>}
-                              {hasIDFront && <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 font-medium">ID</span>}
-                              {hasBirthCert && <span className="text-[9px] px-1.5 py-0.5 rounded bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 font-medium">Cert</span>}
-                            </div>
-                          </div>
-
-                          {/* Line 2: Role + Department */}
-                          <div className="flex items-center gap-2 text-[10px] text-on-surface-variant dark:text-gray-400">
-                            {borrower.role && (
-                              <>
-                                <span className="font-medium text-on-surface dark:text-white">{borrower.role.toUpperCase()}</span>
-                                <span>•</span>
-                              </>
-                            )}
-                            {borrower.department_name && (
-                              <span className="truncate">{borrower.department_name}</span>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Expand Chevron */}
-                        <ChevronRight
-                          className={`w-4 h-4 text-on-surface-variant dark:text-gray-500 flex-shrink-0 transition-transform ${isExpanded ? 'rotate-90' : ''}`}
-                        />
-                      </button>
-
-                      {/* Expanded Details */}
-                      {isExpanded && (
-                        <div className="border-t border-outline-variant/20 dark:border-gray-700 px-3 py-3 bg-surface-container-lowest/50 dark:bg-[#1a1a1a]/50 text-xs space-y-3">
-                          {/* Personal Info */}
-                          <div className="space-y-2">
-                            <p className="text-[10px] text-on-surface-variant dark:text-gray-500 uppercase font-medium">Personal Info</p>
-                            {borrower.phone && (
-                              <p className="text-sm text-on-surface dark:text-white">📞 <span className="font-medium">{borrower.phone}</span></p>
-                            )}
-                          </div>
-
-                          {/* Documents Section */}
-                          <div className="space-y-2">
-                            <p className="text-[10px] text-on-surface-variant dark:text-gray-500 uppercase font-medium">Documents</p>
-                            
-                            <div className="grid grid-cols-4 gap-2">
-                              {/* Class Schedule */}
-                              <div className="bg-surface-container-high dark:bg-[#2a2a2a] rounded-lg p-2 border border-outline-variant/20 dark:border-gray-700">
-                                <div className="flex items-center justify-between gap-1 mb-2">
-                                  <p className="text-xs font-medium text-on-surface dark:text-white">Schedule</p>
-                                  <span className={`text-[9px] px-1.5 py-0.5 rounded font-medium ${
-                                    borrower.class_schedule_url
-                                      ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400' 
-                                      : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-400'
-                                  }`}>
-                                    {borrower.class_schedule_url ? '✓' : '✕'}
-                                  </span>
-                                </div>
-                                {borrower.class_schedule_url && (
-                                  <div className="space-y-1">
-                                    <img src={borrower.class_schedule_url} alt="Class Schedule" className="w-full h-16 rounded object-cover border border-outline-variant/30 dark:border-gray-600" />
-                                    <div className="flex gap-0.5">
-                                      <button
-                                        onClick={() => handleDownload(borrower.class_schedule_url, borrower.name, "Class-Schedule")}
-                                        className="flex-1 p-1 bg-primary/10 dark:bg-blue-900/30 text-primary dark:text-blue-400 rounded hover:bg-primary/20 dark:hover:bg-blue-900/50 transition"
-                                        title="Download"
-                                      >
-                                        <Download className="w-3 h-3" />
-                                      </button>
-                                      <button
-                                        onClick={() => handlePrint(borrower.class_schedule_url)}
-                                        className="flex-1 p-1 bg-primary/10 dark:bg-blue-900/30 text-primary dark:text-blue-400 rounded hover:bg-primary/20 dark:hover:bg-blue-900/50 transition"
-                                        title="Print"
-                                      >
-                                        <Printer className="w-3 h-3" />
-                                      </button>
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-
-                              {/* ID Front */}
-                              <div className="bg-surface-container-high dark:bg-[#2a2a2a] rounded-lg p-2 border border-outline-variant/20 dark:border-gray-700">
-                                <div className="flex items-center justify-between gap-1 mb-2">
-                                  <p className="text-xs font-medium text-on-surface dark:text-white">ID Front</p>
-                                  <span className={`text-[9px] px-1.5 py-0.5 rounded font-medium ${
-                                    borrower.id_front_url
-                                      ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400' 
-                                      : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-400'
-                                  }`}>
-                                    {borrower.id_front_url ? '✓' : '✕'}
-                                  </span>
-                                </div>
-                                {borrower.id_front_url && (
-                                  <div className="space-y-1">
-                                    <img src={borrower.id_front_url} alt="ID Front" className="w-full h-16 rounded object-cover border border-outline-variant/30 dark:border-gray-600" />
-                                    <div className="flex gap-0.5">
-                                      <button
-                                        onClick={() => handleDownload(borrower.id_front_url, borrower.name, "ID-Front")}
-                                        className="flex-1 p-1 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 rounded hover:bg-blue-100 dark:hover:bg-blue-900/40 transition"
-                                        title="Download"
-                                      >
-                                        <Download className="w-3 h-3" />
-                                      </button>
-                                      <button
-                                        onClick={() => handlePrint(borrower.id_front_url)}
-                                        className="flex-1 p-1 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 rounded hover:bg-blue-100 dark:hover:bg-blue-900/40 transition"
-                                        title="Print"
-                                      >
-                                        <Printer className="w-3 h-3" />
-                                      </button>
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-
-                              {/* ID Back */}
-                              <div className="bg-surface-container-high dark:bg-[#2a2a2a] rounded-lg p-2 border border-outline-variant/20 dark:border-gray-700">
-                                <div className="flex items-center justify-between gap-1 mb-2">
-                                  <p className="text-xs font-medium text-on-surface dark:text-white">ID Back</p>
-                                  <span className={`text-[9px] px-1.5 py-0.5 rounded font-medium ${
-                                    borrower.id_back_url
-                                      ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400' 
-                                      : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-400'
-                                  }`}>
-                                    {borrower.id_back_url ? '✓' : '✕'}
-                                  </span>
-                                </div>
-                                {borrower.id_back_url && (
-                                  <div className="space-y-1">
-                                    <img src={borrower.id_back_url} alt="ID Back" className="w-full h-16 rounded object-cover border border-outline-variant/30 dark:border-gray-600" />
-                                    <div className="flex gap-0.5">
-                                      <button
-                                        onClick={() => handleDownload(borrower.id_back_url, borrower.name, "ID-Back")}
-                                        className="flex-1 p-1 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 rounded hover:bg-blue-100 dark:hover:bg-blue-900/40 transition"
-                                        title="Download"
-                                      >
-                                        <Download className="w-3 h-3" />
-                                      </button>
-                                      <button
-                                        onClick={() => handlePrint(borrower.id_back_url)}
-                                        className="flex-1 p-1 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 rounded hover:bg-blue-100 dark:hover:bg-blue-900/40 transition"
-                                        title="Print"
-                                      >
-                                        <Printer className="w-3 h-3" />
-                                      </button>
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-
-                              {/* Birth Certificate */}
-                              <div className="bg-surface-container-high dark:bg-[#2a2a2a] rounded-lg p-2 border border-outline-variant/20 dark:border-gray-700">
-                                <div className="flex items-center justify-between gap-1 mb-2">
-                                  <p className="text-xs font-medium text-on-surface dark:text-white">Cert</p>
-                                  <span className={`text-[9px] px-1.5 py-0.5 rounded font-medium ${
-                                    borrower.birth_certificate_url
-                                      ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400' 
-                                      : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-400'
-                                  }`}>
-                                    {borrower.birth_certificate_url ? '✓' : '✕'}
-                                  </span>
-                                </div>
-                                {borrower.birth_certificate_url && (
-                                  <div className="space-y-1">
-                                    <img src={borrower.birth_certificate_url} alt="Birth Certificate" className="w-full h-16 rounded object-cover border border-outline-variant/30 dark:border-gray-600" />
-                                    <div className="flex gap-0.5">
-                                      <button
-                                        onClick={() => handleDownload(borrower.birth_certificate_url, borrower.name, "Birth-Certificate")}
-                                        className="flex-1 p-1 bg-purple/10 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 rounded hover:bg-purple/20 dark:hover:bg-purple-900/50 transition"
-                                        title="Download"
-                                      >
-                                        <Download className="w-3 h-3" />
-                                      </button>
-                                      <button
-                                        onClick={() => handlePrint(borrower.birth_certificate_url)}
-                                        className="flex-1 p-1 bg-purple/10 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 rounded hover:bg-purple/20 dark:hover:bg-purple-900/50 transition"
-                                        title="Print"
-                                      >
-                                        <Printer className="w-3 h-3" />
-                                      </button>
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Position Selector (Master List positions) */}
-                          <div className="space-y-2">
-                            <p className="text-[10px] text-on-surface-variant dark:text-gray-500 uppercase font-medium">Position</p>
-                            {positionsLoading ? (
-                              <p className="text-sm text-on-surface-variant">Loading positions...</p>
-                            ) : positionsError ? (
-                              <p className="text-sm text-red-500">Failed to load positions</p>
-                            ) : (
-                              <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-                                <input
-                                  type="text"
-                                  placeholder="Filter positions..."
-                                  value={positionFilters[borrower.id] || ""}
-                                  onChange={(e) => setPositionFilters({ ...positionFilters, [borrower.id]: e.target.value })}
-                                  className="text-xs px-2 py-1 rounded bg-surface-container-high dark:bg-[#222] border border-outline-variant/20 dark:border-gray-700 w-full sm:w-44"
-                                />
-                                <select
-                                  value={borrower.position_id || ""}
-                                  onChange={(e) => handlePositionChange(borrower.id, e.target.value)}
-                                  className="text-xs px-2 py-1 rounded bg-surface-container-high dark:bg-[#222] border border-outline-variant/20 dark:border-gray-700 w-full sm:w-64"
-                                >
-                                  <option value="">(None)</option>
-                                  {positions
-                                    .filter((p) => (positionFilters[borrower.id] || "").trim() === "" ? true : p.name.toLowerCase().includes((positionFilters[borrower.id] || "").toLowerCase()))
-                                    .map((p) => (
-                                      <option key={p.id} value={p.id}>{p.name}</option>
-                                    ))}
-                                </select>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      )}
+                <section className="bg-white dark:bg-[#1b1b1b] rounded-2xl border border-outline-variant/20 dark:border-gray-700 shadow-sm overflow-hidden min-h-[640px]">
+                  {!selectedBorrower ? (
+                    <div className="h-full flex items-center justify-center text-center p-10 text-on-surface-variant dark:text-gray-400">
+                      <div>
+                        <Users className="w-12 h-12 mx-auto mb-3 opacity-60" />
+                        <p>Select a borrower to view details.</p>
+                      </div>
                     </div>
-                  );
-                })}
+                  ) : (
+                    <div className="p-5 md:p-6 space-y-6">
+                      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                        <div className="flex items-center gap-4">
+                          <div className="w-20 h-20 rounded-full overflow-hidden border-2 border-primary/20 dark:border-blue-500/30 bg-surface-container-high dark:bg-[#111]">
+                            {selectedBorrower.profile_pic_url ? (
+                              <img src={selectedBorrower.profile_pic_url} alt={selectedBorrower.name} className="w-full h-full object-cover" />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-on-surface-variant dark:text-gray-400">
+                                <User className="w-8 h-8" />
+                              </div>
+                            )}
+                          </div>
+
+                          <div>
+                            <h2 className="text-2xl font-bold text-on-surface dark:text-white">{selectedBorrower.name}</h2>
+                            <div className="flex flex-wrap items-center gap-2 mt-1 text-sm text-on-surface-variant dark:text-gray-400">
+                              <span>{selectedBorrower.department_name || "Unassigned division"}</span>
+                              <span>•</span>
+                              <span>{selectedBorrower.position_name || "No assigned position"}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 text-xs text-on-surface-variant dark:text-gray-400">
+                          <BadgeCheck className="w-4 h-4" />
+                          <span>{getCompletionStatus(selectedBorrower).replace("_", " ")}</span>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-3">
+                          <InfoRow icon={<Building className="w-4 h-4" />} label="Division" value={selectedBorrower.department_name || "Not assigned"} />
+                          <InfoRow icon={<User className="w-4 h-4" />} label="Position" value={selectedBorrower.position_name || "No assigned position"} />
+                          <InfoRow icon={<FileText className="w-4 h-4" />} label="Student Number" value={selectedBorrower.student_number || "N/A"} />
+                          <InfoRow icon={<FileText className="w-4 h-4" />} label="Course" value={selectedBorrower.program || selectedBorrower.college || "N/A"} />
+                          <InfoRow icon={<FileText className="w-4 h-4" />} label="Year" value={selectedBorrower.year || "N/A"} />
+                        </div>
+
+                        <div className="space-y-3">
+                          <InfoRow icon={<Camera className="w-4 h-4" />} label="Contact Number" value={selectedBorrower.phone || "N/A"} />
+                          <InfoRow icon={<Mail className="w-4 h-4" />} label="Email" value={selectedBorrower.email || "N/A"} />
+                          <InfoRow icon={<Building className="w-4 h-4" />} label="College" value={selectedBorrower.college || "N/A"} />
+                          <InfoRow icon={<FileText className="w-4 h-4" />} label="Date of Birth" value={selectedBorrower.date_of_birth || "N/A"} />
+                          <InfoRow icon={<BadgeCheck className="w-4 h-4" />} label="Status" value={getCompletionStatus(selectedBorrower)} />
+                        </div>
+                      </div>
+
+                      <div className="rounded-xl border border-outline-variant/20 dark:border-gray-700 bg-surface-container-low dark:bg-[#202020] p-4">
+                        <div className="flex items-center justify-between mb-3">
+                          <p className="text-sm font-semibold text-on-surface dark:text-white">Position Assignment</p>
+                        </div>
+
+                        {positionsLoading ? (
+                          <p className="text-sm text-on-surface-variant dark:text-gray-400">Loading positions...</p>
+                        ) : positionsError ? (
+                          <p className="text-sm text-red-500">Failed to load positions</p>
+                        ) : (
+                          <div className="flex flex-col md:flex-row md:items-center gap-3">
+                            <input
+                              type="text"
+                              placeholder="Filter positions..."
+                              value={positionFilters[selectedBorrower.id] || ""}
+                              onChange={(e) => setPositionFilters({ ...positionFilters, [selectedBorrower.id]: e.target.value })}
+                              className="text-sm px-3 py-2 rounded-lg bg-white dark:bg-[#1a1a1a] border border-outline-variant/20 dark:border-gray-700 w-full md:w-52"
+                            />
+                            <select
+                              value={selectedBorrower.position_id || ""}
+                              onChange={(e) => handlePositionChange(selectedBorrower.id, e.target.value)}
+                              className="text-sm px-3 py-2 rounded-lg bg-white dark:bg-[#1a1a1a] border border-outline-variant/20 dark:border-gray-700 w-full md:flex-1"
+                            >
+                              <option value="">(None)</option>
+                              {positions
+                                .filter((position) => {
+                                  const filterValue = (positionFilters[selectedBorrower.id] || "").trim().toLowerCase();
+                                  return !filterValue || position.name.toLowerCase().includes(filterValue);
+                                })
+                                .map((position) => (
+                                  <option key={position.id} value={position.id}>{position.name}</option>
+                                ))}
+                            </select>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="rounded-xl border border-outline-variant/20 dark:border-gray-700 bg-surface-container-low dark:bg-[#202020] p-4">
+                        <p className="text-sm font-semibold text-on-surface dark:text-white mb-4">Documents</p>
+                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
+                          {renderDocumentCard("Profile Picture", selectedBorrower.profile_pic_url, handleDownload, handlePrint, selectedBorrower.name)}
+                          {renderDocumentCard("Class Schedule", selectedBorrower.class_schedule_url, handleDownload, handlePrint, selectedBorrower.name, "Class-Schedule")}
+                          {renderDocumentCard("ID Front", selectedBorrower.id_front_url, handleDownload, handlePrint, selectedBorrower.name, "ID-Front")}
+                          {renderDocumentCard("ID Back", selectedBorrower.id_back_url, handleDownload, handlePrint, selectedBorrower.name, "ID-Back")}
+                          {renderDocumentCard("Birth Certificate", selectedBorrower.birth_certificate_url, handleDownload, handlePrint, selectedBorrower.name, "Birth-Certificate")}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </section>
               </div>
             )}
           </div>
         </div>
       </div>
     </PageLayout>
+  );
+}
+
+function InfoRow({ icon, label, value }) {
+  return (
+    <div className="flex items-center gap-3 rounded-xl border border-outline-variant/20 dark:border-gray-700 bg-surface-container-low dark:bg-[#202020] p-3">
+      <div className="text-primary dark:text-blue-400">{icon}</div>
+      <div className="min-w-0 flex-1">
+        <p className="text-[10px] uppercase tracking-[0.12em] text-on-surface-variant dark:text-gray-400">{label}</p>
+        <p className="text-sm text-on-surface dark:text-white break-words">{value}</p>
+      </div>
+    </div>
+  );
+}
+
+function renderDocumentCard(title, url, onDownload, onPrint, borrowerName, docType = title) {
+  const hasFile = !!url;
+
+  return (
+    <div className="rounded-xl border border-outline-variant/20 dark:border-gray-700 bg-white dark:bg-[#1a1a1a] p-3">
+      <div className="flex items-center justify-between gap-2 mb-2">
+        <p className="text-xs font-semibold text-on-surface dark:text-white">{title}</p>
+        <span className={`text-[9px] px-1.5 py-0.5 rounded-full ${hasFile ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400"}`}>
+          {hasFile ? "Available" : "Missing"}
+        </span>
+      </div>
+
+      {hasFile ? (
+        <>
+          <img src={url} alt={title} className="w-full h-28 object-cover rounded-lg border border-outline-variant/20 dark:border-gray-700 mb-3" />
+          <div className="flex gap-2">
+            <button
+              onClick={() => onDownload(url, borrowerName, docType)}
+              className="flex-1 inline-flex items-center justify-center gap-1 rounded-lg bg-primary/10 dark:bg-blue-500/10 text-primary dark:text-blue-400 py-2 text-xs font-medium hover:bg-primary/20 dark:hover:bg-blue-500/20 transition"
+            >
+              <Download className="w-3.5 h-3.5" />
+              Download
+            </button>
+            <button
+              onClick={() => onPrint(url)}
+              className="flex-1 inline-flex items-center justify-center gap-1 rounded-lg bg-surface-container-high dark:bg-[#2b2b2b] text-on-surface dark:text-white py-2 text-xs font-medium hover:bg-surface-container-high/80 dark:hover:bg-[#303030] transition"
+            >
+              <Printer className="w-3.5 h-3.5" />
+              Print
+            </button>
+          </div>
+        </>
+      ) : (
+        <div className="flex h-28 items-center justify-center rounded-lg border border-dashed border-outline-variant/30 dark:border-gray-700 text-[11px] text-on-surface-variant dark:text-gray-500">
+          No file uploaded
+        </div>
+      )}
+    </div>
   );
 }
