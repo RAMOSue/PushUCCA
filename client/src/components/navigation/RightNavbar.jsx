@@ -8,7 +8,7 @@ import axios from "axios";
 import "react-calendar/dist/Calendar.css";
 
 export default function RightNavbar() {
-  const { sidebarOpen, isMobile } = useContext(SidebarContext);
+  const { rightSidebarOpen, isMobile } = useContext(SidebarContext);
   const { user } = useContext(UserContext);
   const navigate = useNavigate();
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -220,16 +220,16 @@ export default function RightNavbar() {
 
       {/* Right Navbar - Synchronized with Sidebar (Desktop Only) */}
       <aside
-        className={`right-navbar hidden lg:flex fixed right-0 top-19 h-[calc(100vh-60px)] bg-surface-container-low dark:bg-[#1f1f1f] shadow-2xl dark:shadow-[inset_-1px_0_0_rgba(255,255,255,0.05)] border-l border-outline-variant/10 dark:border-[#2a2a2a] z-30 transition-colors duration-300 ${
-          sidebarOpen ? "w-72" : "w-0"
+        className={`right-navbar hidden lg:flex fixed right-0 top-16 h-[calc(100vh-64px)] bg-surface-container-low dark:bg-[#1f1f1f] shadow-2xl dark:shadow-[inset_-1px_0_0_rgba(255,255,255,0.05)] border-l border-outline-variant/10 dark:border-[#2a2a2a] z-30 transition-all duration-300 ease-in-out ${
+          rightSidebarOpen ? "translate-x-0 w-72 opacity-100" : "translate-x-full w-0 opacity-0"
         }`}
         style={{
-          overflowY: sidebarOpen ? "auto" : "hidden",
+          overflowY: rightSidebarOpen ? "auto" : "hidden",
           overflowX: "hidden",
-          willChange: "width",
+          willChange: "transform, width",
           backfaceVisibility: "hidden",
           perspective: 1000,
-          transform: "translateZ(0)",
+          transform: rightSidebarOpen ? "translateX(0)" : "translateX(100%)",
         }}
       >
         {/* Inner Content Wrapper - Fixed width prevents distortion */}
@@ -237,7 +237,7 @@ export default function RightNavbar() {
           className="w-72 flex flex-col h-full mt-2"
           style={{
             flexShrink: 0,
-            pointerEvents: sidebarOpen ? "auto" : "none",
+            pointerEvents: rightSidebarOpen ? "auto" : "none",
           }}
         >
           {/* Clock Section - Sticky Top */}
