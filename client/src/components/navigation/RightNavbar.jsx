@@ -1,6 +1,6 @@
 import { useContext, useState, useEffect } from "react";
-import { Clock, CheckCircle, AlertCircle, Package, ArrowLeft, ArrowRight, Loader, Music, Calendar as CalendarIcon } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { Clock, CheckCircle, AlertCircle, Package, ArrowLeft, ArrowRight, Loader, Music, Calendar as CalendarIcon, QrCode, Camera } from "lucide-react";
+import { useNavigate, useLocation } from "react-router-dom";
 import Calendar from "react-calendar";
 import { SidebarContext } from "../../context/SidebarContext";
 import { UserContext } from "../../../context/userContext";
@@ -8,9 +8,10 @@ import axios from "axios";
 import "react-calendar/dist/Calendar.css";
 
 export default function RightNavbar() {
-  const { rightSidebarOpen, isMobile } = useContext(SidebarContext);
+  const { rightSidebarOpen, isMobile, setRightSidebarOpen } = useContext(SidebarContext);
   const { user } = useContext(UserContext);
   const navigate = useNavigate();
+  const location = useLocation();
   const [currentTime, setCurrentTime] = useState(new Date());
   const [pendingApproval, setPendingApproval] = useState(0);
   const [activeBorrows, setActiveBorrows] = useState(0);
@@ -143,6 +144,83 @@ export default function RightNavbar() {
     return allPerformances.filter((p) => new Date(p.start_time).toDateString() === dateString);
   };
 
+  const isBorrowerScannerOpen = location.pathname === "/scan" || location.pathname === "/scanner";
+  const isStaffScannerOpen = location.pathname === "/staff/scan" || location.pathname === "/staff/scanner";
+
+  const handleQRScannerClick = () => {
+    if (user?.role === "borrower") {
+      if (isBorrowerScannerOpen) {
+        setRightSidebarOpen(true);
+        navigate(-1);
+        return;
+      }
+
+      setRightSidebarOpen(false);
+      navigate("/scan");
+      return;
+    }
+
+    if (user?.role === "staff") {
+      if (isStaffScannerOpen) {
+        setRightSidebarOpen(true);
+        navigate("/staff");
+        return;
+      }
+
+      setRightSidebarOpen(false);
+      navigate("/staff/scan");
+    }
+  };
+
+  const handleInstrumentScannerClick = () => {
+    if (user?.role === "borrower") {
+      if (isBorrowerScannerOpen) {
+        setRightSidebarOpen(true);
+        navigate(-1);
+        return;
+      }
+
+      setRightSidebarOpen(false);
+      navigate("/scanner");
+      return;
+    }
+
+    if (user?.role === "staff") {
+      if (isStaffScannerOpen) {
+        setRightSidebarOpen(true);
+        navigate("/staff");
+        return;
+      }
+
+      setRightSidebarOpen(false);
+      navigate("/staff/scanner");
+    }
+  };
+
+  const scannerButtons = (
+    <div className={`flex flex-1 flex-col items-center justify-center gap-3 px-2 transition-all duration-300 ease-in-out ${rightSidebarOpen ? "pointer-events-none opacity-0" : "opacity-100"}`}>
+      <button
+        type="button"
+        title="QR Scanner"
+        aria-label="QR Scanner"
+        onClick={handleQRScannerClick}
+        className="group flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-lg transition-all duration-300 ease-in-out hover:scale-105 hover:from-blue-600 hover:to-blue-700 active:scale-95"
+      >
+        <QrCode className="h-5 w-5 transition-transform duration-200 ease-in-out group-hover:scale-110" />
+      </button>
+
+      <button
+        type="button"
+        title="AI Scanner"
+        aria-label="AI Scanner"
+        onClick={handleInstrumentScannerClick}
+        className="group flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-br from-purple-500 to-purple-600 text-white shadow-lg transition-all duration-300 ease-in-out hover:scale-105 hover:from-purple-600 hover:to-purple-700 active:scale-95"
+      >
+        <Camera className="h-5 w-5 transition-transform duration-200 ease-in-out group-hover:scale-110" />
+      </button>
+    </div>
+  );
+
   return (
     <>
       <style>{`
@@ -238,8 +316,12 @@ export default function RightNavbar() {
             pointerEvents: "auto",
           }}
         >
-          {rightSidebarOpen && (
-            <div className="flex min-h-0 flex-1 flex-col">
+          {!rightSidebarOpen ? (
+            <div className="flex flex-1 flex-col items-center justify-center gap-3 py-3 transition-all duration-300 ease-in-out">
+              {scannerButtons}
+            </div>
+          ) : (
+            <div className="flex min-h-0 flex-1 flex-col transition-all duration-300 ease-in-out">
               <div className="sticky top-0 z-10 mb-4 mt-1 border-b border-outline-variant/10 bg-surface-container-low p-4 dark:border-[#2a2a2a] dark:bg-[#1f1f1f] transition-colors duration-300">
                 <div className="text-center">
                   <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant dark:text-gray-400">

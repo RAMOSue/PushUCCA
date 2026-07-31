@@ -428,9 +428,6 @@ function AppContent() {
         )}
       </div>
 
-      {user?.role === "borrower" && <ScannerSelection />}
-      {user?.role === "staff" && <StaffScannerSelection />}
-
       <TestUserSwitcher />
       <Toaster position="bottom-right" toastOptions={{ duration: 2000 }} />
     </div>
