@@ -21,19 +21,13 @@ export default function RightNavbar() {
   const [allPerformances, setAllPerformances] = useState([]);
   const [selectedCalendarDate, setSelectedCalendarDate] = useState(null);
 
-  // Fetch statistics
+  // Fetch performance data using the same source as the Performance page
   const fetchStats = async () => {
-    // ✅ Only fetch if user is authenticated
-    if (!user || !user.id) {
-      setLoading(false);
-      return;
-    }
-
     try {
       setLoading(true);
 
-      // 🎯 STAFF: Fetch pending borrow requests (staff-only)
-      if (user.role === "staff" || user.role === "admin") {
+      // Keep the existing borrow/request stats for the current user when available
+      if (user?.role === "staff" || user?.role === "admin") {
         const requestsRes = await axios.get("/api/borrow/requests", {
           withCredentials: true,
         });
@@ -41,8 +35,7 @@ export default function RightNavbar() {
         setPendingApproval(pendingCount);
       }
 
-      // 👤 BORROWER: Fetch borrower-specific stats
-      if (user.role === "borrower") {
+      if (user?.role === "borrower") {
         const historyRes = await axios.get(`/api/borrow/history/${user.id}`, {
           withCredentials: true,
         });
@@ -53,39 +46,31 @@ export default function RightNavbar() {
         setReturnedItems(returned);
       }
 
-      // Fetch all performances for calendar
       const performancesRes = await axios.get("/api/performances", {
         withCredentials: true,
       });
-      const now = new Date();
-      const upcomingPerfs = performancesRes.data
-        .filter((p) => new Date(p.start_time) > now)
-        .sort((a, b) => new Date(a.start_time) - new Date(b.start_time));
+      const data = Array.isArray(performancesRes.data) ? performancesRes.data : [];
+      data.sort((a, b) => new Date(a.start_time) - new Date(b.start_time));
 
-      // Store all performances for calendar
-      setAllPerformances(performancesRes.data || []);
+      const now = new Date();
+      const upcomingPerfs = data.filter((p) => new Date(p.start_time) > now);
+
+      setAllPerformances(data);
       setUpcomingEvents(upcomingPerfs);
       setLastUpdated(new Date());
       setLoading(false);
     } catch (error) {
-      // ✅ Handle 401 Unauthorized gracefully (user logged out)
-      if (error.response?.status === 401) {
-        setLoading(false);
-      } else {
-        console.error("Failed to fetch stats:", error.message);
-        setLoading(false);
-      }
+      console.error("Failed to fetch stats:", error.message);
+      setLoading(false);
     }
   };
 
   // Initial fetch
   useEffect(() => {
     fetchStats();
-    // Refresh every 30 seconds (only if authenticated)
-    if (user && user.id) {
-      const interval = setInterval(fetchStats, 30000);
-      return () => clearInterval(interval);
-    }
+
+    const interval = setInterval(fetchStats, 30000);
+    return () => clearInterval(interval);
   }, [user]);
 
   const formatEventDate = (dateString) => {
