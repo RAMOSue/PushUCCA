@@ -105,26 +105,24 @@ export default function RightNavbar() {
     });
   };
 
-  // ✅ Calendar function: Handle date click to filter performances
+  // ✅ Calendar function: Handle date click to prioritize performances
   const handleCalendarDateClick = (date) => {
     setSelectedCalendarDate(date);
   };
 
   // ✅ Calendar function: Get set of dates with performances
   const performanceDates = new Set(
-    allPerformances.map((p) => new Date(p.start_time).toDateString())
+    upcomingEvents.map((p) => new Date(p.start_time).toDateString())
   );
-
-  // ✅ Calendar function: Get performances for selected date
-  const getPerformancesForDate = (date) => {
-    const dateString = date.toDateString();
-    return allPerformances.filter((p) => new Date(p.start_time).toDateString() === dateString);
-  };
 
   const getOrderedEvents = () => {
     if (!selectedCalendarDate) return upcomingEvents;
 
-    const selectedEvents = getPerformancesForDate(selectedCalendarDate);
+    const selectedDateString = selectedCalendarDate.toDateString();
+    const selectedEvents = upcomingEvents.filter(
+      (event) => new Date(event.start_time).toDateString() === selectedDateString
+    );
+
     if (selectedEvents.length === 0) return upcomingEvents;
 
     const otherEvents = upcomingEvents.filter(
@@ -133,6 +131,8 @@ export default function RightNavbar() {
 
     return [...selectedEvents, ...otherEvents];
   };
+
+  const orderedEvents = getOrderedEvents();
 
   const isBorrowerScannerOpen = location.pathname === "/scan" || location.pathname === "/scanner";
   const isStaffScannerOpen = location.pathname === "/staff/scan" || location.pathname === "/staff/scanner";
@@ -246,11 +246,12 @@ export default function RightNavbar() {
           width: 100%;
         }
         .calendar-wrapper .react-calendar__tile {
-          padding: 0.25rem 0;
+          padding: 0.2rem 0;
           background: transparent;
           border: none;
           color: inherit;
-          font-size: 0.7rem;
+          font-size: 0.68rem;
+          min-height: 1.7rem;
         }
         .calendar-wrapper .react-calendar__tile:hover {
           background-color: rgba(59, 130, 246, 0.1);
@@ -304,7 +305,7 @@ export default function RightNavbar() {
 
       <aside
         className={`right-navbar hidden lg:flex h-full shrink-0 border-l border-outline-variant/10 bg-surface-container-low dark:border-[#2a2a2a] dark:bg-[#1f1f1f] shadow-2xl dark:shadow-[inset_-1px_0_0_rgba(255,255,255,0.05)] z-30 transition-all duration-250 ease-in-out ${
-          rightSidebarOpen ? "w-80 opacity-100" : "w-14 opacity-100"
+          rightSidebarOpen ? "w-64 opacity-100" : "w-14 opacity-100"
         }`}
         style={{
           overflowY: "auto",
@@ -318,7 +319,7 @@ export default function RightNavbar() {
         <div
           className="flex h-full flex-col transition-all duration-250 ease-in-out"
           style={{
-            width: rightSidebarOpen ? "320px" : "56px",
+            width: rightSidebarOpen ? "256px" : "56px",
             flexShrink: 0,
             pointerEvents: "auto",
           }}
@@ -350,12 +351,14 @@ export default function RightNavbar() {
                   </div>
 
                   <div className="max-h-[16rem] space-y-1 overflow-y-auto">
-                    {getOrderedEvents().length === 0 ? (
+                    {orderedEvents.length === 0 ? (
                       <div className="rounded border border-outline-variant/10 bg-surface-container-lowest p-2 text-center transition-colors duration-300 dark:border-[#3a3a3a] dark:bg-[#2a2a2a]">
-                        <p className="text-[10px] text-on-surface-variant dark:text-gray-400">No upcoming events</p>
+                        <p className="text-[10px] text-on-surface-variant dark:text-gray-400">
+                          {loading ? "Loading events..." : "No upcoming events"}
+                        </p>
                       </div>
                     ) : (
-                      getOrderedEvents().map((event, idx) => (
+                      orderedEvents.map((event, idx) => (
                         <div
                           key={event.id || idx}
                           className="rounded border border-outline-variant/10 bg-surface-container-lowest p-2 transition-colors hover:border-primary/30 dark:border-[#3a3a3a] dark:bg-[#2a2a2a] dark:hover:border-blue-500/30"
