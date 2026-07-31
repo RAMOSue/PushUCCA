@@ -6,6 +6,7 @@ import UnitModal from "./UnitModal";
 import PageLayout from "../../components/layout/PageLayout";
 import { Package, GridIcon, Music, AlertTriangle, Search, Filter, Plus, QrCode, ChevronRight, ChevronDown, Edit2, Trash2 } from "lucide-react";
 import { getInventoryDivisionInfo, setInventoryDivisionAssignment } from "../../utils/inventoryDivisionStorage";
+import { useSidebarStore } from "../../../context/sidebarStore";
 
 /* -------------------------------------------------------------- */
 /* Static Dropdown Option Values                                  */
@@ -71,8 +72,6 @@ const instrumentFields = [
   { key: "image_url", label: "Upload Image", type: "file" },
 ];
 
-const GROUP_TABS = ["Dulimbay", "Budjong", "Kayam"];
-
 /* -------------------------------------------------------------- */
 function buildEmptyItem(group = "") {
   return {
@@ -120,6 +119,7 @@ function categoryOptionsForGroup(grp) {
 
 /* -------------------------------------------------------------- */
 export default function ManageInventory() {
+  const { selectedDivision } = useSidebarStore();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedGroup, setSelectedGroup] = useState("Dulimbay");
@@ -235,14 +235,14 @@ export default function ManageInventory() {
   }, [newItem.category, selectedGroup]);
 
   const filteredItems = useMemo(() => {
-    const sg = normalize(selectedGroup);
+    const normalizedSelectedDivision = normalize(selectedDivision);
     return items.filter((i) => {
-      const groupMatch = normalize(i.collection_group) === sg;
+      const divisionMatch = normalizedSelectedDivision === "all" || normalize(i.collection_group) === normalizedSelectedDivision;
       const categoryMatch = !filterCategory || i.category === filterCategory;
       const searchMatch = !searchQuery || i.name.toLowerCase().includes(searchQuery.toLowerCase());
-      return groupMatch && categoryMatch && searchMatch;
+      return divisionMatch && categoryMatch && searchMatch;
     });
-  }, [items, selectedGroup, filterCategory, searchQuery]);
+  }, [items, selectedDivision, filterCategory, searchQuery]);
 
 
   const upsertIndigenousGroup = (gRaw) => {
@@ -630,19 +630,6 @@ export default function ManageInventory() {
     }
   };
 
-  const handleSelectGroup = (grp) => {
-    setSelectedGroup(grp);
-    if (!editingItem) {
-      const fresh = buildEmptyItem(grp);
-      if (normalize(grp) === "kayam") {
-        fresh.category = "instrument";
-      }
-      setNewItem(fresh);
-      setShowAdvanced(false);
-      setFormPanelOpen(false);
-    }
-  };
-
   const categoryOptions = categoryOptionsForGroup(selectedGroup);
 
   const genericDetailOptions = (fieldKey) => {
@@ -696,20 +683,6 @@ export default function ManageInventory() {
 
             {/* Filters (center) */}
             <div className="flex gap-2 flex-wrap items-center">
-              {GROUP_TABS.map((grp) => (
-                <button
-                  key={grp}
-                  onClick={() => handleSelectGroup(grp)}
-                  className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
-                    selectedGroup === grp
-                      ? 'bg-primary text-on-primary shadow-sm dark:bg-blue-600'
-                      : 'bg-surface-container-low dark:bg-[#222] text-on-surface dark:text-white border border-outline-variant/30 dark:border-gray-700 hover:bg-surface-container-high dark:hover:bg-[#2a2a2a]'
-                  }`}
-                >
-                  {grp}
-                </button>
-              ))}
-
               <div>
                 <select
                   value={filterCategory || 'all'}
