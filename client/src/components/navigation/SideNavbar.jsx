@@ -4,7 +4,7 @@ import { UserContext } from "../../../context/userContext";
 import { BorrowingContext } from "../../../context/borrowingContext";
 import { SidebarContext } from "../../context/SidebarContext";
 import axios from "axios";
-import { Package, ClipboardList, RefreshCw, Calendar, Users, Box, LogOut, User, ChevronRight, Plus, Database, Camera, Settings, Home, FileText, TrendingUp, Megaphone } from "lucide-react";
+import { Package, ClipboardList, RefreshCw, Calendar, Users, Box, LogOut, PanelLeftClose, PanelLeftOpen, ChevronRight, Plus, Database, Camera, Settings, Home, FileText, TrendingUp, Megaphone } from "lucide-react";
 
 export default function SideNavbar({ role = "staff" }) {
   const { user, setUser, loading } = useContext(UserContext);
@@ -12,14 +12,13 @@ export default function SideNavbar({ role = "staff" }) {
   const { sidebarOpen, setSidebarOpen, leftSidebarCollapsed, setLeftSidebarCollapsed, isMobile } = useContext(SidebarContext);
   const location = useLocation();
   const navigate = useNavigate();
-  const [profilePic, setProfilePic] = useState(null);
+  const [showCollapsedToggle, setShowCollapsedToggle] = useState(false);
 
-  // ✅ Use profile picture from UserContext instead of separate API call
   useEffect(() => {
-    if (user?.profile_pic_url) {
-      setProfilePic(user.profile_pic_url);
+    if (!leftSidebarCollapsed) {
+      setShowCollapsedToggle(false);
     }
-  }, [user]);
+  }, [leftSidebarCollapsed]);
 
   const handleLogout = async () => {
     try {
@@ -112,7 +111,7 @@ export default function SideNavbar({ role = "staff" }) {
         className={`left-sidebar sticky left-0 top-0 h-screen shrink-0 border-r border-outline-variant/20 bg-surface-container-low dark:border-[#2a2a2a] dark:bg-[#1f1f1f] shadow-lg dark:shadow-none z-30 transition-all duration-300 ease-in-out ${
           isMobile
             ? sidebarOpen ? "w-64" : "w-0"
-            : leftSidebarCollapsed ? "w-20" : "w-64"
+            : leftSidebarCollapsed ? "w-16" : "w-64"
         }`}
         style={{
           overflowY: "auto",
@@ -125,83 +124,54 @@ export default function SideNavbar({ role = "staff" }) {
           transform: "translateZ(0)",
         }}
       >
-        {/* Hide scrollbar styles */}
         <style>{`
           aside::-webkit-scrollbar {
             display: none;
           }
         `}</style>
 
-        {/* User Profile Section at Top */}
-        <div className={`sticky top-0 z-10 border-b border-outline-variant/20 bg-surface-container-low px-2 py-3 dark:border-[#2a2a2a] dark:bg-[#1f1f1f] transition-all duration-300 ${leftSidebarCollapsed ? "flex justify-center" : "px-3 sm:px-4 md:px-5 lg:px-6"}`}>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setLeftSidebarCollapsed((prev) => !prev)}
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white/80 text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
-              title={leftSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-              aria-label={leftSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+        <div className={`sticky top-0 z-10 border-b border-outline-variant/20 bg-surface-container-low dark:border-[#2a2a2a] dark:bg-[#1f1f1f] transition-all duration-300 ${leftSidebarCollapsed ? "px-2 py-3" : "px-3 py-3"}`}>
+          {leftSidebarCollapsed ? (
+            <div
+              className="relative flex h-10 w-full items-center justify-center"
+              onMouseEnter={() => setShowCollapsedToggle(true)}
+              onMouseLeave={() => setShowCollapsedToggle(false)}
             >
-              <ChevronRight className={`h-4 w-4 transition-transform duration-300 ${leftSidebarCollapsed ? "rotate-180" : ""}`} />
-            </button>
-
-            {!leftSidebarCollapsed && (
-              <button
-                onClick={() => {
-                  handleViewProfile();
-                  if (isMobile) {
-                    setSidebarOpen(false);
-                  }
-                }}
-                className="flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left transition hover:bg-surface-container-highest dark:hover:bg-[#2a2a2a]"
-                title="View Profile"
-              >
-                <div className="shrink-0">
-                  {profilePic ? (
-                    <img
-                      src={profilePic}
-                      alt={user?.name}
-                      className="h-10 w-10 rounded-full object-cover border border-primary dark:border-blue-500 shadow-lg"
-                    />
-                  ) : (
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full border border-primary/20 bg-primary/10 text-primary dark:border-blue-500/30 dark:bg-blue-900/20 dark:text-blue-400">
-                      <User className="h-5 w-5" />
-                    </div>
-                  )}
+              <div className={`absolute inset-0 flex items-center justify-center transition-opacity duration-200 ${showCollapsedToggle ? "opacity-0" : "opacity-100"}`}>
+                <div className="flex h-8 w-8 items-center justify-center rounded-md bg-slate-100 text-[11px] font-black text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                  Du
                 </div>
+              </div>
 
-                <div className="min-w-0 flex-1">
-                  <h3 className="truncate text-xs font-bold text-on-surface dark:text-white">{user?.name || "User"}</h3>
-                  <p className="truncate text-[10px] capitalize text-on-surface-variant dark:text-gray-400">{user?.role}</p>
-                </div>
-              </button>
-            )}
-
-            {leftSidebarCollapsed && (
               <button
-                onClick={() => {
-                  handleViewProfile();
-                  if (isMobile) {
-                    setSidebarOpen(false);
-                  }
-                }}
-                className="flex items-center justify-center rounded-lg p-1.5 transition hover:bg-surface-container-highest dark:hover:bg-[#2a2a2a]"
-                title="View Profile"
+                type="button"
+                onClick={() => setLeftSidebarCollapsed(false)}
+                className={`absolute inset-0 flex items-center justify-center rounded-md bg-slate-100 text-slate-700 transition-opacity duration-200 dark:bg-slate-800 dark:text-slate-200 ${showCollapsedToggle ? "opacity-100" : "opacity-0"}`}
+                title="Expand sidebar"
+                aria-label="Expand sidebar"
               >
-                {profilePic ? (
-                  <img
-                    src={profilePic}
-                    alt={user?.name}
-                    className="h-8 w-8 rounded-full object-cover border border-primary dark:border-blue-500"
-                  />
-                ) : (
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full border border-primary/20 bg-primary/10 text-primary dark:border-blue-500/30 dark:bg-blue-900/20 dark:text-blue-400">
-                    <User className="h-4 w-4" />
-                  </div>
-                )}
+                <PanelLeftOpen className="h-4 w-4" />
               </button>
-            )}
-          </div>
+            </div>
+          ) : (
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="flex h-8 w-8 items-center justify-center rounded-md bg-slate-100 text-[11px] font-black text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                  Du
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setLeftSidebarCollapsed(true)}
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-slate-200 bg-white/80 text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+                title="Collapse sidebar"
+                aria-label="Collapse sidebar"
+              >
+                <PanelLeftClose className="h-4 w-4" />
+              </button>
+            </div>
+          )}
         </div>
 
       
