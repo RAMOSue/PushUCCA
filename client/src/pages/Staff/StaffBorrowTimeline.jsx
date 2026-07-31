@@ -33,6 +33,8 @@ export default function StaffBorrowTimeline() {
   const [searchQuery, setSearchQuery] = useState("")
   const [borrowerProfiles, setBorrowerProfiles] = useState({})
   const [dueDates] = useState({})
+  const [draggedRequest, setDraggedRequest] = useState(null)
+  const [dragOverColumn, setDragOverColumn] = useState(null)
 
   // Staff photo capture for manual return
   const [staffPhotoCaptureOpen, setStaffPhotoCaptureOpen] = useState(false)
@@ -57,11 +59,6 @@ export default function StaffBorrowTimeline() {
     const diffTime = due - today
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
     return diffDays
-  }
-
-  const isOverdue = (dueDate, status) => {
-    if (!dueDate || status !== "approved" && status !== "pending_return") return false
-    return getDaysFromToday(dueDate) < 0
   }
 
   const getStatusMeta = (status) => {
@@ -108,10 +105,6 @@ export default function StaffBorrowTimeline() {
 
   const isDeclined = (request) => {
     return request.status === "declined" || (request.status === "pending_return" && request.return_decline_reason)
-  }
-
-  const getStatusLabel = (status) => {
-    return getStatusMeta(status).label
   }
 
   // ========== DATA FETCHING ==========
@@ -172,7 +165,6 @@ export default function StaffBorrowTimeline() {
       })
     }
 
-    // Filter by search query
     if (searchQuery.trim()) {
       const searchLower = searchQuery.toLowerCase()
       filtered = filtered.filter(
@@ -241,7 +233,6 @@ export default function StaffBorrowTimeline() {
       return
     }
 
-    // ✅ OPTIMISTIC UPDATE: Update UI immediately
     const originalRequests = requests
     setRequests((prev) =>
       prev.map((req) =>
@@ -259,9 +250,7 @@ export default function StaffBorrowTimeline() {
         { withCredentials: true }
       )
       toast.success("Request approved")
-      // Already updated optimistically, no full refetch needed
     } catch (err) {
-      // ✅ ROLLBACK on error
       console.error("❌ Failed to approve:", err.message)
       setRequests(originalRequests)
       toast.error(err.response?.data?.error || "Failed to approve request")
@@ -272,8 +261,7 @@ export default function StaffBorrowTimeline() {
 
   const handleDecline = async (id) => {
     if (!window.confirm("Are you sure?")) return
-    
-    // ✅ OPTIMISTIC UPDATE: Update UI immediately
+
     const originalRequests = requests
     setRequests((prev) =>
       prev.map((req) =>
@@ -291,9 +279,7 @@ export default function StaffBorrowTimeline() {
         { withCredentials: true }
       )
       toast.success("Request declined")
-      // Already updated optimistically
     } catch (err) {
-      // ✅ ROLLBACK on error
       console.error("❌ Failed to decline:", err.message)
       setRequests(originalRequests)
       toast.error(err.response?.data?.error || "Failed to decline request")
@@ -305,7 +291,6 @@ export default function StaffBorrowTimeline() {
   const handleApproveReturn = async (request) => {
     if (!window.confirm(`Approve return for ${request.borrower_name}?`)) return
 
-    // ✅ OPTIMISTIC UPDATE: Update UI immediately
     const originalRequests = requests
     setRequests((prev) =>
       prev.map((req) =>
@@ -323,10 +308,8 @@ export default function StaffBorrowTimeline() {
         { withCredentials: true }
       )
       toast.success("Return approved")
-      // Already updated optimistically
       if (refreshAfterReturn) refreshAfterReturn()
     } catch (err) {
-      // ✅ ROLLBACK on error
       console.error("❌ Failed to approve return:", err.message)
       setRequests(originalRequests)
       toast.error(err.response?.data?.error || "Failed to approve return")
@@ -342,12 +325,11 @@ export default function StaffBorrowTimeline() {
     )
     if (reason === null) return
 
-    // ✅ OPTIMISTIC UPDATE: Update UI immediately
     const originalRequests = requests
     setRequests((prev) =>
       prev.map((req) =>
         req.id === request.id
-          ? { ...req, return_decline_reason: reason }
+          ? { ...req, return_decline_reason: reason, status: "approved" }
           : req
       )
     )
@@ -360,10 +342,8 @@ export default function StaffBorrowTimeline() {
         { withCredentials: true }
       )
       toast.success("Return declined")
-      // Already updated optimistically
       if (refreshAfterReturn) refreshAfterReturn()
     } catch (err) {
-      // ✅ ROLLBACK on error
       console.error("❌ Failed to decline return:", err.message)
       setRequests(originalRequests)
       toast.error(err.response?.data?.error || "Failed to decline return")
@@ -378,7 +358,6 @@ export default function StaffBorrowTimeline() {
   }
 
   const handleManualReturnComplete = async () => {
-    // ✅ Modal already submitted photos - just refresh and close
     if (!selectedRequestForPhotos) return
 
     try {
@@ -391,6 +370,42 @@ export default function StaffBorrowTimeline() {
       setStaffPhotoCaptureOpen(false)
       setSelectedRequestForPhotos(null)
     }
+  }
+
+  const handleDropToColumn = async (targetStatus) => {
+    if (!draggedRequest) return
+
+    setDraggedRequest(null)
+    setDragOverColumn(null)
+
+    if (draggedRequest.status === targetStatus) return
+
+    if (targetStatus === "approved" && draggedRequest.status === "pending") {
+      await handleApprove(draggedRequest.id, true)
+      return
+    }
+
+    if (targetStatus === "declined" && draggedRequest.status === "pending") {
+      await handleDecline(draggedRequest.id)
+      return
+    }
+
+    if (targetStatus === "returned" && draggedRequest.status === "approved") {
+      handleManualReturn(draggedRequest)
+      return
+    }
+
+    if (targetStatus === "returned" && draggedRequest.status === "pending_return") {
+      await handleApproveReturn(draggedRequest)
+      return
+    }
+
+    if (targetStatus === "approved" && draggedRequest.status === "pending_return") {
+      await handleDeclineReturn(draggedRequest)
+      return
+    }
+
+    toast("That move is not available yet.", { icon: "↩️" })
   }
 
   if (loading) {
@@ -406,113 +421,102 @@ export default function StaffBorrowTimeline() {
   return (
     <PageLayout>
       <div className="bg-surface dark:bg-[#171717] transition-colors duration-300">
-        {/* ========== HEADER ==========*/}
-        <div className="px-6 md:px-8 lg:px-12 pt-8 pb-6 bg-surface dark:bg-[#171717]">
-          <div className="flex items-start justify-between gap-6">
+        <div className="px-4 py-4 md:px-6 lg:px-8 bg-surface dark:bg-[#171717]">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div>
-              <h1 className="text-3xl md:text-4xl font-bold text-on-surface dark:text-white mb-2">
+              <h1 className="text-2xl font-semibold text-on-surface dark:text-white">
                 Borrow Timeline
               </h1>
-              <p className="text-on-surface-variant dark:text-gray-400 text-sm">
-                Manage requests and returns with a unified timeline view.
+              <p className="text-xs text-on-surface-variant dark:text-gray-400 mt-1">
+                Drag cards to move requests through the workflow.
               </p>
             </div>
 
-            <div className="flex gap-2 flex-wrap justify-end">
-              <div className="px-3 py-1.5 bg-surface-container-low dark:bg-[#222] rounded-full text-xs font-medium text-on-surface dark:text-white border border-outline-variant/20 dark:border-gray-700 whitespace-nowrap">
-                Pending: <span className="font-bold text-primary dark:text-blue-400">{requests.filter((r) => r.status === "pending").length}</span>
+            <div className="flex flex-col gap-3 md:flex-row md:items-center">
+              <div className="flex items-center gap-3 bg-surface-container-low dark:bg-[#222] rounded-lg px-3 py-2.5 border border-outline-variant/20 dark:border-gray-700 shadow-sm">
+                <Search className="w-4 h-4 text-on-surface-variant dark:text-gray-400 flex-shrink-0" />
+                <input
+                  type="text"
+                  placeholder="Search borrower, division, or item..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="flex-1 min-w-[220px] bg-transparent focus:outline-none text-xs text-on-surface dark:text-white dark:placeholder-gray-500"
+                />
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery("")}
+                    className="px-1.5 text-on-surface-variant dark:text-gray-400 hover:text-on-surface dark:hover:text-white transition"
+                  >
+                    ✕
+                  </button>
+                )}
               </div>
-              <div className="px-3 py-1.5 bg-surface-container-low dark:bg-[#222] rounded-full text-xs font-medium text-on-surface dark:text-white border border-outline-variant/20 dark:border-gray-700 whitespace-nowrap">
-                In Progress: <span className="font-bold text-primary dark:text-blue-400">{requests.filter((r) => r.status === "approved" || r.status === "pending_return").length}</span>
+
+              <div
+                className="relative bg-surface-container-low dark:bg-[#222] rounded-lg border border-outline-variant/20 dark:border-gray-700 shadow-sm transition-colors"
+                onMouseEnter={() => setFilterHovering(true)}
+                onMouseLeave={() => setFilterHovering(false)}
+              >
+                <button
+                  onClick={() => setFilterDropdownOpen(!filterDropdownOpen)}
+                  className="px-3 py-2.5 flex items-center justify-between gap-2 hover:bg-surface-container-high dark:hover:bg-[#2a2a2a] transition-colors text-left whitespace-nowrap min-w-[145px]"
+                >
+                  <span className="text-xs font-medium text-on-surface dark:text-white">
+                    <span className="text-on-surface-variant dark:text-gray-400">Status:</span>{" "}
+                    <span className="font-bold text-primary capitalize">{filter}</span>
+                  </span>
+                  <ChevronRight
+                    className={`w-3.5 h-3.5 text-on-surface-variant dark:text-gray-400 transition-transform duration-300 flex-shrink-0 ${
+                      filterDropdownOpen || filterHovering ? "rotate-90" : ""
+                    }`}
+                  />
+                </button>
+
+                <div
+                  className={`absolute top-full right-0 mt-1 bg-surface-container-low dark:bg-[#222] rounded-lg border border-outline-variant/20 dark:border-gray-700 overflow-hidden transition-all duration-300 ease-in-out z-20 ${
+                    filterDropdownOpen || filterHovering ? "max-h-96 opacity-100 visible" : "max-h-0 opacity-0 invisible"
+                  }`}
+                >
+                  <div className="px-3 py-2 space-y-1">
+                    {[
+                      { value: "all", label: "All", count: requests.length },
+                      { value: "pending", label: "Pending", count: requests.filter((r) => r.status === "pending").length },
+                      { value: "approved", label: "Approved", count: requests.filter((r) => r.status === "approved").length },
+                      { value: "pending_return", label: "Pending Review", count: requests.filter((r) => r.status === "pending_return").length },
+                      { value: "returned", label: "Returned", count: requests.filter((r) => r.status === "returned").length },
+                      { value: "declined", label: "Declined", count: requests.filter((r) => r.status === "declined").length },
+                    ].map((option) => (
+                      <label
+                        key={option.value}
+                        className="flex items-center gap-2 px-2 py-1.5 hover:bg-surface-container-lowest dark:hover:bg-[#1a1a1a] rounded-lg cursor-pointer transition-colors"
+                      >
+                        <input
+                          type="radio"
+                          name="filter"
+                          value={option.value}
+                          checked={filter === option.value}
+                          onChange={(e) => {
+                            setFilter(e.target.value)
+                            setFilterDropdownOpen(false)
+                          }}
+                          className="w-3.5 h-3.5 accent-primary flex-shrink-0"
+                        />
+                        <span className="text-xs font-medium text-on-surface dark:text-white flex-1">
+                          {option.label}
+                        </span>
+                        <span className="text-xs font-semibold bg-surface-container-lowest dark:bg-[#1a1a1a] px-1.5 py-0.5 rounded text-on-surface-variant dark:text-gray-400">
+                          {option.count}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
               </div>
             </div>
           </div>
         </div>
 
-        {/* ========== MAIN CONTENT ==========*/}
-        <div className="px-6 md:px-8 lg:px-12 space-y-4 bg-surface dark:bg-[#171717]">
-          <div className="flex items-center gap-3 bg-surface-container-low dark:bg-[#222] rounded-lg px-3 py-2.5 border border-transparent dark:border-gray-700 hover:border-primary/20 dark:hover:border-blue-400/30 focus-within:ring-2 focus-within:ring-primary dark:focus-within:ring-blue-400 focus-within:border-transparent dark:focus-within:border-transparent transition shadow-sm">
-            <Search className="w-4 h-4 text-on-surface-variant dark:text-gray-400 flex-shrink-0" />
-            <input
-              type="text"
-              placeholder="Search borrower, division, or item..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="flex-1 bg-transparent focus:outline-none text-xs text-on-surface dark:text-white dark:placeholder-gray-500"
-            />
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery("")}
-                className="px-1.5 text-on-surface-variant dark:text-gray-400 hover:text-on-surface dark:hover:text-white transition"
-              >
-                ✕
-              </button>
-            )}
-          </div>
-
-          <div className="flex gap-2 flex-wrap items-center mb-2">
-            <div
-              className="relative bg-surface-container-low dark:bg-[#222] rounded-lg border border-outline-variant/20 dark:border-gray-700 shadow-sm dark:shadow-black/40 ml-auto transition-colors"
-              onMouseEnter={() => setFilterHovering(true)}
-              onMouseLeave={() => setFilterHovering(false)}
-            >
-              <button
-                onClick={() => setFilterDropdownOpen(!filterDropdownOpen)}
-                className="px-4 py-2.5 flex items-center justify-between gap-2 hover:bg-surface-container-high dark:hover:bg-[#2a2a2a] transition-colors text-left whitespace-nowrap min-w-[145px]"
-              >
-                <span className="text-xs font-medium text-on-surface dark:text-white">
-                  <span className="text-on-surface-variant dark:text-gray-400">Status:</span>{" "}
-                  <span className="font-bold text-primary capitalize">{filter}</span>
-                </span>
-                <ChevronRight
-                  className={`w-3.5 h-3.5 text-on-surface-variant dark:text-gray-400 transition-transform duration-300 flex-shrink-0 ${
-                    filterDropdownOpen || filterHovering ? "rotate-90" : ""
-                  }`}
-                />
-              </button>
-
-              <div
-                className={`absolute top-full left-0 right-0 mt-0 bg-surface-container-low dark:bg-[#222] rounded-b-lg border-t border-outline-variant/20 dark:border-gray-700 overflow-hidden transition-all duration-300 ease-in-out z-20 ${
-                  filterDropdownOpen || filterHovering ? "max-h-96 opacity-100 visible" : "max-h-0 opacity-0 invisible"
-                }`}
-              >
-                <div className="px-3 py-2 space-y-1">
-                  {[
-                    { value: "all", label: "All", count: requests.length },
-                    { value: "pending", label: "Pending", count: requests.filter((r) => r.status === "pending").length },
-                    { value: "approved", label: "Approved", count: requests.filter((r) => r.status === "approved").length },
-                    { value: "pending_return", label: "Pending Review", count: requests.filter((r) => r.status === "pending_return").length },
-                    { value: "returned", label: "Returned", count: requests.filter((r) => r.status === "returned").length },
-                    { value: "declined", label: "Declined", count: requests.filter((r) => r.status === "declined").length },
-                  ].map((option) => (
-                    <label
-                      key={option.value}
-                      className="flex items-center gap-2 px-2 py-1.5 hover:bg-surface-container-lowest dark:hover:bg-[#1a1a1a] rounded-lg cursor-pointer transition-colors"
-                    >
-                      <input
-                        type="radio"
-                        name="filter"
-                        value={option.value}
-                        checked={filter === option.value}
-                        onChange={(e) => {
-                          setFilter(e.target.value)
-                          setFilterDropdownOpen(false)
-                        }}
-                        className="w-3.5 h-3.5 accent-primary flex-shrink-0"
-                      />
-                      <span className="text-xs font-medium text-on-surface dark:text-white flex-1">
-                        {option.label}
-                      </span>
-                      <span className="text-xs font-semibold bg-surface-container-lowest dark:bg-[#1a1a1a] px-1.5 py-0.5 rounded text-on-surface-variant dark:text-gray-400">
-                        {option.count}
-                      </span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-
+        <div className="px-4 pb-4 md:px-6 lg:px-8 bg-surface dark:bg-[#171717]">
           {groupedRequests.length === 0 ? (
             <div className="py-16 text-center rounded-2xl border border-dashed border-outline-variant/40 dark:border-gray-700 bg-surface-container-low/50 dark:bg-[#1f1f1f]">
               <Package className="w-12 h-12 text-on-surface-variant/30 dark:text-gray-600 mx-auto mb-4" />
@@ -520,176 +524,194 @@ export default function StaffBorrowTimeline() {
               <p className="text-on-surface-variant dark:text-gray-400 text-xs mt-2">No borrow requests to review</p>
             </div>
           ) : (
-            <div className="flex gap-4 overflow-x-auto pb-4">
-              {groupedRequests.map((column) => {
-                const columnMeta = getStatusMeta(column.key)
-                return (
-                  <div
-                    key={column.key}
-                    className="min-w-[290px] max-w-[320px] flex-1 rounded-2xl border border-outline-variant/20 dark:border-gray-700 bg-surface-container-low/70 dark:bg-[#1d1d1d] shadow-sm"
-                  >
-                    <div className="sticky top-0 z-10 rounded-t-2xl border-b border-outline-variant/20 dark:border-gray-700 bg-surface-container-low/95 dark:bg-[#1d1d1d]/95 px-4 py-3 backdrop-blur">
-                      <div className="flex items-center justify-between gap-2">
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: column.dotColor }} />
-                            <h2 className="text-sm font-semibold text-on-surface dark:text-white">{column.title}</h2>
-                          </div>
-                          <p className="text-[11px] text-on-surface-variant dark:text-gray-400 mt-1">{column.description}</p>
+            <div className="grid grid-cols-1 xl:grid-cols-2 2xl:grid-cols-3 gap-4">
+              {groupedRequests.map((column) => (
+                <div
+                  key={column.key}
+                  className={`min-w-0 rounded-2xl border border-outline-variant/20 dark:border-gray-700 bg-surface-container-low/70 dark:bg-[#1d1d1d] shadow-sm transition ${
+                    dragOverColumn === column.key ? "border-primary/60 ring-2 ring-primary/20" : ""
+                  }`}
+                  onDragOver={(e) => {
+                    e.preventDefault()
+                    setDragOverColumn(column.key)
+                  }}
+                  onDragLeave={() => setDragOverColumn((prev) => (prev === column.key ? null : prev))}
+                  onDrop={(e) => {
+                    e.preventDefault()
+                    handleDropToColumn(column.key)
+                  }}
+                >
+                  <div className="rounded-t-2xl border-b border-outline-variant/20 dark:border-gray-700 bg-surface-container-low/95 dark:bg-[#1d1d1d]/95 px-4 py-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: column.dotColor }} />
+                          <h2 className="text-sm font-semibold text-on-surface dark:text-white">{column.title}</h2>
                         </div>
-                        <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${column.badgeClass}`}>
-                          {column.requests.length}
-                        </span>
+                        <p className="text-[11px] text-on-surface-variant dark:text-gray-400 mt-1">{column.description}</p>
                       </div>
+                      <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${column.badgeClass}`}>
+                        {column.requests.length}
+                      </span>
                     </div>
+                  </div>
 
-                    <div className="max-h-[70vh] overflow-y-auto p-3 space-y-3">
-                      {column.requests.map((req) => {
-                        const isDeclinedReq = isDeclined(req)
-                        const daysFromToday = getDaysFromToday(req.due_date)
-                        const statusMeta = getStatusMeta(req.status)
+                  <div className="max-h-[70vh] overflow-y-auto p-3 space-y-3">
+                    {column.requests.map((req) => {
+                      const isDeclinedReq = isDeclined(req)
+                      const daysFromToday = getDaysFromToday(req.due_date)
+                      const statusMeta = getStatusMeta(req.status)
 
-                        return (
-                          <div
-                            key={req.id}
-                            className="rounded-xl border border-outline-variant/20 dark:border-gray-700 bg-surface-container-lowest dark:bg-[#171717] p-3 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
-                          >
-                            <div className="flex items-start justify-between gap-2">
-                              <div className="min-w-0">
-                                <div className="flex items-center gap-2">
-                                  <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: statusMeta.dotColor }} />
-                                  <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-on-surface-variant dark:text-gray-400">
-                                    {req.request_id || `REQ-${req.id}`}
-                                  </p>
-                                </div>
-                                <h3 className="mt-2 text-sm font-semibold text-on-surface dark:text-white truncate">
-                                  {req.borrower_name || "Unknown borrower"}
-                                </h3>
+                      return (
+                        <div
+                          key={req.id}
+                          draggable
+                          onDragStart={() => setDraggedRequest(req)}
+                          onDragEnd={() => {
+                            setDraggedRequest(null)
+                            setDragOverColumn(null)
+                          }}
+                          className={`rounded-xl border border-outline-variant/20 dark:border-gray-700 bg-surface-container-lowest dark:bg-[#171717] p-3 shadow-sm transition ${
+                            draggedRequest?.id === req.id ? "opacity-60 scale-[0.99]" : "hover:-translate-y-0.5 hover:shadow-md"
+                          }`}
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: statusMeta.dotColor }} />
+                                <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-on-surface-variant dark:text-gray-400">
+                                  {req.request_id || `REQ-${req.id}`}
+                                </p>
                               </div>
+                              <h3 className="mt-2 text-sm font-semibold text-on-surface dark:text-white truncate">
+                                {req.borrower_name || "Unknown borrower"}
+                              </h3>
+                            </div>
+                            <div className="flex items-center gap-1 text-on-surface-variant dark:text-gray-400">
+                              <Hand className="w-3.5 h-3.5" />
                               <span className={`rounded-full px-2 py-1 text-[10px] font-semibold ${statusMeta.badgeClass}`}>
                                 {statusMeta.title}
                               </span>
                             </div>
+                          </div>
 
-                            <div className="mt-3 space-y-2 text-xs text-on-surface-variant dark:text-gray-400">
+                          <div className="mt-3 space-y-2 text-xs text-on-surface-variant dark:text-gray-400">
+                            <div className="flex items-center justify-between">
+                              <span>Requested</span>
+                              <span className="font-medium text-on-surface dark:text-gray-200">
+                                {formatDate(req.request_date || req.created_at)}
+                              </span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <span>Items</span>
+                              <span className="font-medium text-on-surface dark:text-gray-200">{req.quantity || req.items?.length || 0}</span>
+                            </div>
+                            {req.due_date && (
                               <div className="flex items-center justify-between">
-                                <span>Requested</span>
+                                <span>Due</span>
                                 <span className="font-medium text-on-surface dark:text-gray-200">
-                                  {formatDate(req.request_date || req.created_at)}
+                                  {dayjs(req.due_date).tz("Asia/Manila").format("MMM DD, YYYY")}
                                 </span>
                               </div>
-                              <div className="flex items-center justify-between">
-                                <span>Items</span>
-                                <span className="font-medium text-on-surface dark:text-gray-200">{req.quantity || req.items?.length || 0}</span>
-                              </div>
-                              {req.due_date && (
-                                <div className="flex items-center justify-between">
-                                  <span>Due</span>
-                                  <span className="font-medium text-on-surface dark:text-gray-200">
-                                    {dayjs(req.due_date).tz("Asia/Manila").format("MMM DD, YYYY")}
-                                  </span>
-                                </div>
-                              )}
-                            </div>
-
-                            {req.items?.length > 0 && (
-                              <div className="mt-3 rounded-lg border border-outline-variant/20 dark:border-gray-700 bg-surface-container-low/70 dark:bg-[#222] p-2">
-                                <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-on-surface-variant dark:text-gray-400">Items</p>
-                                <div className="mt-2 space-y-1.5">
-                                  {req.items.slice(0, 3).map((item, idx) => (
-                                    <div key={idx} className="flex items-center justify-between gap-2 text-xs">
-                                      <span className="truncate text-on-surface dark:text-gray-200">
-                                        {item.item_name}
-                                        {(() => {
-                                          const divisionInfo = getInventoryDivisionInfo(item);
-                                          return divisionInfo?.division_name ? (
-                                            <span className="ml-2 text-[10px] text-primary dark:text-blue-400">[{divisionInfo.division_name}]</span>
-                                          ) : null;
-                                        })()}
-                                      </span>
-                                      <span className="font-semibold text-primary">×{item.borrowed_quantity}</span>
-                                    </div>
-                                  ))}
-                                  {req.items.length > 3 && (
-                                    <p className="text-[10px] text-on-surface-variant dark:text-gray-400">+{req.items.length - 3} more</p>
-                                  )}
-                                </div>
-                              </div>
                             )}
+                          </div>
 
-                            {isDeclinedReq && req.return_decline_reason && (
-                              <div className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-2 text-[11px] text-rose-700 dark:border-rose-800 dark:bg-rose-900/20 dark:text-rose-300">
-                                {req.return_decline_reason}
-                              </div>
-                            )}
-
-                            <div className="mt-3 flex items-center justify-between gap-2">
-                              <div className="text-[10px] font-medium text-on-surface-variant dark:text-gray-400">
-                                {daysFromToday === 0 ? "Due today" : daysFromToday > 0 ? `Due in ${daysFromToday}d` : `Overdue ${Math.abs(daysFromToday)}d`}
-                              </div>
-                              <div className="flex items-center gap-1.5">
-                                {req.status === "pending" && (
-                                  <>
-                                    <button
-                                      onClick={() => handleApprove(req.id, true)}
-                                      disabled={actionLoading[req.id]}
-                                      className="rounded-md bg-primary px-2.5 py-1.5 text-[11px] font-semibold text-on-primary transition hover:bg-primary/90 disabled:opacity-50"
-                                    >
-                                      {actionLoading[req.id] ? "..." : "Approve"}
-                                    </button>
-                                    <button
-                                      onClick={() => handleDecline(req.id)}
-                                      disabled={actionLoading[req.id]}
-                                      className="rounded-md border border-outline-variant/30 px-2.5 py-1.5 text-[11px] font-semibold text-on-surface dark:text-white transition hover:bg-surface-container-high"
-                                    >
-                                      {actionLoading[req.id] ? "..." : "Decline"}
-                                    </button>
-                                  </>
+                          {req.items?.length > 0 && (
+                            <div className="mt-3 rounded-lg border border-outline-variant/20 dark:border-gray-700 bg-surface-container-low/70 dark:bg-[#222] p-2">
+                              <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-on-surface-variant dark:text-gray-400">Items</p>
+                              <div className="mt-2 space-y-1.5">
+                                {req.items.slice(0, 3).map((item, idx) => (
+                                  <div key={idx} className="flex items-center justify-between gap-2 text-xs">
+                                    <span className="truncate text-on-surface dark:text-gray-200">
+                                      {item.item_name}
+                                      {(() => {
+                                        const divisionInfo = getInventoryDivisionInfo(item)
+                                        return divisionInfo?.division_name ? (
+                                          <span className="ml-2 text-[10px] text-primary dark:text-blue-400">[{divisionInfo.division_name}]</span>
+                                        ) : null
+                                      })()}
+                                    </span>
+                                    <span className="font-semibold text-primary">×{item.borrowed_quantity}</span>
+                                  </div>
+                                ))}
+                                {req.items.length > 3 && (
+                                  <p className="text-[10px] text-on-surface-variant dark:text-gray-400">+{req.items.length - 3} more</p>
                                 )}
+                              </div>
+                            </div>
+                          )}
 
-                                {req.status === "approved" && (
+                          {isDeclinedReq && req.return_decline_reason && (
+                            <div className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-2 text-[11px] text-rose-700 dark:border-rose-800 dark:bg-rose-900/20 dark:text-rose-300">
+                              {req.return_decline_reason}
+                            </div>
+                          )}
+
+                          <div className="mt-3 flex items-center justify-between gap-2">
+                            <div className="text-[10px] font-medium text-on-surface-variant dark:text-gray-400">
+                              {daysFromToday === 0 ? "Due today" : daysFromToday > 0 ? `Due in ${daysFromToday}d` : `Overdue ${Math.abs(daysFromToday)}d`}
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              {req.status === "pending" && (
+                                <>
                                   <button
-                                    onClick={() => handleManualReturn(req)}
-                                    disabled={actionLoading[`manual-${req.id}`]}
+                                    onClick={() => handleApprove(req.id, true)}
+                                    disabled={actionLoading[req.id]}
                                     className="rounded-md bg-primary px-2.5 py-1.5 text-[11px] font-semibold text-on-primary transition hover:bg-primary/90 disabled:opacity-50"
                                   >
-                                    {actionLoading[`manual-${req.id}`] ? "..." : "Receive"}
+                                    {actionLoading[req.id] ? "..." : "Approve"}
                                   </button>
-                                )}
+                                  <button
+                                    onClick={() => handleDecline(req.id)}
+                                    disabled={actionLoading[req.id]}
+                                    className="rounded-md border border-outline-variant/30 px-2.5 py-1.5 text-[11px] font-semibold text-on-surface dark:text-white transition hover:bg-surface-container-high"
+                                  >
+                                    {actionLoading[req.id] ? "..." : "Decline"}
+                                  </button>
+                                </>
+                              )}
 
-                                {req.status === "pending_return" && (
-                                  <>
-                                    <button
-                                      onClick={() => handleApproveReturn(req)}
-                                      disabled={actionLoading[req.id]}
-                                      className="rounded-md bg-primary px-2.5 py-1.5 text-[11px] font-semibold text-on-primary transition hover:bg-primary/90 disabled:opacity-50"
-                                    >
-                                      {actionLoading[req.id] ? "..." : "Approve"}
-                                    </button>
-                                    <button
-                                      onClick={() => handleDeclineReturn(req)}
-                                      disabled={actionLoading[`decline-${req.id}`]}
-                                      className="rounded-md border border-outline-variant/30 px-2.5 py-1.5 text-[11px] font-semibold text-on-surface dark:text-white transition hover:bg-surface-container-high"
-                                    >
-                                      {actionLoading[`decline-${req.id}`] ? "..." : "Decline"}
-                                    </button>
-                                  </>
-                                )}
-                              </div>
+                              {req.status === "approved" && (
+                                <button
+                                  onClick={() => handleManualReturn(req)}
+                                  disabled={actionLoading[`manual-${req.id}`]}
+                                  className="rounded-md bg-primary px-2.5 py-1.5 text-[11px] font-semibold text-on-primary transition hover:bg-primary/90 disabled:opacity-50"
+                                >
+                                  {actionLoading[`manual-${req.id}`] ? "..." : "Receive"}
+                                </button>
+                              )}
+
+                              {req.status === "pending_return" && (
+                                <>
+                                  <button
+                                    onClick={() => handleApproveReturn(req)}
+                                    disabled={actionLoading[req.id]}
+                                    className="rounded-md bg-primary px-2.5 py-1.5 text-[11px] font-semibold text-on-primary transition hover:bg-primary/90 disabled:opacity-50"
+                                  >
+                                    {actionLoading[req.id] ? "..." : "Approve"}
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeclineReturn(req)}
+                                    disabled={actionLoading[`decline-${req.id}`]}
+                                    className="rounded-md border border-outline-variant/30 px-2.5 py-1.5 text-[11px] font-semibold text-on-surface dark:text-white transition hover:bg-surface-container-high"
+                                  >
+                                    {actionLoading[`decline-${req.id}`] ? "..." : "Decline"}
+                                  </button>
+                                </>
+                              )}
                             </div>
                           </div>
-                        )
-                      })}
-                    </div>
+                        </div>
+                      )
+                    })}
                   </div>
-                )
-              })}
+                </div>
+              ))}
             </div>
           )}
         </div>
       </div>
 
-      {/* MODALS */}
       {staffPhotoCaptureOpen && selectedRequestForPhotos && (
         <StaffReturnPhotoCaptureModal
           isOpen={staffPhotoCaptureOpen}
