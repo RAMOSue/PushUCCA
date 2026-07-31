@@ -232,8 +232,9 @@ function AppContent() {
         <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
           <Navbar />
 
-          <main className="min-h-0 flex-1 overflow-y-auto">
-            <Routes>
+          <div className="flex min-h-0 flex-1 overflow-hidden">
+            <main className="min-h-0 flex-1 overflow-y-auto">
+              <Routes>
               {/* ==============================
                   PUBLIC ROUTES
               ============================== */}
@@ -419,13 +420,14 @@ function AppContent() {
                 <Route path="metrics" element={<MetricsDashboard />} />
                 <Route path="detection-accuracy" element={<DetectionAccuracy />} />
               </Route>
-            </Routes>
-          </main>
-        </div>
+              </Routes>
+            </main>
 
-        {user && (user?.role === "borrower" || user?.role === "staff" || user?.role === "admin") && (
-          <RightNavbar />
-        )}
+            {user && (user?.role === "borrower" || user?.role === "staff" || user?.role === "admin") && (
+              <RightNavbar />
+            )}
+          </div>
+        </div>
       </div>
 
       <TestUserSwitcher />

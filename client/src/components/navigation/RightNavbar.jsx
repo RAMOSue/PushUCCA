@@ -1,5 +1,5 @@
 import { useContext, useState, useEffect } from "react";
-import { Clock, CheckCircle, AlertCircle, Package, ArrowLeft, ArrowRight, Loader, Music, Calendar as CalendarIcon, QrCode, Camera } from "lucide-react";
+import { Music, QrCode, Camera } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import Calendar from "react-calendar";
 import { SidebarContext } from "../../context/SidebarContext";
@@ -8,11 +8,10 @@ import axios from "axios";
 import "react-calendar/dist/Calendar.css";
 
 export default function RightNavbar() {
-  const { rightSidebarOpen, isMobile, setRightSidebarOpen } = useContext(SidebarContext);
+  const { rightSidebarOpen, setRightSidebarOpen } = useContext(SidebarContext);
   const { user } = useContext(UserContext);
   const navigate = useNavigate();
   const location = useLocation();
-  const [currentTime, setCurrentTime] = useState(new Date());
   const [pendingApproval, setPendingApproval] = useState(0);
   const [activeBorrows, setActiveBorrows] = useState(0);
   const [returnedItems, setReturnedItems] = useState(0);
@@ -21,14 +20,6 @@ export default function RightNavbar() {
   const [lastUpdated, setLastUpdated] = useState(null);
   const [allPerformances, setAllPerformances] = useState([]);
   const [selectedCalendarDate, setSelectedCalendarDate] = useState(null);
-
-  // Update clock every second
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentTime(new Date());
-    }, 1000);
-    return () => clearInterval(timer);
-  }, []);
 
   // Fetch statistics
   const fetchStats = async () => {
@@ -69,8 +60,7 @@ export default function RightNavbar() {
       const now = new Date();
       const upcomingPerfs = performancesRes.data
         .filter((p) => new Date(p.start_time) > now)
-        .sort((a, b) => new Date(a.start_time) - new Date(b.start_time))
-        .slice(0, 5); // Show top 5 upcoming events
+        .sort((a, b) => new Date(a.start_time) - new Date(b.start_time));
 
       // Store all performances for calendar
       setAllPerformances(performancesRes.data || []);
@@ -97,13 +87,6 @@ export default function RightNavbar() {
       return () => clearInterval(interval);
     }
   }, [user]);
-
-  const formattedTime = currentTime.toLocaleTimeString("en-US", {
-    hour: "2-digit",
-    minute: "2-digit",
-    
-    hour12: true,
-  });
 
   const formatEventDate = (dateString) => {
     const date = new Date(dateString);
@@ -287,7 +270,24 @@ export default function RightNavbar() {
           color: rgb(107, 114, 128);
         }
         .calendar-wrapper .react-calendar__navigation {
+          display: grid;
+          grid-template-columns: 36px 1fr 36px;
+          align-items: center;
           margin-bottom: 0.5rem;
+          gap: 0.25rem;
+        }
+        .calendar-wrapper .react-calendar__navigation__label {
+          grid-column: 2;
+          justify-self: center;
+          text-align: center;
+        }
+        .calendar-wrapper .react-calendar__navigation button:first-child {
+          grid-column: 1;
+          justify-self: start;
+        }
+        .calendar-wrapper .react-calendar__navigation button:last-child {
+          grid-column: 3;
+          justify-self: end;
         }
         .calendar-wrapper .react-calendar__navigation button {
           background: transparent;
@@ -303,8 +303,8 @@ export default function RightNavbar() {
       `}</style>
 
       <aside
-        className={`right-navbar hidden lg:flex sticky right-0 top-0 h-screen shrink-0 border-l border-outline-variant/10 bg-surface-container-low dark:border-[#2a2a2a] dark:bg-[#1f1f1f] shadow-2xl dark:shadow-[inset_-1px_0_0_rgba(255,255,255,0.05)] z-30 transition-all duration-250 ease-in-out ${
-          rightSidebarOpen ? "w-56 opacity-100" : "w-12 opacity-100"
+        className={`right-navbar hidden lg:flex h-full shrink-0 border-l border-outline-variant/10 bg-surface-container-low dark:border-[#2a2a2a] dark:bg-[#1f1f1f] shadow-2xl dark:shadow-[inset_-1px_0_0_rgba(255,255,255,0.05)] z-30 transition-all duration-250 ease-in-out ${
+          rightSidebarOpen ? "w-80 opacity-100" : "w-14 opacity-100"
         }`}
         style={{
           overflowY: "auto",
@@ -318,7 +318,7 @@ export default function RightNavbar() {
         <div
           className="flex h-full flex-col transition-all duration-250 ease-in-out"
           style={{
-            width: rightSidebarOpen ? "224px" : "48px",
+            width: rightSidebarOpen ? "320px" : "56px",
             flexShrink: 0,
             pointerEvents: "auto",
           }}
@@ -349,7 +349,7 @@ export default function RightNavbar() {
                     />
                   </div>
 
-                  <div className="max-h-40 space-y-1 overflow-y-auto">
+                  <div className="max-h-[16rem] space-y-1 overflow-y-auto">
                     {getOrderedEvents().length === 0 ? (
                       <div className="rounded border border-outline-variant/10 bg-surface-container-lowest p-2 text-center transition-colors duration-300 dark:border-[#3a3a3a] dark:bg-[#2a2a2a]">
                         <p className="text-[10px] text-on-surface-variant dark:text-gray-400">No upcoming events</p>
