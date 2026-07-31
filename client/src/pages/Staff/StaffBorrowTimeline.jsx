@@ -216,7 +216,7 @@ export default function StaffBorrowTimeline() {
       })
     })
 
-    return columns.filter((column) => column.requests.length > 0)
+    return columns
   }
 
   // ========== ACTION HANDLERS ==========
@@ -524,13 +524,14 @@ export default function StaffBorrowTimeline() {
               <p className="text-on-surface-variant dark:text-gray-400 text-xs mt-2">No borrow requests to review</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 xl:grid-cols-2 2xl:grid-cols-3 gap-4">
-              {groupedRequests.map((column) => (
-                <div
-                  key={column.key}
-                  className={`min-w-0 rounded-2xl border border-outline-variant/20 dark:border-gray-700 bg-surface-container-low/70 dark:bg-[#1d1d1d] shadow-sm transition ${
-                    dragOverColumn === column.key ? "border-primary/60 ring-2 ring-primary/20" : ""
-                  }`}
+            <div className="overflow-x-auto pb-1">
+              <div className="grid grid-cols-5 gap-2.5 xl:gap-3 min-w-[980px]">
+                {groupedRequests.map((column) => (
+                  <div
+                    key={column.key}
+                    className={`min-w-0 rounded-2xl border border-outline-variant/20 dark:border-gray-700 bg-surface-container-low/70 dark:bg-[#1d1d1d] shadow-sm transition ${
+                      dragOverColumn === column.key ? "border-primary/60 ring-2 ring-primary/20" : ""
+                    }`}
                   onDragOver={(e) => {
                     e.preventDefault()
                     setDragOverColumn(column.key)
@@ -706,7 +707,8 @@ export default function StaffBorrowTimeline() {
                     })}
                   </div>
                 </div>
-              ))}
+                ))}
+              </div>
             </div>
           )}
         </div>
