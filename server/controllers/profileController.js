@@ -139,6 +139,18 @@ async function ensureUserProfileColumns() {
   }
 }
 
+function isMissingSchemaError(err) {
+  const msg = (err && err.message) || "";
+  return (
+    msg.includes("division_id") ||
+    msg.includes("position_id") ||
+    msg.includes("unknown column") ||
+    msg.includes("does not exist") ||
+    msg.includes("relation \"divisions\"") ||
+    msg.includes("relation \"positions\"")
+  );
+}
+
 // Helper: Get single profile with optional division/position joins (backwards compatible)
 async function getProfileWithDivision(userId) {
   await ensureUserProfileColumns();
@@ -162,13 +174,8 @@ async function getProfileWithDivision(userId) {
     const { rows } = await pool.query(qWithDivision, [userId]);
     return rows[0] || null;
   } catch (err) {
-    if (
-      err.message.includes("division_id") ||
-      err.message.includes("position_id") ||
-      err.message.includes("unknown column") ||
-      err.message.includes("does not exist")
-    ) {
-      console.warn("⚠️ division_id/position_id column not found - running migration will enable department/position tracking");
+    if (isMissingSchemaError(err)) {
+      console.warn("⚠️ division_id/position_id or related table missing - falling back to schema-safe query");
       const qWithoutDivision = `
         SELECT u.id, u.name, u.email, u.phone, u.role,
                u.position_id, NULL::text as position_name,
@@ -212,13 +219,8 @@ async function getAllProfilesWithDivisions() {
     const { rows } = await pool.query(qWithDivision);
     return rows;
   } catch (err) {
-    if (
-      err.message.includes("division_id") ||
-      err.message.includes("position_id") ||
-      err.message.includes("unknown column") ||
-      err.message.includes("does not exist")
-    ) {
-      console.warn("⚠️ division_id/position_id column not found - running migration will enable department/position tracking");
+    if (isMissingSchemaError(err)) {
+      console.warn("⚠️ division_id/position_id or related table missing - falling back to schema-safe list query");
       const qWithoutDivision = `
         SELECT u.id, u.name, u.email, u.phone, u.role,
              u.position_id, NULL::text as position_name,
