@@ -4,7 +4,7 @@ import axios from "axios";
 import toast from "react-hot-toast";
 import UnitModal from "./UnitModal";
 import PageLayout from "../../components/layout/PageLayout";
-import { Package, GridIcon, Music, AlertTriangle, Search, Filter, Plus, QrCode, ChevronRight, ChevronDown, Edit2, Trash2 } from "lucide-react";
+import { Package, GridIcon, Music, AlertTriangle, Search, Filter, Plus, QrCode, Edit2, Trash2 } from "lucide-react";
 import { getInventoryDivisionInfo, setInventoryDivisionAssignment } from "../../utils/inventoryDivisionStorage";
 import { useSidebarStore } from "../../../context/sidebarStore";
 
@@ -134,7 +134,6 @@ export default function ManageInventory() {
   const [selectedItemForQR, setSelectedItemForQR] = useState(null);
   const [filterCategory, setFilterCategory] = useState(null);
   const [formPanelOpen, setFormPanelOpen] = useState(false);
-  const [expandedItems, setExpandedItems] = useState({});
   const [activeItemId, setActiveItemId] = useState(null);
   const [divisions, setDivisions] = useState([]);
   const [divisionLoading, setDivisionLoading] = useState(false);
@@ -671,9 +670,6 @@ export default function ManageInventory() {
         {/* Header Section */}
         <div className="px-6 md:px-8 lg:px-12 pt-6 pb-4">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <div className="text-sm text-on-surface-variant dark:text-gray-400">
-              Inventory list with global search and division filters applied.
-            </div>
             <div className="flex items-center gap-3">
               <select
                 value={filterCategory || 'all'}
@@ -693,9 +689,10 @@ export default function ManageInventory() {
                   setShowAdvanced(false);
                   setFormPanelOpen(true);
                 }}
-                className="btn btn-primary"
+                className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2.5 text-sm font-semibold text-white shadow-sm shadow-primary/10 hover:bg-primary-container transition"
               >
-                <Plus className="mr-2" /> Add New Item
+                <Plus className="w-4 h-4" />
+                Add Item
               </button>
             </div>
           </div>
@@ -715,183 +712,79 @@ export default function ManageInventory() {
               ) : (
                 <div className="space-y-2">
                   {filteredItems.map((item) => {
-                    const isExpanded = expandedItems[item.uuid];
                     const itemKey = item.uuid || item.id;
                     const itemImage = item.image_url?.startsWith('http') ? item.image_url : item.image_url ? `${import.meta.env.VITE_API_URL || window.location.origin}${item.image_url}` : null;
                     const totalQty = item.category === "costume" && item.garment_type?.toLowerCase() !== "accessory"
                       ? (item.qty_small || 0) + (item.qty_medium || 0) + (item.qty_large || 0)
                       : item.quantity || 0;
-                    const status = (item.units?.length || 0) > 0 ? "In Stock" : "Out";
                     const isActiveRow = activeItemId === itemKey;
+                    const sizeLabel = item.category === "costume" && item.garment_type?.toLowerCase() !== "accessory"
+                      ? [item.qty_small > 0 ? `S:${item.qty_small}` : null, item.qty_medium > 0 ? `M:${item.qty_medium}` : null, item.qty_large > 0 ? `L:${item.qty_large}` : null].filter(Boolean).join(', ') || 'No sizes available'
+                      : `Qty: ${totalQty}`;
 
                     return (
-                      <div
-                        key={itemKey}
-                        className={`rounded-lg border border-outline-variant/20 dark:border-gray-700 shadow-sm transition-all duration-200 overflow-hidden ${isActiveRow ? 'bg-surface-container-high dark:bg-[#222] border-primary/20 dark:border-blue-400/30' : 'bg-surface-container-low dark:bg-[#1a1a1a] hover:shadow-md dark:hover:shadow-black/40'}`}
-                      >
-                      {/* Row Header - Clickable */}
                       <button
-                        onClick={() => {
-                          const itemKey = item.uuid || item.id;
-                          setActiveItemId(itemKey);
-                          setExpandedItems({
-                            ...expandedItems,
-                            [itemKey]: !isExpanded
-                          });
-                        }}
-                        className={`w-full px-3 py-2 flex items-center gap-2 transition-colors text-left ${activeItemId === (item.uuid || item.id) ? 'bg-surface-container-high dark:bg-[#222]' : 'hover:bg-surface-container-high dark:hover:bg-[#222]'}`}
+                        key={itemKey}
+                        type="button"
+                        onClick={() => setActiveItemId(itemKey)}
+                        className={`w-full text-left rounded-3xl border px-3 py-3 flex items-center gap-3 transition ${isActiveRow ? 'bg-primary/5 dark:bg-blue-500/10 border-primary/30 dark:border-blue-400/40 shadow-sm' : 'bg-surface-container-low dark:bg-[#1a1a1a] border-outline-variant/20 dark:border-gray-700 hover:border-primary/30 hover:bg-surface-container-high dark:hover:bg-[#222]'}`}
                       >
-                        {/* Item Thumbnail */}
-                        <div className="flex-shrink-0 w-10 h-10 rounded-lg overflow-hidden border border-primary/30 dark:border-blue-500/30 bg-surface-container-high dark:bg-[#222]">
+                        <div className="flex-shrink-0 w-14 h-14 rounded-2xl overflow-hidden border border-outline-variant/20 dark:border-gray-700 bg-surface-container-high dark:bg-[#222]">
                           {itemImage ? (
                             <img src={itemImage} alt={item.name} className="w-full h-full object-cover" />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center text-on-surface-variant dark:text-gray-400">
-                              {item.category === 'instrument' ? (
-                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" /></svg>
-                              ) : (
-                                <Package className="w-5 h-5" />
-                              )}
+                              <Package className="w-5 h-5" />
                             </div>
                           )}
                         </div>
 
-                        {/* Item Info - Two Lines */}
-                        <div className="flex-1 min-w-0">
-                          {/* Line 1: Name + Status Badges */}
-                          <div className="flex items-center justify-between gap-2 mb-0.5">
-                            <p className="text-xs font-semibold truncate text-on-surface dark:text-white">{item.name}</p>
-                            <div className="flex gap-1 flex-shrink-0">
-                              <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 font-medium">
-                                {item.category?.charAt(0).toUpperCase() + item.category?.slice(1)}
-                              </span>
-                              <span className={`text-[9px] px-1.5 py-0.5 rounded font-medium ${
-                                status === 'In Stock'
-                                  ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400'
-                                  : 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400'
-                              }`}>
-                                {status}
-                              </span>
-                            </div>
-                          </div>
-
-                          {/* Line 2: Dance + Qty Info */}
-                          <div className="flex items-center gap-2 text-[10px] text-on-surface-variant dark:text-gray-400">
-                            {(() => {
-                              const divisionInfo = getInventoryDivisionInfo(item);
-                              return divisionInfo?.division_name ? (
-                                <span className="inline-flex items-center rounded-full border border-primary/20 bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary dark:border-blue-400/20 dark:bg-blue-500/10 dark:text-blue-300">
-                                  {divisionInfo.division_name}
-                                </span>
-                              ) : null;
-                            })()}
-                            {item.indigenous_dance && (
-                              <>
-                                <span className="font-medium text-on-surface dark:text-white">{item.indigenous_dance}</span>
-                                <span>•</span>
-                              </>
-                            )}
-                            {item.category === "costume" && item.garment_type?.toLowerCase() !== "accessory" ? (
-                              <span className="truncate">
-                                {item.qty_small > 0 ? `S:${item.qty_small} ` : ''}
-                                {item.qty_medium > 0 ? `M:${item.qty_medium} ` : ''}
-                                {item.qty_large > 0 ? `L:${item.qty_large} ` : ''}
-                                Total: {totalQty}
-                              </span>
-                            ) : (
-                              <span>Qty: {totalQty}</span>
-                            )}
-                          </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-semibold text-on-surface dark:text-white truncate">{item.name}</p>
+                          <p className="mt-1 text-xs text-on-surface-variant dark:text-gray-400 truncate">{sizeLabel}</p>
                         </div>
-
-                        {/* Expand Chevron */}
-                        <ChevronRight
-                          className={`w-4 h-4 text-on-surface-variant dark:text-gray-500 flex-shrink-0 transition-transform ${isExpanded ? 'rotate-90' : ''}`}
-                        />
                       </button>
-
-                      {/* Expanded Details */}
-                      {isExpanded && (
-                        <div className="border-t border-outline-variant/20 dark:border-gray-700 px-3 py-3 bg-surface-container-lowest/50 dark:bg-[#1a1a1a]/50 text-xs space-y-3">
-                          {/* Item Details */}
-                          <div className="space-y-2">
-                            <p className="text-[10px] text-on-surface-variant dark:text-gray-500 uppercase font-medium">Details</p>
-                            {item.indigenous_group && (
-                              <p className="text-sm text-on-surface dark:text-white">Group: <span className="font-medium">{item.indigenous_group}</span></p>
-                            )}
-                            {item.region && (
-                              <p className="text-sm text-on-surface dark:text-white">Region: <span className="font-medium">{item.region}</span></p>
-                            )}
-                            {item.garment_type && (
-                              <p className="text-sm text-on-surface dark:text-white">Type: <span className="font-medium">{item.garment_type}</span></p>
-                            )}
-                            {item.gender && (
-                              <p className="text-sm text-on-surface dark:text-white">Gender: <span className="font-medium">{item.gender}</span></p>
-                            )}
-                            {item.color && (
-                              <p className="text-sm text-on-surface dark:text-white">Color: <span className="font-medium">{item.color}</span></p>
-                            )}
-                            {item.date_acquired && (
-                              <p className="text-sm text-on-surface dark:text-white">Acquired: <span className="font-medium">{item.date_acquired}</span></p>
-                            )}
-                            {item.description && (
-                              <p className="text-sm text-on-surface dark:text-white">Notes: <span className="font-medium">{item.description}</span></p>
-                            )}
-                            {(() => {
-                              const divisionInfo = getInventoryDivisionInfo(item);
-                              return divisionInfo?.division_name ? (
-                                <p className="text-sm text-on-surface dark:text-white">Division: <span className="font-medium">{divisionInfo.division_name}</span></p>
-                              ) : null;
-                            })()}
-                            {item.instrument_classification && (
-                              <p className="text-sm text-on-surface dark:text-white">Classification: <span className="font-medium">{item.instrument_classification}</span></p>
-                            )}
-                            {item.instrument_type && (
-                              <p className="text-sm text-on-surface dark:text-white">Instrument Type: <span className="font-medium">{item.instrument_type}</span></p>
-                            )}
-                          </div>
-
-                          {/* Action Buttons - Icon Only */}
-                          <div className="flex gap-2 pt-2 border-t border-outline-variant/10 dark:border-gray-700">
-                            <button
-                              onClick={() => handleEdit(item)}
-                              className="p-1.5 bg-primary/10 dark:bg-blue-900/30 text-primary dark:text-blue-400 rounded hover:bg-primary/20 dark:hover:bg-blue-900/50 transition"
-                              title="Edit"
-                            >
-                              <Edit2 className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() => {
-                                setSelectedItemForQR(item);
-                                setUnitModalOpen(true);
-                              }}
-                              className="p-1.5 bg-primary/10 dark:bg-blue-900/30 text-primary dark:text-blue-400 rounded hover:bg-primary/20 dark:hover:bg-blue-900/50 transition"
-                              title="View QR Codes"
-                            >
-                              <QrCode className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() => handleDelete(item.uuid)}
-                              className="p-1.5 bg-error/10 dark:bg-red-900/30 text-error dark:text-red-400 rounded hover:bg-error/20 dark:hover:bg-red-900/50 transition"
-                              title="Delete"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
+                    );
+                  })}
+                </div>
             )}
           </div>
 
           <div className="space-y-4">
-            <div className="rounded-3xl border border-outline-variant/20 dark:border-gray-700 bg-surface-container-low dark:bg-[#1a1a1a] p-6 min-h-[420px]">
+            <div className="relative rounded-3xl border border-outline-variant/20 dark:border-gray-700 bg-surface-container-low dark:bg-[#1a1a1a] p-6 min-h-[420px]">
               {activeItem ? (
-                <div className="space-y-6">
-                  <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
+                <>
+                  <div className="absolute right-6 top-6 flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleEdit(activeItem)}
+                      title="Edit"
+                      className="inline-flex items-center justify-center h-10 w-10 rounded-full bg-primary/10 text-primary dark:bg-blue-900/30 dark:text-blue-400 hover:bg-primary/20 dark:hover:bg-blue-900/50 transition"
+                    >
+                      <Edit2 className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedItemForQR(activeItem);
+                        setUnitModalOpen(true);
+                      }}
+                      title="View QR Codes"
+                      className="inline-flex items-center justify-center h-10 w-10 rounded-full bg-primary/10 text-primary dark:bg-blue-900/30 dark:text-blue-400 hover:bg-primary/20 dark:hover:bg-blue-900/50 transition"
+                    >
+                      <QrCode className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(activeItem.uuid)}
+                      title="Delete"
+                      className="inline-flex items-center justify-center h-10 w-10 rounded-full bg-error/10 text-error dark:bg-red-900/30 dark:text-red-400 hover:bg-error/20 dark:hover:bg-red-900/50 transition"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
                     <div className="w-full lg:w-44 h-44 rounded-3xl overflow-hidden bg-surface-container-high dark:bg-[#222] border border-outline-variant/20 dark:border-gray-700">
                       {activeItem.image_url ? (
                         <img
@@ -906,87 +799,68 @@ export default function ManageInventory() {
                       )}
                     </div>
 
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[10px] uppercase tracking-[0.22em] text-on-surface-variant mb-2">Selected item</p>
-                      <h2 className="text-xl font-bold text-on-surface dark:text-white mb-2 line-clamp-2">{activeItem.name}</h2>
-                      <p className="text-sm text-on-surface-variant dark:text-gray-400 mb-3">{activeItem.category?.charAt(0).toUpperCase() + activeItem.category?.slice(1) || 'Item'}</p>
-                      <div className="flex flex-wrap gap-2">
+                    <div className="flex-1 min-w-0 pt-1 lg:pt-0">
+                      <p className="text-xs uppercase tracking-[0.24em] text-on-surface-variant mb-2">Selected item</p>
+                      <h2 className="text-2xl font-semibold text-on-surface dark:text-white mb-2 line-clamp-2">{activeItem.name}</h2>
+                      <div className="flex flex-wrap gap-2 items-center text-sm text-on-surface-variant dark:text-gray-400">
+                        <span>{activeItem.category?.charAt(0).toUpperCase() + activeItem.category?.slice(1) || 'Item'}</span>
+                        <span className="h-1 w-1 rounded-full bg-on-surface-variant/40"></span>
+                        <span>{activeItem.units?.length ? 'In Stock' : 'Out of stock'}</span>
+                      </div>
+                      <div className="mt-4 flex flex-wrap gap-2">
                         {getInventoryDivisionInfo(activeItem)?.division_name ? (
-                          <span className="inline-flex items-center rounded-full border border-primary/20 bg-primary/10 px-2 py-1 text-[10px] font-medium text-primary dark:border-blue-400/20 dark:bg-blue-500/10 dark:text-blue-300">
+                          <span className="inline-flex items-center rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-[11px] font-medium text-primary dark:border-blue-400/20 dark:bg-blue-500/10 dark:text-blue-300">
                             {getInventoryDivisionInfo(activeItem).division_name}
                           </span>
                         ) : null}
-                        <span className={`inline-flex items-center rounded-full px-2 py-1 text-[10px] font-medium ${activeItem.units?.length ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' : 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300'}`}>
-                          {activeItem.units?.length ? 'In Stock' : 'Out of stock'}
-                        </span>
                       </div>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4 text-sm text-on-surface dark:text-white">
-                    <div>
-                      <p className="text-[10px] uppercase tracking-[0.2em] text-on-surface-variant mb-2">Quantity</p>
-                      <p className="font-semibold">{activeItem.quantity ?? costumeTotal(activeItem) ?? 0}</p>
+                  <div className="grid gap-4 mt-6 sm:grid-cols-2">
+                    <div className="rounded-3xl border border-outline-variant/20 dark:border-gray-700 bg-surface-container-high dark:bg-[#222] p-4">
+                      <p className="text-[10px] uppercase tracking-[0.22em] text-on-surface-variant mb-2">Quantity</p>
+                      <p className="text-lg font-semibold text-on-surface dark:text-white">{activeItem.quantity ?? costumeTotal(activeItem) ?? 0}</p>
                     </div>
-                    <div>
-                      <p className="text-[10px] uppercase tracking-[0.2em] text-on-surface-variant mb-2">Garment Type</p>
-                      <p className="font-semibold">{activeItem.garment_type || '—'}</p>
+                    <div className="rounded-3xl border border-outline-variant/20 dark:border-gray-700 bg-surface-container-high dark:bg-[#222] p-4">
+                      <p className="text-[10px] uppercase tracking-[0.22em] text-on-surface-variant mb-2">Garment Type</p>
+                      <p className="text-lg font-semibold text-on-surface dark:text-white">{activeItem.garment_type || '—'}</p>
                     </div>
-                    <div>
-                      <p className="text-[10px] uppercase tracking-[0.2em] text-on-surface-variant mb-2">Region</p>
-                      <p className="font-semibold">{activeItem.region || '—'}</p>
+                    <div className="rounded-3xl border border-outline-variant/20 dark:border-gray-700 bg-surface-container-high dark:bg-[#222] p-4">
+                      <p className="text-[10px] uppercase tracking-[0.22em] text-on-surface-variant mb-2">Region</p>
+                      <p className="text-lg font-semibold text-on-surface dark:text-white">{activeItem.region || '—'}</p>
                     </div>
-                    <div>
-                      <p className="text-[10px] uppercase tracking-[0.2em] text-on-surface-variant mb-2">Gender</p>
-                      <p className="font-semibold">{activeItem.gender || '—'}</p>
+                    <div className="rounded-3xl border border-outline-variant/20 dark:border-gray-700 bg-surface-container-high dark:bg-[#222] p-4">
+                      <p className="text-[10px] uppercase tracking-[0.22em] text-on-surface-variant mb-2">Gender</p>
+                      <p className="text-lg font-semibold text-on-surface dark:text-white">{activeItem.gender || '—'}</p>
                     </div>
                   </div>
 
-                  <div className="space-y-3 text-sm text-on-surface dark:text-white">
+                  <div className="mt-6 space-y-5 text-sm text-on-surface dark:text-white">
                     {activeItem.description && (
-                      <div>
+                      <div className="rounded-3xl border border-outline-variant/20 dark:border-gray-700 bg-surface-container-high dark:bg-[#222] p-4">
                         <p className="text-[10px] uppercase tracking-[0.18em] text-on-surface-variant mb-2">Notes</p>
                         <p>{activeItem.description}</p>
                       </div>
                     )}
-                    {activeItem.instrument_classification && (
-                      <div>
-                        <p className="text-[10px] uppercase tracking-[0.18em] text-on-surface-variant mb-2">Classification</p>
-                        <p>{activeItem.instrument_classification}</p>
-                      </div>
-                    )}
-                    {activeItem.instrument_type && (
-                      <div>
-                        <p className="text-[10px] uppercase tracking-[0.18em] text-on-surface-variant mb-2">Instrument Type</p>
-                        <p>{activeItem.instrument_type}</p>
+                    {(activeItem.instrument_classification || activeItem.instrument_type) && (
+                      <div className="rounded-3xl border border-outline-variant/20 dark:border-gray-700 bg-surface-container-high dark:bg-[#222] p-4">
+                        {activeItem.instrument_classification && (
+                          <div className="mb-4">
+                            <p className="text-[10px] uppercase tracking-[0.18em] text-on-surface-variant mb-2">Classification</p>
+                            <p>{activeItem.instrument_classification}</p>
+                          </div>
+                        )}
+                        {activeItem.instrument_type && (
+                          <div>
+                            <p className="text-[10px] uppercase tracking-[0.18em] text-on-surface-variant mb-2">Instrument Type</p>
+                            <p>{activeItem.instrument_type}</p>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
-
-                  <div className="flex flex-wrap gap-3 pt-4 border-t border-outline-variant/20 dark:border-gray-700">
-                    <button
-                      onClick={() => handleEdit(activeItem)}
-                      className="px-4 py-2 rounded-lg bg-primary text-white text-sm font-semibold hover:bg-primary-container transition"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      onClick={() => {
-                        setSelectedItemForQR(activeItem);
-                        setUnitModalOpen(true);
-                      }}
-                      className="px-4 py-2 rounded-lg border border-outline-variant/30 dark:border-gray-700 text-sm font-semibold text-on-surface hover:bg-surface-container-high dark:hover:bg-[#222] transition"
-                    >
-                      View QR Codes
-                    </button>
-                    <button
-                      onClick={() => handleDelete(activeItem.uuid)}
-                      className="px-4 py-2 rounded-lg bg-error/10 dark:bg-red-900/30 text-error dark:text-red-400 text-sm font-semibold hover:bg-error/20 dark:hover:bg-red-900/50 transition"
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </div>
+                </>
               ) : (
                 <div className="h-full flex flex-col items-center justify-center text-center text-on-surface-variant dark:text-gray-400">
                   <Package className="w-12 h-12 mb-3" />

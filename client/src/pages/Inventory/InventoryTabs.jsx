@@ -34,18 +34,18 @@ export default function InventoryTabs() {
       <div className="min-h-screen bg-surface dark:bg-[#171717] transition-colors duration-300 scroll-smooth">
         <div className="px-3 sm:px-6 md:px-8 lg:px-12 pt-6 pb-4">
           <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-4 border-b border-outline-variant/20 dark:border-gray-700 pb-2">
+            <div className="flex items-center gap-6">
               <button
                 type="button"
                 onClick={() => setActiveTab('manage')}
-                className={`text-sm font-semibold transition duration-300 ${activeTab === 'manage' ? 'text-primary dark:text-blue-400' : 'text-on-surface-variant dark:text-gray-400 hover:text-on-surface dark:hover:text-white'}`}
+                className={`text-sm transition duration-300 ${activeTab === 'manage' ? 'text-primary dark:text-blue-400 font-semibold border-b-2 border-primary dark:border-blue-400 pb-2' : 'text-on-surface-variant dark:text-gray-400 hover:text-on-surface dark:hover:text-white pb-2'}`}
               >
                 Manage Inventory
               </button>
               <button
                 type="button"
                 onClick={() => setActiveTab('available')}
-                className={`text-sm font-semibold transition duration-300 ${activeTab === 'available' ? 'text-primary dark:text-blue-400' : 'text-on-surface-variant dark:text-gray-400 hover:text-on-surface dark:hover:text-white'}`}
+                className={`text-sm transition duration-300 ${activeTab === 'available' ? 'text-primary dark:text-blue-400 font-semibold border-b-2 border-primary dark:border-blue-400 pb-2' : 'text-on-surface-variant dark:text-gray-400 hover:text-on-surface dark:hover:text-white pb-2'}`}
               >
                 Available Items
               </button>
