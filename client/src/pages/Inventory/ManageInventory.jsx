@@ -118,7 +118,7 @@ function categoryOptionsForGroup(grp) {
 }
 
 /* -------------------------------------------------------------- */
-export default function ManageInventory() {
+export default function ManageInventory({ filterCategory, registerAddItemHandler }) {
   const { selectedDivision, globalSearchQuery } = useSidebarStore();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -132,7 +132,6 @@ export default function ManageInventory() {
   const [openQRItemId, setOpenQRItemId] = useState(null);
   const [unitModalOpen, setUnitModalOpen] = useState(false);
   const [selectedItemForQR, setSelectedItemForQR] = useState(null);
-  const [filterCategory, setFilterCategory] = useState(null);
   const [formPanelOpen, setFormPanelOpen] = useState(false);
   const [activeItemId, setActiveItemId] = useState(null);
   const [divisions, setDivisions] = useState([]);
@@ -238,15 +237,16 @@ export default function ManageInventory() {
     return [];
   }, [newItem.category, selectedGroup]);
 
+  const resolvedFilterCategory = filterCategory || null;
   const filteredItems = useMemo(() => {
     const normalizedSelectedDivision = normalize(selectedDivision);
     return items.filter((i) => {
       const divisionMatch = normalizedSelectedDivision === "all" || normalize(i.collection_group) === normalizedSelectedDivision;
-      const categoryMatch = !filterCategory || i.category === filterCategory;
+      const categoryMatch = !resolvedFilterCategory || i.category === resolvedFilterCategory;
       const searchMatch = !globalSearchQuery || i.name.toLowerCase().includes(globalSearchQuery.toLowerCase());
       return divisionMatch && categoryMatch && searchMatch;
     });
-  }, [items, selectedDivision, filterCategory, globalSearchQuery]);
+  }, [items, selectedDivision, resolvedFilterCategory, globalSearchQuery]);
 
   useEffect(() => {
     if (filteredItems.length === 0) {
@@ -655,6 +655,18 @@ export default function ManageInventory() {
   const currentDanceOptions = dancesByGroup[newItem.indigenous_group] || [];
 
   // if (loading) return <div className="text-center mt-10">Loading inventory...</div>;
+  useEffect(() => {
+    if (typeof registerAddItemHandler === 'function') {
+      registerAddItemHandler(() => {
+        setNewItem(buildEmptyItem(selectedGroup));
+        setEditingItem(null);
+        setPreviewImage(null);
+        setShowAdvanced(false);
+        setFormPanelOpen(true);
+      });
+    }
+  }, [registerAddItemHandler, selectedGroup]);
+
   if (loading) return (
     <div className="flex items-center justify-center min-h-screen">
       <div className="text-center">
@@ -667,50 +679,18 @@ export default function ManageInventory() {
   return (
     <PageLayout>
       <div className="dark:bg-[#171717]">
-        {/* Header Section */}
-        <div className="px-6 md:px-8 lg:px-12 pt-6 pb-4">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex items-center gap-3">
-              <select
-                value={filterCategory || 'all'}
-                onChange={(e) => setFilterCategory(e.target.value === 'all' ? null : e.target.value)}
-                className="px-4 py-2 bg-surface-container-low dark:bg-[#222] border border-outline-variant/30 dark:border-gray-700 rounded-lg text-sm font-medium text-on-surface dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent dark:focus:border-transparent"
-              >
-                <option value="all">All</option>
-                <option value="costume">Costume</option>
-                <option value="instrument">Instrument</option>
-                <option value="accessories">Accessories</option>
-              </select>
-              <button
-                onClick={() => {
-                  setNewItem(buildEmptyItem(selectedGroup));
-                  setEditingItem(null);
-                  setPreviewImage(null);
-                  setShowAdvanced(false);
-                  setFormPanelOpen(true);
-                }}
-                className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2.5 text-sm font-semibold text-white shadow-sm shadow-primary/10 hover:bg-primary-container transition"
-              >
-                <Plus className="w-4 h-4" />
-                Add Item
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Main Content Area */}
-        <div className="px-6 md:px-8 lg:px-12 pb-8">
-          <div className="grid gap-6 xl:grid-cols-[38%_62%]">
-            <div className="space-y-4">
+        <div className="pb-6">
+          <div className="grid gap-4 xl:grid-cols-[38%_62%]">
+            <div className="rounded-3xl overflow-hidden border border-outline-variant/20 dark:border-gray-700 bg-surface-container-low dark:bg-[#1a1a1a] shadow-sm shadow-black/5 xl:max-h-[calc(100vh-220px)] xl:overflow-y-auto">
               {filteredItems.length === 0 ? (
-                <div className="py-16 text-center rounded-3xl border border-outline-variant/20 dark:border-gray-700 bg-surface-container-low dark:bg-[#1a1a1a]">
+                <div className="py-16 text-center">
                   <Package className="w-12 h-12 text-on-surface-variant/30 dark:text-gray-700 mx-auto mb-4" />
                   <p className="text-on-surface-variant dark:text-gray-400">
                     {globalSearchQuery ? "No items match your search" : "No items found"}
                   </p>
                 </div>
               ) : (
-                <div className="space-y-2">
+                <>
                   {filteredItems.map((item) => {
                     const itemKey = item.uuid || item.id;
                     const itemImage = item.image_url?.startsWith('http') ? item.image_url : item.image_url ? `${import.meta.env.VITE_API_URL || window.location.origin}${item.image_url}` : null;
@@ -727,9 +707,9 @@ export default function ManageInventory() {
                         key={itemKey}
                         type="button"
                         onClick={() => setActiveItemId(itemKey)}
-                        className={`w-full text-left rounded-3xl border px-3 py-3 flex items-center gap-3 transition ${isActiveRow ? 'bg-primary/5 dark:bg-blue-500/10 border-primary/30 dark:border-blue-400/40 shadow-sm' : 'bg-surface-container-low dark:bg-[#1a1a1a] border-outline-variant/20 dark:border-gray-700 hover:border-primary/30 hover:bg-surface-container-high dark:hover:bg-[#222]'}`}
+                        className={`w-full text-left px-3 py-2 flex items-center gap-3 transition ${isActiveRow ? 'bg-primary/5 dark:bg-blue-500/10' : 'bg-transparent hover:bg-surface-container-high dark:hover:bg-[#222]'}`}
                       >
-                        <div className="flex-shrink-0 w-14 h-14 rounded-2xl overflow-hidden border border-outline-variant/20 dark:border-gray-700 bg-surface-container-high dark:bg-[#222]">
+                        <div className="flex-shrink-0 w-12 h-12 rounded-2xl overflow-hidden border border-outline-variant/20 dark:border-gray-700 bg-surface-container-high dark:bg-[#222]">
                           {itemImage ? (
                             <img src={itemImage} alt={item.name} className="w-full h-full object-cover" />
                           ) : (
@@ -743,14 +723,15 @@ export default function ManageInventory() {
                           <p className="text-sm font-semibold text-on-surface dark:text-white truncate">{item.name}</p>
                           <p className="mt-1 text-xs text-on-surface-variant dark:text-gray-400 truncate">{sizeLabel}</p>
                         </div>
+                        <ChevronRight className="w-4 h-4 text-on-surface-variant dark:text-gray-400" />
                       </button>
                     );
                   })}
-                </div>
-            )}
-          </div>
+                </>
+              )}
+            </div>
 
-          <div className="space-y-4">
+            <div className="space-y-4">
             <div className="relative rounded-3xl border border-outline-variant/20 dark:border-gray-700 bg-surface-container-low dark:bg-[#1a1a1a] p-6 min-h-[420px]">
               {activeItem ? (
                 <>

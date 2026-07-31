@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import AvailableItems from './AvailableItems';
 import ManageInventory from './ManageInventory';
@@ -13,6 +13,9 @@ export default function InventoryTabs() {
       return 'manage';
     }
   });
+
+  const [manageFilterCategory, setManageFilterCategory] = useState(null);
+  const addItemHandlerRef = useRef(null);
 
   useEffect(() => {
     try { localStorage.setItem('inventoryActiveTab', activeTab); } catch (e) {}
@@ -32,8 +35,8 @@ export default function InventoryTabs() {
   return (
     <PageLayout>
       <div className="min-h-screen bg-surface dark:bg-[#171717] transition-colors duration-300 scroll-smooth">
-        <div className="px-3 sm:px-6 md:px-8 lg:px-12 pt-6 pb-4">
-          <div className="flex items-center justify-between mb-4">
+        <div className="px-4 sm:px-4 md:px-4 pt-6 pb-4">
+          <div className="flex items-center justify-between mb-4 border-b border-outline-variant/20 dark:border-gray-700 pb-2">
             <div className="flex items-center gap-6">
               <button
                 type="button"
@@ -50,6 +53,29 @@ export default function InventoryTabs() {
                 Available Items
               </button>
             </div>
+
+            {activeTab === 'manage' && (
+              <div className="flex items-center gap-3">
+                <select
+                  value={manageFilterCategory || 'all'}
+                  onChange={(e) => setManageFilterCategory(e.target.value === 'all' ? null : e.target.value)}
+                  className="text-sm rounded-full border border-outline-variant/20 bg-surface-container-low dark:bg-[#222] px-4 py-2 text-on-surface dark:text-white"
+                >
+                  <option value="all">Filter</option>
+                  <option value="costume">Costumes</option>
+                  <option value="instrument">Instruments</option>
+                  <option value="accessories">Accessories</option>
+                </select>
+                <button
+                  type="button"
+                  onClick={() => addItemHandlerRef.current?.()}
+                  className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2.5 text-sm font-semibold text-white shadow-sm shadow-primary/10 hover:bg-primary-container transition"
+                >
+                  <span className="text-lg leading-none">+</span>
+                  Add Item
+                </button>
+              </div>
+            )}
           </div>
 
           <motion.div
@@ -58,7 +84,14 @@ export default function InventoryTabs() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.18 }}
           >
-            {activeTab === 'manage' ? <ManageInventory /> : <AvailableItems />}
+            {activeTab === 'manage' ? (
+              <ManageInventory
+                filterCategory={manageFilterCategory}
+                registerAddItemHandler={(handler) => { addItemHandlerRef.current = handler; }}
+              />
+            ) : (
+              <AvailableItems />
+            )}
           </motion.div>
         </div>
       </div>
