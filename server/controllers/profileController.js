@@ -588,6 +588,24 @@ exports.getAllProfiles = async (req, res) => {
 };
 
 // ---------------------------
+// Current user: get own profile
+// ---------------------------
+exports.getMyProfile = async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) return res.status(400).json({ error: "Missing user id" });
+
+    const profile = await getProfileWithDivision(userId);
+    if (!profile) return res.status(404).json({ error: "Profile not found" });
+
+    res.json(buildProfileResponse(profile));
+  } catch (err) {
+    console.error("getMyProfile error:", err);
+    res.status(500).json({ error: "Failed to fetch your profile" });
+  }
+};
+
+// ---------------------------
 // Admin/Staff: get profile by ID
 // ---------------------------
 exports.getProfileById = async (req, res) => {
