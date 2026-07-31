@@ -20,7 +20,7 @@ dayjs.extend(timezone)
 export default function StaffBorrowTimeline() {
   const { user } = useContext(UserContext)
   const { refreshAfterReturn } = useContext(BorrowingContext)
-  const { selectedDivision } = useSidebarStore()
+  const { selectedDivision, globalSearchQuery } = useSidebarStore()
 
   // ========== STATE MANAGEMENT ==========
   const [requests, setRequests] = useState([])
@@ -30,7 +30,6 @@ export default function StaffBorrowTimeline() {
   const [filter, setFilter] = useState("all")
   const [filterDropdownOpen, setFilterDropdownOpen] = useState(false)
   const [filterHovering, setFilterHovering] = useState(false)
-  const [searchQuery, setSearchQuery] = useState("")
   const [borrowerProfiles, setBorrowerProfiles] = useState({})
   const [dueDates] = useState({})
   const [draggedRequest, setDraggedRequest] = useState(null)
@@ -165,8 +164,8 @@ export default function StaffBorrowTimeline() {
       })
     }
 
-    if (searchQuery.trim()) {
-      const searchLower = searchQuery.toLowerCase()
+    if (globalSearchQuery.trim()) {
+      const searchLower = globalSearchQuery.toLowerCase()
       filtered = filtered.filter(
         (r) =>
           (r.borrower_name || "").toLowerCase().includes(searchLower) ||
@@ -177,7 +176,7 @@ export default function StaffBorrowTimeline() {
     }
 
     setGroupedRequests(groupAndSortRequests(filtered))
-  }, [filter, requests, searchQuery, selectedDivision])
+  }, [filter, requests, globalSearchQuery, selectedDivision])
 
   const groupAndSortRequests = (filtered) => {
     const columns = [
@@ -433,25 +432,6 @@ export default function StaffBorrowTimeline() {
             </div>
 
             <div className="flex flex-col gap-3 md:flex-row md:items-center">
-              <div className="flex items-center gap-3 bg-surface-container-low dark:bg-[#222] rounded-lg px-3 py-2.5 border border-outline-variant/20 dark:border-gray-700 shadow-sm">
-                <Search className="w-4 h-4 text-on-surface-variant dark:text-gray-400 flex-shrink-0" />
-                <input
-                  type="text"
-                  placeholder="Search borrower, division, or item..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="flex-1 min-w-[220px] bg-transparent focus:outline-none text-xs text-on-surface dark:text-white dark:placeholder-gray-500"
-                />
-                {searchQuery && (
-                  <button
-                    onClick={() => setSearchQuery("")}
-                    className="px-1.5 text-on-surface-variant dark:text-gray-400 hover:text-on-surface dark:hover:text-white transition"
-                  >
-                    ✕
-                  </button>
-                )}
-              </div>
-
               <div
                 className="relative bg-surface-container-low dark:bg-[#222] rounded-lg border border-outline-variant/20 dark:border-gray-700 shadow-sm transition-colors"
                 onMouseEnter={() => setFilterHovering(true)}

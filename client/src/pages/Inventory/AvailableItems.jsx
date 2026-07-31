@@ -16,10 +16,9 @@ export default function AvailableItems() {
   const [loadingItems, setLoadingItems] = useState(true);
   const [selectedItem, setSelectedItem] = useState(null);
   const [selectedCategory, setSelectedCategory] = useState(null);
-  const { selectedDivision, setSelectedDivision } = useSidebarStore();
+  const { selectedDivision, setSelectedDivision, globalSearchQuery, setGlobalSearchQuery } = useSidebarStore();
   const [selectedGroup, setSelectedGroup] = useState("Dulimbay");
   const [divisions, setDivisions] = useState([]);
-  const [searchQuery, setSearchQuery] = useState("");
   const [showAddToCartModal, setShowAddToCartModal] = useState(false);
   const [addedItemName, setAddedItemName] = useState("");
   const [selectedUnits, setSelectedUnits] = useState([]);
@@ -103,17 +102,6 @@ export default function AvailableItems() {
       fetchDivisions();
     }
   }, [loading, user?.id, user?.role, refreshAvailableItems]);
-
-  // Read search query from URL parameters
-  useEffect(() => {
-    const params = new URLSearchParams(location.search);
-    const searchParam = params.get('search');
-    if (searchParam) {
-      setSearchQuery(searchParam);
-      // Clean up URL
-      window.history.replaceState({}, document.title, location.pathname);
-    }
-  }, [location.search]);
 
   const openModal = (item) => {
     setSelectedItem(item);
@@ -284,8 +272,8 @@ export default function AvailableItems() {
       });
     }
 
-    if (searchQuery.trim()) {
-      const searchLower = searchQuery.toLowerCase();
+    if (globalSearchQuery.trim()) {
+      const searchLower = globalSearchQuery.toLowerCase();
       filteredItems = filteredItems.filter(it =>
         it.name?.toLowerCase().includes(searchLower)
       );
@@ -305,26 +293,6 @@ export default function AvailableItems() {
           </div>
 
           <div className="px-3 sm:px-6 md:px-8 lg:px-12 space-y-3 sm:space-y-4">
-            {/* Search - Mobile Optimized */}
-            <div className="flex items-center gap-2 sm:gap-3 bg-surface-container-low dark:bg-[#222] rounded-lg px-3 sm:px-4 py-2 sm:py-3 border border-transparent dark:border-gray-700 hover:border-primary/20 dark:hover:border-blue-400/30 focus-within:ring-2 focus-within:ring-primary dark:focus-within:ring-blue-400 focus-within:border-transparent transition shadow-sm">
-              <Search className="w-4 sm:w-5 text-on-surface-variant dark:text-gray-400 flex-shrink-0" />
-              <input
-                type="text"
-                placeholder="Search items..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="flex-1 bg-transparent focus:outline-none text-xs sm:text-sm text-on-surface dark:text-white dark:placeholder-gray-500"
-              />
-              {searchQuery && (
-                <button
-                  onClick={() => setSearchQuery("")}
-                  className="px-2 text-on-surface-variant dark:text-gray-400 hover:text-on-surface dark:hover:text-white transition"
-                >
-                  ✕
-                </button>
-              )}
-            </div>
-
             {/* Filters - Mobile Optimized */}
             <div className="flex gap-2 flex-wrap items-center overflow-x-auto pb-1">
               {GROUP_TABS.map((grp) => (
@@ -371,7 +339,7 @@ export default function AvailableItems() {
               <div className="py-8 sm:py-16 text-center">
                 <Package className="w-8 sm:w-12 h-8 sm:h-12 text-on-surface-variant/30 dark:text-gray-500/30 mx-auto mb-2 sm:mb-4" />
                 <p className="text-xs sm:text-sm text-on-surface-variant dark:text-gray-400">
-                  {searchQuery ? "No items match your search" : "No items found"}
+                  {globalSearchQuery ? "No items match your search" : "No items found"}
                 </p>
               </div>
             ) : (
@@ -768,26 +736,6 @@ export default function AvailableItems() {
         </div>
 
         <div className="px-3 sm:px-6 md:px-8 lg:px-12 space-y-3 sm:space-y-4 pb-6 sm:pb-8">
-          {/* Search - Mobile Optimized */}
-          <div className="flex items-center gap-2 sm:gap-3 bg-surface-container-low dark:bg-[#222] rounded-lg px-3 sm:px-4 py-2 sm:py-3 border border-transparent dark:border-gray-700 hover:border-primary/20 dark:hover:border-blue-400/30 focus-within:ring-2 focus-within:ring-primary dark:focus-within:ring-blue-400 focus-within:border-transparent transition shadow-sm">
-            <Search className="w-4 sm:w-5 text-on-surface-variant dark:text-gray-400 flex-shrink-0" />
-            <input
-              type="text"
-              placeholder="Search..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="flex-1 bg-transparent focus:outline-none text-xs sm:text-sm text-on-surface dark:text-white dark:placeholder-gray-500"
-            />
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery("")}
-                className="px-2 text-on-surface-variant dark:text-gray-400 hover:text-on-surface dark:hover:text-white transition"
-              >
-                ✕
-              </button>
-            )}
-          </div>
-
           {/* Filters - Mobile Optimized */}
           <div className="flex gap-2 flex-wrap items-center overflow-x-auto pb-1">
             {["costume", "instrument", "accessories"].map(cat => (
@@ -821,9 +769,9 @@ export default function AvailableItems() {
                 return itemDivisionName === selectedDivisionName;
               });
             }
-            if (searchQuery.trim()) {
+            if (globalSearchQuery.trim()) {
               filtered = filtered.filter(item =>
-                item.name?.toLowerCase().includes(searchQuery.toLowerCase())
+                item.name?.toLowerCase().includes(globalSearchQuery.toLowerCase())
               );
             }
 
@@ -841,7 +789,7 @@ export default function AvailableItems() {
               <div className="py-8 sm:py-16 text-center">
                 <Package className="w-8 sm:w-12 h-8 sm:h-12 text-on-surface-variant/30 dark:text-gray-500/30 mx-auto mb-2 sm:mb-4" />
                 <p className="text-xs sm:text-sm text-on-surface-variant dark:text-gray-400">
-                  {searchQuery ? "No items found" : "Try different filters"}
+                  {globalSearchQuery ? "No items found" : "Try different filters"}
                 </p>
               </div>
             ) : (

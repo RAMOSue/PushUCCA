@@ -119,7 +119,7 @@ function categoryOptionsForGroup(grp) {
 
 /* -------------------------------------------------------------- */
 export default function ManageInventory() {
-  const { selectedDivision } = useSidebarStore();
+  const { selectedDivision, globalSearchQuery } = useSidebarStore();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedGroup, setSelectedGroup] = useState("Dulimbay");
@@ -132,7 +132,6 @@ export default function ManageInventory() {
   const [openQRItemId, setOpenQRItemId] = useState(null);
   const [unitModalOpen, setUnitModalOpen] = useState(false);
   const [selectedItemForQR, setSelectedItemForQR] = useState(null);
-  const [searchQuery, setSearchQuery] = useState("");
   const [filterCategory, setFilterCategory] = useState(null);
   const [formPanelOpen, setFormPanelOpen] = useState(false);
   const [expandedItems, setExpandedItems] = useState({});
@@ -239,10 +238,10 @@ export default function ManageInventory() {
     return items.filter((i) => {
       const divisionMatch = normalizedSelectedDivision === "all" || normalize(i.collection_group) === normalizedSelectedDivision;
       const categoryMatch = !filterCategory || i.category === filterCategory;
-      const searchMatch = !searchQuery || i.name.toLowerCase().includes(searchQuery.toLowerCase());
+      const searchMatch = !globalSearchQuery || i.name.toLowerCase().includes(globalSearchQuery.toLowerCase());
       return divisionMatch && categoryMatch && searchMatch;
     });
-  }, [items, selectedDivision, filterCategory, searchQuery]);
+  }, [items, selectedDivision, filterCategory, globalSearchQuery]);
 
 
   const upsertIndigenousGroup = (gRaw) => {
@@ -661,26 +660,6 @@ export default function ManageInventory() {
         {/* Main Content Area */}
         <div className="px-6 md:px-8 lg:px-12 space-y-4 pb-8">
           <div className="flex items-center gap-3">
-            {/* Search Bar (left) */}
-            <div className="flex items-center gap-3 bg-surface-container-low dark:bg-[#222] rounded-lg px-4 py-3 border border-transparent dark:border-gray-700 hover:border-primary/20 dark:hover:border-blue-600 focus-within:ring-2 focus-within:ring-primary focus-within:border-transparent transition shadow-sm dark:shadow-black/40 flex-1">
-              <Search className="w-5 text-on-surface-variant dark:text-gray-500 flex-shrink-0" />
-              <input
-                type="text"
-                placeholder="Search items..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="flex-1 bg-transparent focus:outline-none text-sm text-on-surface dark:text-white dark:placeholder-gray-500"
-              />
-              {searchQuery && (
-                <button
-                  onClick={() => setSearchQuery("")}
-                  className="px-2 text-on-surface-variant dark:text-gray-500 hover:text-on-surface dark:hover:text-white transition"
-                >
-                  ✕
-                </button>
-              )}
-            </div>
-
             {/* Filters (center) */}
             <div className="flex gap-2 flex-wrap items-center">
               <div>
@@ -720,7 +699,7 @@ export default function ManageInventory() {
               <div className="py-16 text-center">
                 <Package className="w-12 h-12 text-on-surface-variant/30 dark:text-gray-700 mx-auto mb-4" />
                 <p className="text-on-surface-variant dark:text-gray-400">
-                  {searchQuery ? "No items match your search" : "No items found"}
+                  {globalSearchQuery ? "No items match your search" : "No items found"}
                 </p>
               </div>
             ) : (

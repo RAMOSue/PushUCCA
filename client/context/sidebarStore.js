@@ -18,6 +18,14 @@ const getPersistedDivision = () => {
   }
 };
 
+const getPersistedGlobalSearch = () => {
+  try {
+    return localStorage.getItem('duBudKaGlobalSearch') || '';
+  } catch {
+    return '';
+  }
+};
+
 /**
  * 🚀 Sidebar Store (Zustand)
  * Replaces SidebarContext with better performance
@@ -28,6 +36,7 @@ export const useSidebarStore = create((set) => ({
   sidebarOpen: true,
   isMobile: false,
   selectedDivision: getPersistedDivision(),
+  globalSearchQuery: getPersistedGlobalSearch(),
 
   // Actions
   toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
@@ -41,6 +50,15 @@ export const useSidebarStore = create((set) => ({
       console.warn('Failed to persist selected division:', error);
     }
     set({ selectedDivision: nextDivision });
+  },
+  setGlobalSearchQuery: (query) => {
+    const nextQuery = typeof query === 'string' ? query : '';
+    try {
+      localStorage.setItem('duBudKaGlobalSearch', nextQuery);
+    } catch (error) {
+      console.warn('Failed to persist global search:', error);
+    }
+    set({ globalSearchQuery: nextQuery });
   },
 
   // Utility: Initialize mobile state on app load

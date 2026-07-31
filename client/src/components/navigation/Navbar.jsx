@@ -17,12 +17,37 @@ const MaterialIcon = ({ icon, className = "" }) => (
   <span className={`material-symbols-outlined ${className}`} data-icon={icon}>{icon}</span>
 );
 
+function GlobalSearchBar({ value, onChange, onClear, placeholder = "Search" }) {
+  return (
+    <div className="relative flex items-center h-full min-w-0 flex-1 max-w-xs">
+      <Search className="absolute left-3 h-4 w-4 text-gray-500 dark:text-gray-400" />
+      <input
+        className="w-full h-9 rounded-lg border border-slate-200 bg-white pl-9 pr-9 text-sm text-slate-700 placeholder-slate-400 shadow-sm outline-none transition focus:border-[#FBBC38] focus:ring-2 focus:ring-[#FBBC38]/20 dark:border-slate-700 dark:bg-[#1f1f1f] dark:text-slate-100 dark:placeholder-slate-500"
+        placeholder={placeholder}
+        type="text"
+        value={value}
+        onChange={onChange}
+      />
+      {value && (
+        <button
+          onClick={onClear}
+          className="absolute right-2 text-gray-500 transition hover:text-[#FBBC38] dark:text-gray-400 dark:hover:text-blue-400"
+          title="Clear search"
+          type="button"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      )}
+    </div>
+  );
+}
+
 export default function Navbar() {
   const { user, setUser, loading } = useContext(UserContext);
   const { cart } = useContext(BorrowingContext);
   const { rightSidebarOpen, setRightSidebarOpen } = useContext(SidebarContext);
   const { openLoginModal } = useContext(LoginModalContext);
-  const { selectedDivision, setSelectedDivision } = useSidebarStore();
+  const { selectedDivision, setSelectedDivision, globalSearchQuery, setGlobalSearchQuery } = useSidebarStore();
   const location = useLocation();
   const navigate = useNavigate();
   const [showScannerModal, setShowScannerModal] = useState(false);
@@ -30,40 +55,17 @@ export default function Navbar() {
   const [profileHovered, setProfileHovered] = useState(false);
   const [profilePic, setProfilePic] = useState(null);
   const [isScrolled, setIsScrolled] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
   const [divisionMenuOpen, setDivisionMenuOpen] = useState(false);
   const profileDropdownRef = useRef(null);
   const divisionMenuRef = useRef(null);
-  const searchDebounceRef = useRef(null);
+  const pathnameRef = useRef(location.pathname);
 
-  // ✅ Real-time search with debounce (filter as user types)
   useEffect(() => {
-    if (searchQuery.trim()) {
-      // Clear previous timeout
-      if (searchDebounceRef.current) {
-        clearTimeout(searchDebounceRef.current);
-      }
-
-      // Set new timeout for debounced search
-      searchDebounceRef.current = setTimeout(() => {
-        if (user?.role === "admin" || user?.role === "staff") {
-          const path = user?.role === "admin" ? "/admin/available-items" : "/staff/available-items";
-          navigate(`${path}?search=${encodeURIComponent(searchQuery)}`);
-        } else if (user?.role === "borrower") {
-          navigate(`/available-items?search=${encodeURIComponent(searchQuery)}`);
-        }
-      }, 300); // 300ms debounce
-    } else if (!searchQuery.trim() && location.pathname.includes("available-items")) {
-      // If search is cleared, remove the search parameter
-      navigate(location.pathname);
+    if (pathnameRef.current !== location.pathname) {
+      setGlobalSearchQuery('');
     }
-
-    return () => {
-      if (searchDebounceRef.current) {
-        clearTimeout(searchDebounceRef.current);
-      }
-    };
-  }, [searchQuery, user, navigate, location.pathname]);
+    pathnameRef.current = location.pathname;
+  }, [location.pathname, setGlobalSearchQuery]);
 
   // ✅ Close dropdown when clicking outside (unless hovering)
   useEffect(() => {
@@ -260,32 +262,15 @@ export default function Navbar() {
                 </div>
                   {/* Search Bar - Visible on all screens */}
 {user && (
-  <div className="relative flex items-center h-full ml-2 sm:ml-3 md:ml-6 lg:ml-8 flex-1 max-w-xs">
-    
-    <MaterialIcon
-      icon="search"
-      className="absolute left-3 text-gray-500 opacity-70 text-base md:text-lg"
+  <div className="ml-2 sm:ml-3 md:ml-6 lg:ml-8 flex-1 max-w-xs">
+    <GlobalSearchBar
+      value={globalSearchQuery}
+      onChange={(e) => setGlobalSearchQuery(e.target.value)}
+      onClear={() => setGlobalSearchQuery('')}
+      placeholder="Search across the app"
     />
-
-    <input
-      className="bg-white border border-gray-300 rounded-lg pl-9 md:pl-10 pr-7 md:pr-8 h-8 md:h-9 text-xs md:text-sm focus:ring-1 focus:ring-[#FBBC38] dark:focus:ring-blue-400 text-gray-800 placeholder-gray-400 w-full transition-all duration-200 ease-in-out leading-none"
-      placeholder="Search items..."
-      type="text"
-      value={searchQuery}
-      onChange={(e) => setSearchQuery(e.target.value)}
-    />
-
-    {searchQuery && (
-      <button
-        onClick={() => setSearchQuery('')}
-        className="absolute right-2 text-gray-500 hover:text-[#FBBC38] dark:hover:text-blue-400 transition-colors"
-        title="Clear search"
-      >
-        <X className="w-4 h-4" />
-      </button>
-    )}
-                  </div>
-                )}
+  </div>
+)}
               </div>
 
               {/* Trailing: Actions */}
@@ -613,6 +598,15 @@ export default function Navbar() {
           <div className="flex items-center gap-2 sm:gap-3">
             {user && (
               <div className="flex items-center gap-2 sm:gap-3">
+                <div className="hidden md:block w-56 lg:w-72">
+                  <GlobalSearchBar
+                    value={globalSearchQuery}
+                    onChange={(e) => setGlobalSearchQuery(e.target.value)}
+                    onClear={() => setGlobalSearchQuery('')}
+                    placeholder="Search"
+                  />
+                </div>
+
                 {user?.role === "staff" && (
                   <div className="hidden sm:flex">
                     <NotificationBadge />

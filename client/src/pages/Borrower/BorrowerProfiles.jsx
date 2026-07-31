@@ -47,10 +47,9 @@ function isOfficerPosition(positionName) {
 
 export default function BorrowerProfiles() {
   const { user } = useContext(UserContext);
-  const { selectedDivision, setSelectedDivision } = useSidebarStore();
+  const { selectedDivision, setSelectedDivision, globalSearchQuery } = useSidebarStore();
   const [profiles, setProfiles] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("ALL");
   const [selectedBorrowerId, setSelectedBorrowerId] = useState(null);
   const [positions, setPositions] = useState([]);
@@ -123,7 +122,7 @@ export default function BorrowerProfiles() {
   };
 
   const filteredProfiles = useMemo(() => {
-    const lowerQuery = searchQuery.trim().toLowerCase();
+    const lowerQuery = globalSearchQuery.trim().toLowerCase();
 
     return profiles.filter((profile) => {
       if (profile.role === "admin") return false;
@@ -140,7 +139,7 @@ export default function BorrowerProfiles() {
 
       return selectedStatus === "ALL" ? true : getCompletionStatus(profile) === selectedStatus;
     });
-  }, [profiles, searchQuery, selectedDivision, selectedStatus]);
+  }, [profiles, globalSearchQuery, selectedDivision, selectedStatus]);
 
   const groupedProfiles = useMemo(() => {
     const officers = filteredProfiles.filter((profile) => isOfficerPosition(profile.position_name));
@@ -260,28 +259,6 @@ export default function BorrowerProfiles() {
       <div className="bg-[#f8fafc] dark:bg-[#171717] min-h-screen">
         <div className="px-4 md:px-8 lg:px-12 pt-4">
           <div className="max-w-7xl mx-auto">
-            <div className="bg-surface-container-low dark:bg-[#222] rounded-xl border border-outline-variant/20 dark:border-gray-700 p-3 shadow-sm">
-              <div className="flex items-center gap-3">
-                <Search className="w-4 h-4 text-on-surface-variant dark:text-gray-400 flex-shrink-0" />
-                <input
-                  type="text"
-                  aria-label="Search Borrower"
-                  placeholder="Search by name, email, position, or division..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="flex-1 bg-transparent focus:outline-none text-sm text-on-surface dark:text-white dark:placeholder-gray-500"
-                />
-                {searchQuery && (
-                  <button
-                    onClick={() => setSearchQuery("")}
-                    className="px-1.5 text-on-surface-variant dark:text-gray-400 hover:text-on-surface dark:hover:text-white transition"
-                    aria-label="Clear search"
-                  >
-                    ✕
-                  </button>
-                )}
-              </div>
-            </div>
 
             <div className="mt-4 flex flex-col gap-4">
               <div className="flex items-center gap-3">

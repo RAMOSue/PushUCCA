@@ -14,10 +14,9 @@ function Badge({ children, color = 'gray' }) {
 
 export default function Announcements() {
   const { user } = useContext(UserContext);
-  const { selectedDivision, setSelectedDivision } = useSidebarStore();
+  const { selectedDivision, setSelectedDivision, globalSearchQuery } = useSidebarStore();
   const [loading, setLoading] = useState(false);
   const [items, setItems] = useState([]);
-  const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [priorityFilter, setPriorityFilter] = useState('all');
   const activeDivision = selectedDivision || 'All';
@@ -88,14 +87,14 @@ export default function Announcements() {
         const matchesDivision = (it.division_name || '').toLowerCase() === activeDivision.toLowerCase();
         if (!isGlobal && !matchesDivision) return false;
       }
-      if (query && !(it.title||'').toLowerCase().includes(query.toLowerCase()) && !(it.content||'').toLowerCase().includes(query.toLowerCase())) return false;
+      if (globalSearchQuery && !(it.title||'').toLowerCase().includes(globalSearchQuery.toLowerCase()) && !(it.content||'').toLowerCase().includes(globalSearchQuery.toLowerCase())) return false;
       if (statusFilter === 'published' && !it.is_published) return false;
       if (statusFilter === 'scheduled' && !(it.published_at && !it.is_published)) return false;
       if (statusFilter === 'draft' && (it.is_published || it.published_at)) return false;
       if (priorityFilter !== 'all' && it.priority !== priorityFilter) return false;
       return true;
     }).sort((a,b) => (b.pinned?1:0) - (a.pinned?1:0) || new Date(b.published_at || b.created_at) - new Date(a.published_at || a.created_at));
-  }, [items, query, statusFilter, priorityFilter, activeDivision]);
+  }, [items, globalSearchQuery, statusFilter, priorityFilter, activeDivision]);
 
   function openCreate() {
     setEditing(null);
@@ -241,32 +240,19 @@ export default function Announcements() {
       </div>
 
       <div className="rounded-lg border border-outline-variant/20 bg-surface-container-low p-4 shadow-sm mb-4 dark:border-gray-700 dark:bg-[#222]">
-        <div className="grid gap-4 lg:grid-cols-[1.8fr_auto]">
-          <div className="relative flex items-center">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant" />
-            <input
-              placeholder="Search announcements"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              className="input pl-10 w-full bg-transparent"
-            />
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2 justify-end">
-            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="select">
-              <option value="all">All</option>
-              <option value="published">Published</option>
-              <option value="scheduled">Scheduled</option>
-              <option value="draft">Draft</option>
-            </select>
-            <select value={priorityFilter} onChange={(e) => setPriorityFilter(e.target.value)} className="select">
-              <option value="all">All priorities</option>
-              <option value="Normal">Normal</option>
-              <option value="Important">Important</option>
-              <option value="Urgent">Urgent</option>
-            </select>
-            
-          </div>
+        <div className="flex flex-wrap items-center gap-2 justify-end">
+          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="select">
+            <option value="all">All</option>
+            <option value="published">Published</option>
+            <option value="scheduled">Scheduled</option>
+            <option value="draft">Draft</option>
+          </select>
+          <select value={priorityFilter} onChange={(e) => setPriorityFilter(e.target.value)} className="select">
+            <option value="all">All priorities</option>
+            <option value="Normal">Normal</option>
+            <option value="Important">Important</option>
+            <option value="Urgent">Urgent</option>
+          </select>
         </div>
       </div>
 
