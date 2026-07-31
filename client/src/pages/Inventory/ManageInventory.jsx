@@ -4,7 +4,7 @@ import axios from "axios";
 import toast from "react-hot-toast";
 import UnitModal from "./UnitModal";
 import PageLayout from "../../components/layout/PageLayout";
-import { Package, GridIcon, Music, AlertTriangle, Search, Filter, Plus, QrCode, Edit2, Trash2 } from "lucide-react";
+import { Package, GridIcon, Music, AlertTriangle, Search, Filter, Plus, QrCode, Edit2, Trash2, ChevronRight } from "lucide-react";
 import { getInventoryDivisionInfo, setInventoryDivisionAssignment } from "../../utils/inventoryDivisionStorage";
 import { useSidebarStore } from "../../../context/sidebarStore";
 
