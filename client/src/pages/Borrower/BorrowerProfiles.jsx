@@ -138,7 +138,7 @@ export default function BorrowerProfiles() {
     win.print();
   };
 
-  // Calculate stats
+  // Calculate stats (kept for potential future use)
   const totalBorrowers = profiles.length;
   const profilesWithPictures = profiles.filter(p => p.profile_pic_url).length;
   const profilesComplete = profiles.filter(p => p.profile_pic_url && p.id_front_url && p.birth_certificate_url).length;
@@ -181,101 +181,79 @@ export default function BorrowerProfiles() {
     ? filteredProfiles 
     : filteredProfiles.filter(p => getCompletionStatus(p) === selectedStatus);
 
+  const divisions = [...new Set(profiles.filter(p => p.role !== 'admin').map(p => p.department_name).filter(Boolean))].sort();
+
   return (
     <PageLayout>
       <div className="dark:bg-[#171717]">
-        {/* ========== Header Section ========== */}
-        <div className="px-6 md:px-8 lg:px-12 pt-8 pb-6 dark:bg-[#171717]">
-          <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
-            {/* Left Side - Title */}
-            <div>
-              <h1 className="text-3xl md:text-4xl font-bold text-on-surface dark:text-white mb-2">Borrower Profiles</h1>
-              <p className="text-on-surface-variant dark:text-gray-400 text-sm">Manage and review borrower documentation</p>
-            </div>
-
-            {/* Right Side - Summary Pills */}
-            <div className="flex gap-2 flex-wrap justify-end">
-              <div className="px-3 py-1.5 bg-surface-container-low dark:bg-[#222] rounded-full text-xs font-medium text-on-surface dark:text-white border border-outline-variant/20 dark:border-gray-700 whitespace-nowrap">
-                Total: <span className="font-bold text-primary dark:text-blue-400">{totalBorrowers}</span>
-              </div>
-              <div className="px-3 py-1.5 bg-surface-container-low dark:bg-[#222] rounded-full text-xs font-medium text-on-surface dark:text-white border border-outline-variant/20 dark:border-gray-700 whitespace-nowrap">
-                With Photos: <span className="font-bold text-primary dark:text-blue-400">{profilesWithPictures}</span>
-              </div>
-              <div className="px-3 py-1.5 bg-surface-container-low dark:bg-[#222] rounded-full text-xs font-medium text-on-surface dark:text-white border border-outline-variant/20 dark:border-gray-700 whitespace-nowrap">
-                Complete: <span className="font-bold text-primary dark:text-blue-400">{profilesComplete}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* ========== Main Content Area ========== */}
-        <div className="px-6 md:px-8 lg:px-12">
-          <div className="max-w-5xl mx-auto space-y-4">
-            {/* Sticky Search Bar */}
-            <div className="sticky top-0 z-10 bg-surface dark:bg-[#171717] py-3">
-              <div className="flex items-center gap-3 bg-surface-container-low dark:bg-[#222] rounded-lg px-3 py-2.5 border border-transparent dark:border-gray-700 hover:border-primary/20 dark:hover:border-blue-400/30 focus-within:ring-2 focus-within:ring-primary dark:focus-within:ring-blue-400 focus-within:border-transparent dark:focus-within:border-transparent transition shadow-sm">
+        {/* Search at top */}
+        <div className="px-4 md:px-8 lg:px-12 pt-4">
+          <div className="w-full max-w-5xl mx-auto">
+            <div className="bg-surface-container-low dark:bg-[#222] rounded-lg px-3 py-2.5 border border-transparent dark:border-gray-700 hover:border-primary/20 dark:hover:border-blue-400/30 focus-within:ring-2 focus-within:ring-primary dark:focus-within:ring-blue-400 transition shadow-sm">
+              <div className="flex items-center gap-3">
                 <Search className="w-4 h-4 text-on-surface-variant dark:text-gray-400 flex-shrink-0" />
                 <input
                   type="text"
+                  aria-label="Search Borrower"
                   placeholder="Search by name, email, or department..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="flex-1 bg-transparent focus:outline-none text-xs text-on-surface dark:text-white dark:placeholder-gray-500"
+                  className="flex-1 bg-transparent focus:outline-none text-sm text-on-surface dark:text-white dark:placeholder-gray-500"
                 />
                 {searchQuery && (
                   <button
                     onClick={() => setSearchQuery("")}
                     className="px-1.5 text-on-surface-variant dark:text-gray-400 hover:text-on-surface dark:hover:text-white transition"
+                    aria-label="Clear search"
                   >
                     ✕
                   </button>
                 )}
               </div>
             </div>
+          </div>
+        </div>
 
-            {/* Status Filter Buttons */}
-            <div className="flex gap-2 items-center flex-wrap">
-              {[
-                { key: "ALL", label: "All", color: "text-gray-600 dark:text-gray-400" },
-                { key: "COMPLETE", label: "✅ Complete", color: "text-green-600 dark:text-green-400", count: statusCounts.COMPLETE },
-                { key: "MISSING_DOCS", label: "🟡 Missing Documents", color: "text-yellow-600 dark:text-yellow-400", count: statusCounts.MISSING_DOCS },
-                { key: "PARTIAL", label: "🟠 Partial", color: "text-orange-600 dark:text-orange-400", count: statusCounts.PARTIAL },
-                { key: "NO_PHOTO", label: "⚪ No Photo", color: "text-gray-600 dark:text-gray-400", count: statusCounts.NO_PHOTO },
-              ].map((status) => (
-                <button
-                  key={status.key}
-                  onClick={() => setSelectedStatus(status.key)}
-                  className={`text-xs px-3 py-1.5 rounded-full font-medium transition ${
-                    selectedStatus === status.key
-                      ? "bg-primary dark:bg-blue-600 text-on-primary dark:text-white"
-                      : "bg-surface-container-low dark:bg-[#222] text-on-surface dark:text-white border border-outline-variant/20 dark:border-gray-700 hover:border-primary/30 dark:hover:border-blue-400/30"
-                  }`}
-                >
-                  {status.label} {status.count !== undefined && `(${status.count})`}
-                </button>
-              ))}
+        <div className="px-4 md:px-8 lg:px-12 mt-4">
+          <div className="max-w-5xl mx-auto space-y-4">
+            {/* Status Dropdown */}
+            <div className="flex items-center gap-3">
+              <label className="text-xs text-on-surface-variant">Status</label>
+              <select
+                value={selectedStatus}
+                onChange={(e) => setSelectedStatus(e.target.value)}
+                className="text-sm px-3 py-1 rounded bg-surface-container-low dark:bg-[#222] border border-outline-variant/20 dark:border-gray-700"
+              >
+                <option value="ALL">All</option>
+                <option value="COMPLETE">✅ Complete ({statusCounts.COMPLETE})</option>
+                <option value="MISSING_DOCS">🟡 Missing Documents ({statusCounts.MISSING_DOCS})</option>
+                <option value="PARTIAL">🟠 Partial ({statusCounts.PARTIAL})</option>
+                <option value="NO_PHOTO">⚪ No Photo ({statusCounts.NO_PHOTO})</option>
+              </select>
             </div>
 
-            {/* Division Filter */}
-            {profiles.length > 0 && (
-              <div className="flex gap-2 items-center flex-wrap">
-                
-                
-                {[...new Set(profiles.filter(p => p.role !== 'admin').map(p => p.department_name).filter(Boolean))].sort().map((division) => (
+            {/* Division Tabs */}
+            {divisions.length > 0 && (
+              <div className="flex gap-6 items-center overflow-x-auto py-2">
+                {divisions.map((division) => (
                   <button
                     key={division}
                     onClick={() => setSelectedDivision(division)}
-                    className={`text-xs px-3 py-1.5 rounded-full font-medium transition ${
-                      selectedDivision === division
-                        ? "bg-primary dark:bg-blue-600 text-on-primary dark:text-white"
-                        : "bg-surface-container-low dark:bg-[#222] text-on-surface dark:text-white border border-outline-variant/20 dark:border-gray-700 hover:border-primary/30 dark:hover:border-blue-400/30"
-                    }`}
+                    className={`text-sm transition-colors duration-200 ${selectedDivision === division ? 'text-primary dark:text-blue-400 font-semibold border-b-2 border-primary/60 pb-1' : 'text-on-surface-variant dark:text-gray-400'}`}
                   >
                     {division}
                   </button>
                 ))}
+                <button
+                  onClick={() => setSelectedDivision('ALL')}
+                  className={`text-sm transition-colors duration-200 ${selectedDivision === 'ALL' ? 'text-primary dark:text-blue-400 font-semibold border-b-2 border-primary/60 pb-1' : 'text-on-surface-variant dark:text-gray-400'}`}
+                >
+                  All
+                </button>
               </div>
             )}
+
+            {/* (Status buttons and old division chips removed; using dropdown and text tabs above) */}
 
             {/* Content */}
             {statusFilteredProfiles.length === 0 ? (
