@@ -138,25 +138,31 @@ async function ensureUserProfileColumns() {
     console.warn("⚠️ Could not ensure profile columns exist:", err.message);
   }
 }
-
-// Helper: Backwards-compatible profile query
-// Tries to include division info, falls back if column doesn't exist
-async function getProfileWithDivision(userId) {
-  await ensureUserProfileColumns();
-  try {
-    // Try the new query with division_id
-    const qWithDivision = `
-      SELECT u.id, u.name, u.email, u.phone, u.role, u.division_id,
-             d.name as department_name, d.description as department_description,
-             u.position_id, pos.name as position_name,
-             p.profile_pic_url, p.birth_certificate_url, p.class_schedule_url,
-             p.id_front_url, p.id_back_url, p.updated_at,
-             p.date_of_birth, p.citizenship, p.religion, p.marital_status,
-             p.college, p.program, p.current_address, p.height, p.weight, p.eye_color,
-             p.mother_full_name, p.mother_birthday, p.father_full_name, p.father_birthday,
-             p.emergency_contact_name, p.emergency_contact_mobile, p.emergency_contact_relationship, p.emergency_contact_occupation
-      FROM users u
-      LEFT JOIN user_profiles p ON u.id = p.user_id
+    // If division_id or position_id column doesn't exist, fall back to old query
+    if (
+      err.message.includes("division_id") ||
+      err.message.includes("position_id") ||
+      err.message.includes("unknown column") ||
+      err.message.includes("does not exist")
+    ) {
+      console.warn("⚠️ division_id/position_id column not found - running migration will enable department/position tracking");
+      const qWithoutDivision = `
+        SELECT u.id, u.name, u.email, u.phone, u.role,
+               u.position_id, NULL::text as position_name,
+               p.profile_pic_url, p.birth_certificate_url, p.class_schedule_url,
+               p.id_front_url, p.id_back_url, p.updated_at,
+               p.date_of_birth, p.citizenship, p.religion, p.marital_status,
+               p.college, p.program, p.current_address, p.height, p.weight, p.eye_color,
+               p.mother_full_name, p.mother_birthday, p.father_full_name, p.father_birthday,
+               p.emergency_contact_name, p.emergency_contact_mobile, p.emergency_contact_relationship, p.emergency_contact_occupation
+        FROM users u
+        LEFT JOIN user_profiles p ON u.id = p.user_id
+        WHERE u.id = $1;
+      `;
+      const { rows } = await pool.query(qWithoutDivision, [userId]);
+      return rows[0] || null;
+    }
+    throw err;
       LEFT JOIN divisions d ON u.division_id = d.id
       LEFT JOIN positions pos ON u.position_id = pos.id
       WHERE u.id = $1;
@@ -210,8 +216,13 @@ async function getAllProfilesWithDivisions() {
     const { rows } = await pool.query(qWithDivision);
     return rows;
   } catch (err) {
-    if (err.message.includes("division_id") || err.message.includes("unknown column")) {
-      console.warn("⚠️ division_id column not found - running migration will enable department tracking");
+    if (
+      err.message.includes("division_id") ||
+      err.message.includes("position_id") ||
+      err.message.includes("unknown column") ||
+      err.message.includes("does not exist")
+    ) {
+      console.warn("⚠️ division_id/position_id column not found - running migration will enable department/position tracking");
       const qWithoutDivision = `
         SELECT u.id, u.name, u.email, u.phone, u.role,
              u.position_id, NULL::text as position_name,
@@ -240,6 +251,21 @@ async function updateDivisionIfExists(userId, divisionId) {
   } catch (err) {
     if (err.message.includes("division_id") || err.message.includes("unknown column")) {
       console.warn("⚠️ division_id column not found - run migration to enable department tracking");
+      return;
+    }
+    throw err;
+  }
+}
+
+async function updatePositionIfExists(userId, positionId) {
+  // allow null to clear
+  if (positionId === undefined) return;
+  const val = positionId === "" || positionId === null ? null : positionId;
+  try {
+    await pool.query("UPDATE users SET position_id = $1 WHERE id = $2", [val, userId]);
+  } catch (err) {
+    if (err.message.includes("position_id") || err.message.includes("unknown column") || err.message.includes("does not exist")) {
+      console.warn("⚠️ position_id column not found - run migration to enable position tracking");
       return;
     }
     throw err;
@@ -427,21 +453,24 @@ exports.updateProfileInfo = async (req, res) => {
       userValues.push(normalizedDivision ?? null);
       paramCount++;
     }
-
+    // Validate position_id separately and apply using safe updater (in case column missing)
+    let positionVal;
     if (req.body.position_id !== undefined) {
-      const positionVal = req.body.position_id === "" || req.body.position_id === null ? null : parseInt(req.body.position_id, 10);
+      positionVal = req.body.position_id === "" || req.body.position_id === null ? null : parseInt(req.body.position_id, 10);
       if (req.body.position_id !== "" && req.body.position_id !== null && Number.isNaN(positionVal)) {
         return res.status(400).json({ error: "position_id must be a number" });
       }
-      userUpdates.push(`position_id = $${paramCount}`);
-      userValues.push(positionVal ?? null);
-      paramCount++;
     }
 
     if (userUpdates.length > 0) {
       userValues.push(userId);
       const updateQuery = `UPDATE users SET ${userUpdates.join(", ")} WHERE id = $${paramCount}`;
       await pool.query(updateQuery, userValues);
+    }
+
+    // Apply position update separately so missing column won't break the whole request
+    if (positionVal !== undefined) {
+      await updatePositionIfExists(userId, positionVal);
     }
 
     await ensureUserProfileColumns();
@@ -567,20 +596,24 @@ exports.updateProfileInfoByAdmin = async (req, res) => {
       paramCount++;
     }
 
+    // Validate position_id separately and apply using safe updater (in case column missing)
+    let normalizedPosition;
     if (position_id !== undefined) {
-      const normalizedPosition = position_id === "" || position_id === null ? null : parseInt(position_id, 10);
+      normalizedPosition = position_id === "" || position_id === null ? null : parseInt(position_id, 10);
       if (position_id !== "" && position_id !== null && Number.isNaN(normalizedPosition)) {
         return res.status(400).json({ error: "position_id must be a number" });
       }
-      userUpdates.push(`position_id = $${paramCount}`);
-      userValues.push(normalizedPosition ?? null);
-      paramCount++;
     }
 
     if (userUpdates.length > 0) {
       userValues.push(userId);
       const updateQuery = `UPDATE users SET ${userUpdates.join(", ")} WHERE id = $${paramCount}`;
       await pool.query(updateQuery, userValues);
+    }
+
+    // Apply position update separately so missing column won't break the whole request
+    if (normalizedPosition !== undefined) {
+      await updatePositionIfExists(userId, normalizedPosition);
     }
 
     // No profile fields handled here for admin endpoint; they can be added if needed
