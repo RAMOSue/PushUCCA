@@ -24,8 +24,8 @@ export function PageLayout({ children }) {
   const contextValue = useContext(SidebarContext);
   const isNested = useContext(PageLayoutContext);
 
-  const defaultMarginLeft = "lg:ml-64";
-  const defaultMarginRight = "lg:mr-72";
+  const defaultMarginLeft = "";
+  const defaultMarginRight = "";
 
   if (!contextValue) {
     return (
@@ -39,8 +39,8 @@ export function PageLayout({ children }) {
 
   const { leftSidebarCollapsed, rightSidebarOpen, isMobile } = contextValue;
 
-  const leftWidthClass = leftSidebarCollapsed ? "lg:ml-20" : "lg:ml-64";
-  const rightWidthClass = rightSidebarOpen ? "lg:mr-72" : "lg:mr-0";
+  const leftWidthClass = "";
+  const rightWidthClass = "";
 
   const marginLeft = isNested ? "" : (!isMobile ? leftWidthClass : "ml-0");
   const marginRight = isNested ? "" : (!isMobile ? rightWidthClass : "mr-0");

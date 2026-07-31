@@ -576,7 +576,7 @@ export default function Navbar() {
       )}
 
       <header className="sticky top-0 z-40 border-b border-slate-200 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.04)] transition-colors duration-300">
-        <div className="flex h-16 items-center justify-between gap-3 px-3 sm:px-4 md:px-6 lg:px-8">
+        <div className="flex items-center justify-between gap-3 px-3 py-3 sm:px-4 sm:py-4 md:px-6">
           <div className="flex min-w-0 items-center gap-3">
             {user && (
               <button
@@ -590,43 +590,51 @@ export default function Navbar() {
               </button>
             )}
 
-            <div className="min-w-0 text-lg font-black uppercase tracking-tight text-slate-900 sm:text-xl">
-              DuBudKa
+            <div className="flex min-w-0 flex-col">
+              <div className="flex items-center leading-none text-[20px] font-black tracking-[-0.08em] sm:text-[22px]">
+                <span className="text-[#004aad]">Du</span>
+                <span className="text-[#ffbd59]">Bud</span>
+                <span className="text-[#ff3131]">Ka</span>
+              </div>
+
+              <div className="relative mt-1" ref={divisionMenuRef}>
+                <button
+                  type="button"
+                  onClick={() => setDivisionMenuOpen((prev) => !prev)}
+                  className="flex items-center gap-1.5 text-left text-[11px] font-semibold text-slate-600 transition hover:text-slate-900 sm:text-xs"
+                >
+                  <span>{selectedDivision === "All" ? "All Divisions" : selectedDivision}</span>
+                  <ChevronDown className={`h-3.5 w-3.5 transition ${divisionMenuOpen ? "rotate-180" : ""}`} />
+                </button>
+
+                {divisionMenuOpen && (
+                  <div className="absolute left-0 top-full z-50 mt-2 w-40 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl transition-all duration-300 ease-out animate-[fadeIn_0.2s_ease-out]">
+                    <div className="bg-white">
+                      {DIVISION_OPTIONS.map((option) => {
+                        const active = selectedDivision === option;
+                        return (
+                          <button
+                            key={option}
+                            type="button"
+                            onClick={() => {
+                              setSelectedDivision(option);
+                              setDivisionMenuOpen(false);
+                            }}
+                            className={`flex w-full items-center justify-between px-3 py-2.5 text-left text-sm transition ${active ? "bg-slate-100 font-bold text-slate-900" : "text-slate-700 hover:bg-slate-50"}`}
+                          >
+                            <span>{option === "All" ? "All Divisions" : option}</span>
+                            {active && <span className="h-2 w-2 rounded-full bg-blue-600" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
           <div className="flex items-center gap-2 sm:gap-3">
-            <div className="relative" ref={divisionMenuRef}>
-              <button
-                type="button"
-                onClick={() => setDivisionMenuOpen((prev) => !prev)}
-                className="flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-100 sm:text-sm"
-              >
-                <span className="text-slate-500">Section</span>
-                <span className="text-slate-900">{selectedDivision}</span>
-                <ChevronDown className={`h-4 w-4 text-slate-500 transition ${divisionMenuOpen ? "rotate-180" : ""}`} />
-              </button>
-
-              {divisionMenuOpen && (
-                <div className="absolute right-0 top-full z-50 mt-2 w-44 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl">
-                  {DIVISION_OPTIONS.map((option) => (
-                    <button
-                      key={option}
-                      type="button"
-                      onClick={() => {
-                        setSelectedDivision(option);
-                        setDivisionMenuOpen(false);
-                      }}
-                      className={`flex w-full items-center justify-between px-3 py-2.5 text-left text-sm transition ${selectedDivision === option ? "bg-slate-100 font-bold text-slate-900" : "text-slate-700 hover:bg-slate-50"}`}
-                    >
-                      <span>{option}</span>
-                      {selectedDivision === option && <span className="h-2 w-2 rounded-full bg-blue-600" />}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-
             {user && (
               <div className="flex items-center gap-2 sm:gap-3">
                 {user?.role === "staff" && (

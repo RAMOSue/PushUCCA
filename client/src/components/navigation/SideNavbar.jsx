@@ -109,7 +109,7 @@ export default function SideNavbar({ role = "staff" }) {
 
       {/* Sidebar */}
       <aside
-        className={`left-sidebar fixed left-0 top-16 h-[calc(100vh-64px)] bg-surface-container-low dark:bg-[#1f1f1f] shadow-lg dark:shadow-none z-50 transition-all duration-300 ease-in-out ${
+        className={`left-sidebar fixed left-0 top-0 h-screen bg-surface-container-low dark:bg-[#1f1f1f] shadow-lg dark:shadow-none z-50 transition-all duration-300 ease-in-out ${
           isMobile
             ? sidebarOpen ? "w-64" : "w-0"
             : leftSidebarCollapsed ? "lg:w-[72px] w-0" : "lg:w-64 md:w-56 sm:w-48 w-40"

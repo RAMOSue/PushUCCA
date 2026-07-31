@@ -224,250 +224,218 @@ function AppContent() {
         darkMode ? "bg-[#171717] text-white" : "bg-gray-50 text-gray-900"
       }`}
     >
-      <Navbar />
-      
-      {/* ✅ Show RightNavbar for all authenticated users (borrower, staff, admin) */}
+      <div className="flex min-h-screen">
+        {user && (user?.role === "borrower" || user?.role === "staff" || user?.role === "admin") && (
+          <SideNavbar role={user?.role} />
+        )}
+
+        <div className="flex min-w-0 flex-1 flex-col">
+          <Navbar />
+
+          <div className="relative flex-1 min-h-screen">
+            <Routes>
+              {/* ==============================
+                  PUBLIC ROUTES
+              ============================== */}
+              <Route path="/" element={<GetStarted />} />
+              <Route path="/register" element={<Register />} />
+              <Route path="/verify-email" element={<VerifyEmail />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/dashboard" element={<Dashboard />} />
+
+              {/* ==============================
+                  BORROWER ROUTES
+              ============================== */}
+              <Route path="/available-items" element={<AvailableItems />} />
+              <Route path="/inventory" element={<InventoryTabs />} />
+
+              <Route
+                path="/performances"
+                element={
+                  user?.role === "borrower" ? (
+                    <BorrowerPerformances />
+                  ) : (
+                    <UnauthorizedAccess loading={loading} />
+                  )
+                }
+              />
+
+              <Route
+                path="/borrow-cart"
+                element={
+                  user?.role === "borrower" ? (
+                    <BorrowCart />
+                  ) : (
+                    <UnauthorizedAccess loading={loading} />
+                  )
+                }
+              />
+
+              <Route
+                path="/staff-borrow-cart"
+                element={
+                  user?.role === "staff" ? (
+                    <StaffBorrowCart />
+                  ) : (
+                    <UnauthorizedAccess loading={loading} />
+                  )
+                }
+              />
+
+              <Route
+                path="/my-borrowed-items"
+                element={
+                  user?.role === "borrower" ? (
+                    <MyBorrowedItems />
+                  ) : (
+                    <UnauthorizedAccess loading={loading} />
+                  )
+                }
+              />
+
+              <Route
+                path="/borrow-history"
+                element={
+                  user?.role === "borrower" ? (
+                    <BorrowerHistory />
+                  ) : (
+                    <UnauthorizedAccess loading={loading} />
+                  )
+                }
+              />
+
+              <Route
+                path="/scan"
+                element={
+                  user?.role === "borrower" ? (
+                    <ScanQR />
+                  ) : (
+                    <UnauthorizedAccess loading={loading} />
+                  )
+                }
+              />
+
+              <Route
+                path="/scanner"
+                element={
+                  user?.role === "borrower" ? (
+                    <MusicInstrumentScanner />
+                  ) : (
+                    <UnauthorizedAccess loading={loading} />
+                  )
+                }
+              />
+
+              <Route
+                path="/settings"
+                element={
+                  user ? (
+                    <Settings />
+                  ) : (
+                    <div className="text-center mt-10 text-red-500 text-xl">
+                      ❌ Please log in to access Settings
+                    </div>
+                  )
+                }
+              />
+
+              <Route
+                path="/notifications"
+                element={
+                  user ? (
+                    <NotificationsPage />
+                  ) : (
+                    <UnauthorizedAccess loading={loading} />
+                  )
+                }
+              />
+
+              <Route
+                path="/profile"
+                element={
+                  user?.role === "borrower" ? (
+                    <BorrowerProfileFacebook />
+                  ) : (
+                    <UnauthorizedAccess loading={loading} />
+                  )
+                }
+              />
+
+              {/* ==============================
+                  STAFF DASHBOARD (NESTED)
+              ============================== */}
+              <Route
+                path="/staff"
+                element={
+                  user?.role === "staff" ? (
+                    <StaffLayout />
+                  ) : (
+                    <UnauthorizedAccess loading={loading} />
+                  )
+                }
+              >
+                <Route index element={<DashboardStaff />} />
+                <Route path="manage-requests" element={<StaffBorrowTimeline />} />
+                <Route path="return-items" element={<StaffBorrowTimeline />} />
+                <Route path="available-items" element={<AvailableItems />} />
+                <Route path="inventory" element={<InventoryTabs />} />
+                <Route path="schedule" element={<StaffSchedule />} />
+                <Route path="announcements" element={<Announcements />} />
+                <Route path="manage-inventory" element={<ManageInventory />} />
+                <Route path="borrower-profiles" element={<BorrowerProfiles />} />
+                <Route path="documents" element={<StaffDocuments />} />
+                <Route path="master-list" element={<MasterList />} />
+                <Route path="profile" element={<StaffAdminProfileFacebook />} />
+                <Route path="settings" element={<Settings />} />
+                <Route path="history" element={<StaffHistory />} />
+                <Route path="scan" element={<ScanQR />} />
+                <Route path="scanner" element={<MusicInstrumentScanner />} />
+              </Route>
+
+              {/* ==============================
+                  ADMIN ROUTES (NESTED)
+              ============================== */}
+              <Route
+                path="/admin"
+                element={
+                  user?.role === "admin" ? (
+                    <DashboardAdmin />
+                  ) : (
+                    <UnauthorizedAccess loading={loading} />
+                  )
+                }
+              >
+                <Route index element={<AvailableItems />} />
+                <Route path="available-items" element={<AvailableItems />} />
+                <Route path="manage-requests" element={<StaffBorrowTimeline />} />
+                <Route path="return-items" element={<StaffBorrowTimeline />} />
+                <Route path="manage-inventory" element={<ManageInventory />} />
+                <Route path="users" element={<AdminUserManagement />} />
+                <Route path="master-list" element={<MasterList />} />
+                <Route path="reports" element={<AdminReports />} />
+                <Route path="profile" element={<StaffAdminProfileFacebook />} />
+                <Route path="settings" element={<Settings />} />
+                <Route path="history" element={<AdminHistory />} />
+                <Route path="metrics" element={<MetricsDashboard />} />
+                <Route path="detection-accuracy" element={<DetectionAccuracy />} />
+              </Route>
+            </Routes>
+          </div>
+        </div>
+      </div>
+
       {user && (user?.role === "borrower" || user?.role === "staff" || user?.role === "admin") && (
         <RightNavbar />
       )}
-      
-      {/* ✅ Show left sidebar for all authenticated users (borrower, staff, admin) */}
-      {user && (user?.role === "borrower" || user?.role === "staff" || user?.role === "admin") && (
-        <SideNavbar role={user?.role} />
-      )}
-      
-      {/* ✅ Show floating scanner buttons for borrower users (always visible) */}
-      {user?.role === "borrower" && (
-        <ScannerSelection />
-      )}
-      
-      {/* ✅ Show floating scanner buttons for staff users (always visible) */}
-      {user?.role === "staff" && (
-        <StaffScannerSelection />
-      )}
 
-      {/* ✅ Test User Switcher - for multi-user testing */}
+      {user?.role === "borrower" && <ScannerSelection />}
+      {user?.role === "staff" && <StaffScannerSelection />}
+
       <TestUserSwitcher />
-      
       <Toaster position="bottom-right" toastOptions={{ duration: 2000 }} />
-
-      <Routes>
-          {/* ==============================
-              PUBLIC ROUTES
-          ============================== */}
-          <Route path="/" element={<GetStarted />} />
-          <Route path="/register" element={<Register />} />
-          <Route path="/verify-email" element={<VerifyEmail />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/dashboard" element={<Dashboard />} />
-
-          {/* ==============================
-              BORROWER ROUTES
-          ============================== */}
-           <Route path="/available-items" element={<AvailableItems />} />
-           <Route path="/inventory" element={<InventoryTabs />} />
-          
-          {/* ✅ NEW: Borrower Performances Page */}
-          <Route
-            path="/performances"
-            element={
-              user?.role === "borrower" ? (
-                <BorrowerPerformances />
-              ) : (
-                <UnauthorizedAccess loading={loading} />
-              )
-            }
-          />
-          <Route path="/available-items" element={<AvailableItems />} />
-
-          <Route
-            path="/borrow-cart"
-            element={
-              user?.role === "borrower" ? (
-                <BorrowCart />
-              ) : (
-                <UnauthorizedAccess loading={loading} />
-              )
-            }
-          />
-
-          {/* ✅ Staff Borrow Cart */}
-          <Route
-            path="/staff-borrow-cart"
-            element={
-              user?.role === "staff" ? (
-                <StaffBorrowCart />
-              ) : (
-                <UnauthorizedAccess loading={loading} />
-              )
-            }
-          />
-
-          {/* ✅ Borrowed Items Page */}
-          <Route
-            path="/my-borrowed-items"
-            element={
-              user?.role === "borrower" ? (
-                <MyBorrowedItems />
-              ) : (
-                <UnauthorizedAccess loading={loading} />
-              )
-            }
-          />
-
-          {/* ✅ Dedicated Borrower History page */}
-          <Route
-            path="/borrow-history"
-            element={
-              user?.role === "borrower" ? (
-                <BorrowerHistory />
-              ) : (
-                <UnauthorizedAccess loading={loading} />
-              )
-            }
-          />
-
-          <Route
-            path="/scan"
-            element={
-              user?.role === "borrower" ? (
-                <ScanQR />
-              ) : (
-                <UnauthorizedAccess loading={loading} />
-              )
-            }
-          />
-
-          {/* ✅ NEW: Musical Instrument Image Scanner */}
-          <Route
-            path="/scanner"
-            element={
-              user?.role === "borrower" ? (
-                <MusicInstrumentScanner />
-              ) : (
-                <UnauthorizedAccess loading={loading} />
-              )
-            }
-          />
-
-          <Route path="/available-items" element={<AvailableItems />} />
-
-          {/* ✅ SETTINGS ROUTE */}
-          <Route
-            path="/settings"
-            element={
-              user ? (
-                <Settings />
-              ) : (
-                <div className="text-center mt-10 text-red-500 text-xl">
-                  ❌ Please log in to access Settings
-                </div>
-              )
-            }
-          />
-
-          {/* ✅ NOTIFICATIONS PAGE */}
-          <Route
-            path="/notifications"
-            element={
-              user ? (
-                <NotificationsPage />
-              ) : (
-                <UnauthorizedAccess loading={loading} />
-              )
-            }
-          />
-
-          {/* ✅ BORROWER PROFILE ROUTES */}
-          <Route
-            path="/profile"
-            element={
-              user?.role === "borrower" ? (
-                <BorrowerProfileFacebook />
-              ) : (
-                <UnauthorizedAccess loading={loading} />
-              )
-            }
-          />
-
-
-
-          {/* ==============================
-              STAFF DASHBOARD (NESTED)
-          ============================== */}
-          <Route
-            path="/staff"
-            element={
-              user?.role === "staff" ? (
-                <StaffLayout />
-              ) : (
-                <UnauthorizedAccess loading={loading} />
-              )
-            }
-          >  
-            {/* 🟢 Default staff dashboard home (welcome + tiles) */}
-            <Route index element={<DashboardStaff />} />
-
-            {/* Other nested staff pages */}
-            <Route path="manage-requests" element={<StaffBorrowTimeline />} />
-            <Route path="return-items" element={<StaffBorrowTimeline />} />
-            <Route path="available-items" element={<AvailableItems />} />
-            <Route path="inventory" element={<InventoryTabs />} />
-            <Route path="schedule" element={<StaffSchedule />} />
-            <Route path="announcements" element={<Announcements />} />
-            <Route path="manage-inventory" element={<ManageInventory />} />
-            <Route path="borrower-profiles" element={<BorrowerProfiles />} />
-            <Route path="documents" element={<StaffDocuments />} />
-            <Route path="master-list" element={<MasterList />} />
-            <Route path="profile" element={<StaffAdminProfileFacebook />} />
-            <Route path="settings" element={<Settings />} />
-            <Route path="history" element={<StaffHistory />} />
-            
-            {/* ✅ NEW: Staff Scanner Routes */}
-            <Route path="scan" element={<ScanQR />} />
-            <Route path="scanner" element={<MusicInstrumentScanner />} />
-          </Route>
-
-          {/* ==============================
-              ADMIN ROUTES (NESTED)
-          ============================== */}
-          <Route
-            path="/admin"
-            element={
-              user?.role === "admin" ? (
-                <DashboardAdmin />
-              ) : (
-                <UnauthorizedAccess loading={loading} />
-              )
-            }
-          >
-            {/* 🟢 Default redirect to available-items */}
-            <Route
-              index
-              element={<AvailableItems />}
-            />
-
-            {/* Admin nested pages */}
-            <Route path="available-items" element={<AvailableItems />} />
-            <Route path="manage-requests" element={<StaffBorrowTimeline />} />
-            <Route path="return-items" element={<StaffBorrowTimeline />} />
-            
-            <Route path="manage-inventory" element={<ManageInventory />} />
-            <Route path="users" element={<AdminUserManagement />} />
-            <Route path="master-list" element={<MasterList />} />
-            <Route path="reports" element={<AdminReports />} />
-            <Route path="profile" element={<StaffAdminProfileFacebook />} />
-            <Route path="settings" element={<Settings />} />
-            <Route path="history" element={<AdminHistory />} />
-            {/* ✅ Testing System Dashboard */}
-            <Route path="metrics" element={<MetricsDashboard />} />
-            {/* ✅ AI Detection Accuracy Dashboard */}
-            <Route path="detection-accuracy" element={<DetectionAccuracy />} />
-          </Route>
-        </Routes>
-      </div>
-    );
-  }
+    </div>
+  );
+}
 
 function App() {
   return (
