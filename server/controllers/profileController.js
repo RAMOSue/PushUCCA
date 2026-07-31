@@ -138,7 +138,30 @@ async function ensureUserProfileColumns() {
     console.warn("⚠️ Could not ensure profile columns exist:", err.message);
   }
 }
-    // If division_id or position_id column doesn't exist, fall back to old query
+
+// Helper: Get single profile with optional division/position joins (backwards compatible)
+async function getProfileWithDivision(userId) {
+  await ensureUserProfileColumns();
+  try {
+    const qWithDivision = `
+      SELECT u.id, u.name, u.email, u.phone, u.role, u.division_id,
+             d.name as department_name, d.description as department_description,
+             u.position_id, pos.name as position_name,
+             p.profile_pic_url, p.birth_certificate_url, p.class_schedule_url,
+             p.id_front_url, p.id_back_url, p.updated_at,
+             p.date_of_birth, p.citizenship, p.religion, p.marital_status,
+             p.college, p.program, p.current_address, p.height, p.weight, p.eye_color,
+             p.mother_full_name, p.mother_birthday, p.father_full_name, p.father_birthday,
+             p.emergency_contact_name, p.emergency_contact_mobile, p.emergency_contact_relationship, p.emergency_contact_occupation
+      FROM users u
+      LEFT JOIN user_profiles p ON u.id = p.user_id
+      LEFT JOIN divisions d ON u.division_id = d.id
+      LEFT JOIN positions pos ON u.position_id = pos.id
+      WHERE u.id = $1;
+    `;
+    const { rows } = await pool.query(qWithDivision, [userId]);
+    return rows[0] || null;
+  } catch (err) {
     if (
       err.message.includes("division_id") ||
       err.message.includes("position_id") ||
@@ -151,33 +174,6 @@ async function ensureUserProfileColumns() {
                u.position_id, NULL::text as position_name,
                p.profile_pic_url, p.birth_certificate_url, p.class_schedule_url,
                p.id_front_url, p.id_back_url, p.updated_at,
-               p.date_of_birth, p.citizenship, p.religion, p.marital_status,
-               p.college, p.program, p.current_address, p.height, p.weight, p.eye_color,
-               p.mother_full_name, p.mother_birthday, p.father_full_name, p.father_birthday,
-               p.emergency_contact_name, p.emergency_contact_mobile, p.emergency_contact_relationship, p.emergency_contact_occupation
-        FROM users u
-        LEFT JOIN user_profiles p ON u.id = p.user_id
-        WHERE u.id = $1;
-      `;
-      const { rows } = await pool.query(qWithoutDivision, [userId]);
-      return rows[0] || null;
-    }
-    throw err;
-      LEFT JOIN divisions d ON u.division_id = d.id
-      LEFT JOIN positions pos ON u.position_id = pos.id
-      WHERE u.id = $1;
-    `;
-    const { rows } = await pool.query(qWithDivision, [userId]);
-    return rows[0] || null;
-  } catch (err) {
-    // If division_id column doesn't exist, fall back to old query
-    if (err.message.includes("division_id") || err.message.includes("unknown column")) {
-      console.warn("⚠️ division_id column not found - running migration will enable department tracking");
-      const qWithoutDivision = `
-        SELECT u.id, u.name, u.email, u.phone, u.role,
-             u.position_id, NULL::text as position_name,
-             p.profile_pic_url, p.birth_certificate_url, p.class_schedule_url,
-             p.id_front_url, p.id_back_url, p.updated_at,
                p.date_of_birth, p.citizenship, p.religion, p.marital_status,
                p.college, p.program, p.current_address, p.height, p.weight, p.eye_color,
                p.mother_full_name, p.mother_birthday, p.father_full_name, p.father_birthday,
@@ -329,64 +325,16 @@ exports.uploadProfile = [
       // Fetch updated profile with all user data
       const profile = await getProfileWithDivision(userId);
 
-  // Helper: Get single profile with optional division/position joins (backwards compatible)
-  async function getProfileWithDivision(userId) {
-    await ensureUserProfileColumns();
-    try {
-      const qWithDivision = `
-        SELECT u.id, u.name, u.email, u.phone, u.role, u.division_id,
-               d.name as department_name, d.description as department_description,
-               u.position_id, pos.name as position_name,
-               p.profile_pic_url, p.birth_certificate_url, p.class_schedule_url,
-               p.id_front_url, p.id_back_url, p.updated_at,
-               p.date_of_birth, p.citizenship, p.religion, p.marital_status,
-               p.college, p.program, p.current_address, p.height, p.weight, p.eye_color,
-               p.mother_full_name, p.mother_birthday, p.father_full_name, p.father_birthday,
-               p.emergency_contact_name, p.emergency_contact_mobile, p.emergency_contact_relationship, p.emergency_contact_occupation
-        FROM users u
-        LEFT JOIN user_profiles p ON u.id = p.user_id
-        LEFT JOIN divisions d ON u.division_id = d.id
-        LEFT JOIN positions pos ON u.position_id = pos.id
-        WHERE u.id = $1;
-      `;
-      const { rows } = await pool.query(qWithDivision, [userId]);
-      return rows[0] || null;
+      res.json({
+        success: true,
+        profile: buildProfileResponse(profile),
+      });
     } catch (err) {
-      if (
-        err.message.includes("division_id") ||
-        err.message.includes("position_id") ||
-        err.message.includes("unknown column") ||
-        err.message.includes("does not exist")
-      ) {
-        console.warn("⚠️ division_id/position_id column not found - running migration will enable department/position tracking");
-        const qWithoutDivision = `
-          SELECT u.id, u.name, u.email, u.phone, u.role,
-                 u.position_id, NULL::text as position_name,
-                 p.profile_pic_url, p.birth_certificate_url, p.class_schedule_url,
-                 p.id_front_url, p.id_back_url, p.updated_at,
-                 p.date_of_birth, p.citizenship, p.religion, p.marital_status,
-                 p.college, p.program, p.current_address, p.height, p.weight, p.eye_color,
-                 p.mother_full_name, p.mother_birthday, p.father_full_name, p.father_birthday,
-                 p.emergency_contact_name, p.emergency_contact_mobile, p.emergency_contact_relationship, p.emergency_contact_occupation
-          FROM users u
-          LEFT JOIN user_profiles p ON u.id = p.user_id
-          WHERE u.id = $1;
-        `;
-        const { rows } = await pool.query(qWithoutDivision, [userId]);
-        return rows[0] || null;
-      }
-      throw err;
+      console.error("uploadProfile error:", err);
+      res.status(500).json({ error: "Upload failed", details: err.message });
     }
-  }
-      profile = user;
-    }
-
-    res.json(buildProfileResponse(profile));
-  } catch (err) {
-    console.error("❌ getMyProfile error:", err.message);
-    res.status(500).json({ error: "Failed to fetch profile" });
-  }
-};
+  },
+];
 
 // ---------------------------
 // Update profile info (name, phone, division)
