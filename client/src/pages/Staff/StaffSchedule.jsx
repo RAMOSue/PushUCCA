@@ -9,6 +9,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { UserContext } from '../../../context/userContext';
 import { BorrowingContext } from '../../../context/borrowingContext';
+import { useSidebarStore } from '../../../context/sidebarStore';
 import PageLayout from '../../components/layout/PageLayout';
 import toast from 'react-hot-toast';
 import {
@@ -76,8 +77,7 @@ export default function StaffSchedule() {
   const [inventoryRefreshCount, setInventoryRefreshCount] = useState(0);
   const [itemUnitCounter, setItemUnitCounter] = useState({}); // Track unit numbers per item type
   const [expandedItemGroups, setExpandedItemGroups] = useState({}); // Track expanded item groups {itemId: bool}
-  const [itemsSearchQuery, setItemsSearchQuery] = useState(''); // Search items by name or unit_number
-  const [searchQuery, setSearchQuery] = useState(''); // Search performances by title
+  const { globalSearchQuery } = useSidebarStore();
   const [filterDropdownOpen, setFilterDropdownOpen] = useState(false);
   const [selectedPerformerDivision, setSelectedPerformerDivision] = useState('All'); // ✅ NEW: Division filter for performers
   const [selectedPerformanceView, setSelectedPerformanceView] = useState('All');
@@ -182,8 +182,8 @@ export default function StaffSchedule() {
       filtered = filtered.filter((p) => new Date(p.start_time).getDate() === currentDayFilter);
     }
 
-    if (searchQuery.trim()) {
-      const searchLower = searchQuery.toLowerCase();
+    if (globalSearchQuery.trim()) {
+      const searchLower = globalSearchQuery.toLowerCase();
       filtered = filtered.filter((p) =>
         (p.title || '').toLowerCase().includes(searchLower) ||
         (p.description || '').toLowerCase().includes(searchLower) ||
@@ -192,7 +192,7 @@ export default function StaffSchedule() {
     }
 
     return filtered.sort((a, b) => new Date(a.start_time) - new Date(b.start_time));
-  }, [performances, searchQuery, currentCalendarDate, currentDayFilter, selectedPerformanceView]);
+  }, [performances, globalSearchQuery, currentCalendarDate, currentDayFilter, selectedPerformanceView]);
 
   useEffect(() => {
     if (!visiblePerformances.length) {
@@ -1004,18 +1004,10 @@ export default function StaffSchedule() {
                   <input
                     type="text"
                     placeholder="Search by title, location, or description..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
+                    value={globalSearchQuery}
+                    readOnly
                     className="flex-1 bg-transparent focus:outline-none text-sm text-on-surface dark:text-white dark:placeholder-gray-500"
                   />
-                  {searchQuery && (
-                    <button
-                      onClick={() => setSearchQuery('')}
-                      className="px-2 text-on-surface-variant dark:text-gray-400 hover:text-on-surface dark:hover:text-white transition"
-                    >
-                      ✕
-                    </button>
-                  )}
                 </div>
                 <div className="flex items-center gap-2">
                   <button
