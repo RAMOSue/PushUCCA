@@ -1171,20 +1171,8 @@ export default function ManageInventory({ filterCategory, registerAddItemHandler
                   </button>
                 </div>
 
-                <div className="overflow-y-auto px-4 py-4 h-[calc(90vh-116px)]">
-                  <div className="mb-5 flex flex-wrap items-center gap-2">
-                    <div className={`rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] ${wizardStep === 1 ? "bg-primary/10 text-primary dark:bg-blue-500/10 dark:text-blue-300" : "bg-surface-container-high text-on-surface-variant dark:bg-[#222] dark:text-gray-400"}`}>
-                      Step 1 • Image
-                    </div>
-                    <div className={`rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] ${wizardStep === 2 ? "bg-primary/10 text-primary dark:bg-blue-500/10 dark:text-blue-300" : "bg-surface-container-high text-on-surface-variant dark:bg-[#222] dark:text-gray-400"}`}>
-                      Step 2 • Details
-                    </div>
-                    <div className={`rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] ${wizardStep === 3 ? "bg-primary/10 text-primary dark:bg-blue-500/10 dark:text-blue-300" : "bg-surface-container-high text-on-surface-variant dark:bg-[#222] dark:text-gray-400"}`}>
-                      Step 3 • Metadata
-                    </div>
-                  </div>
-
-                  <form id="inventory-add-item-form" onSubmit={handleSave} className="space-y-6">
+                <div className="px-4 py-4 h-[calc(90vh-116px)] overflow-hidden">
+                  <form id="inventory-add-item-form" onSubmit={handleSave} className="flex h-full flex-col gap-4">
                     {normalize(selectedDivision) === "all" && !editingItem && (
                       <div className="rounded-xl border border-primary/20 bg-primary/10 p-3 text-xs text-primary dark:border-blue-500/30 dark:bg-blue-500/10 dark:text-blue-300">
                         Select a specific division from the global filter before creating a new item.
@@ -1192,28 +1180,24 @@ export default function ManageInventory({ filterCategory, registerAddItemHandler
                     )}
 
                     {wizardStep === 1 ? (
-                      <div className="space-y-4">
-                        <div className="rounded-[24px] border border-outline-variant/20 bg-surface-container-high p-4 dark:border-gray-700 dark:bg-[#1f1f1f]">
-                          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                            <div>
-                              <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-on-surface-variant dark:text-gray-400">Image editor</p>
-                              <p className="mt-1 text-sm font-semibold text-on-surface dark:text-white">Adjust the frame to match the final inventory card</p>
+                      <div className="flex-1">
+                        <div className="flex h-full flex-col rounded-[24px] border border-outline-variant/20 bg-surface-container-high p-4 dark:border-gray-700 dark:bg-[#1f1f1f]">
+                          {previewImage && (
+                            <div className="mb-3 flex justify-center gap-2">
+                              <button type="button" onClick={handleReEditImage} className="inline-flex items-center gap-2 rounded-full border border-outline-variant/30 bg-surface-container-low px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.24em] text-primary transition hover:bg-surface-container-high dark:border-gray-700 dark:bg-[#1d1d1d] dark:text-blue-400">
+                                <RotateCw className="h-3.5 w-3.5" />
+                                Re-edit
+                              </button>
+                              <button type="button" onClick={handleRemoveImage} className="inline-flex items-center gap-2 rounded-full border border-outline-variant/30 bg-surface-container-low px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.24em] text-error transition hover:bg-surface-container-high dark:border-gray-700 dark:bg-[#1d1d1d] dark:text-red-400">
+                                <Trash2 className="h-3.5 w-3.5" />
+                                Remove
+                              </button>
                             </div>
-                            {previewImage && (
-                              <div className="flex gap-2">
-                                <button type="button" onClick={handleReEditImage} className="text-[11px] font-semibold uppercase tracking-wide text-primary dark:text-blue-400">
-                                  Re-edit
-                                </button>
-                                <button type="button" onClick={handleRemoveImage} className="text-[11px] font-semibold uppercase tracking-wide text-error dark:text-red-400">
-                                  Remove
-                                </button>
-                              </div>
-                            )}
-                          </div>
+                          )}
 
                           {imageEditorSource ? (
-                            <div className="space-y-4">
-                              <div className="relative h-[470px] overflow-hidden rounded-[22px] border border-outline-variant/20 bg-black/95 dark:border-gray-700">
+                            <div className="flex-1 space-y-3">
+                              <div className="relative flex-1 overflow-hidden rounded-[22px] border border-outline-variant/20 bg-black/95 dark:border-gray-700">
                                 <ReactCrop
                                   crop={crop}
                                   onChange={handleCropChange}
@@ -1267,7 +1251,7 @@ export default function ManageInventory({ filterCategory, registerAddItemHandler
                               </div>
                             </div>
                           ) : (
-                            <label className="flex h-[470px] cursor-pointer flex-col items-center justify-center rounded-[22px] border-2 border-dashed border-outline-variant/30 bg-surface-container-low transition hover:border-primary/50 dark:border-gray-700 dark:bg-[#1d1d1d] dark:hover:border-blue-600">
+                            <label className="flex flex-1 cursor-pointer flex-col items-center justify-center rounded-[22px] border-2 border-dashed border-outline-variant/30 bg-surface-container-low transition hover:border-primary/50 dark:border-gray-700 dark:bg-[#1d1d1d] dark:hover:border-blue-600">
                               <input type="file" accept="image/*" onChange={handleImageChange} className="hidden" />
                               <Package className="mb-2 h-8 w-8 text-outline dark:text-gray-600" />
                               <span className="text-[10px] font-bold uppercase tracking-[0.24em] text-outline dark:text-gray-500">Upload & Edit Image</span>
@@ -1277,7 +1261,7 @@ export default function ManageInventory({ filterCategory, registerAddItemHandler
                         </div>
                       </div>
                     ) : wizardStep === 2 ? (
-                      <div className="space-y-6">
+                      <div className="flex-1 space-y-4">
                         <div className="rounded-3xl border border-outline-variant/20 bg-surface-container-high p-5 dark:border-gray-700 dark:bg-[#1f1f1f]">
                           <div className="mb-4">
                             <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-on-surface-variant dark:text-gray-400">Step 2 • Primary details</p>
@@ -1425,7 +1409,7 @@ export default function ManageInventory({ filterCategory, registerAddItemHandler
 
                       </div>
                     ) : (
-                      <div className="space-y-6">
+                      <div className="flex-1 space-y-4">
                         <div className="rounded-3xl border border-outline-variant/20 bg-surface-container-high p-5 dark:border-gray-700 dark:bg-[#1f1f1f]">
                           <div className="mb-4">
                             <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-on-surface-variant dark:text-gray-400">Step 3 • Additional metadata</p>
