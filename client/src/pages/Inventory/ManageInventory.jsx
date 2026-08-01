@@ -448,10 +448,7 @@ export default function ManageInventory({ filterCategory, registerAddItemHandler
   const handleCropChange = useCallback((nextCrop) => {
     setCrop((prev) => ({
       ...prev,
-      x: nextCrop.x,
-      y: nextCrop.y,
-      width: prev.width,
-      height: prev.height,
+      ...nextCrop,
       unit: nextCrop.unit || prev.unit,
     }));
   }, []);
@@ -1146,28 +1143,35 @@ export default function ManageInventory({ filterCategory, registerAddItemHandler
 
             <div className="fixed inset-0 z-40 flex items-center justify-center p-4">
               <div
-                className="w-full max-w-5xl max-h-[90vh] overflow-hidden rounded-[28px] border border-outline-variant/20 bg-surface-container-lowest shadow-2xl dark:border-gray-700 dark:bg-[#121212]"
+                className="w-full max-w-[780px] max-h-[90vh] overflow-hidden rounded-[28px] border border-outline-variant/20 bg-surface-container-lowest shadow-2xl dark:border-gray-700 dark:bg-[#121212]"
                 onClick={(e) => e.stopPropagation()}
               >
-                <div className="flex items-center justify-between border-b border-outline-variant/10 px-6 py-4 dark:border-gray-700">
-                  <div>
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-on-surface-variant dark:text-gray-400">
-                      {editingItem ? "Edit item" : "Add item"}
-                    </p>
-                    <h4 className="mt-1 font-headline text-2xl font-bold text-primary dark:text-blue-400">
-                      {editingItem ? "Update inventory record" : "Create a new record"}
-                    </h4>
+                <div className="flex items-center justify-between border-b border-outline-variant/10 px-4 py-3 dark:border-gray-700">
+                  <div className="min-w-[72px]">
+                    {wizardStep > 1 ? (
+                      <button
+                        type="button"
+                        onClick={() => setWizardStep((step) => Math.max(1, step - 1))}
+                        className="text-[11px] font-semibold uppercase tracking-[0.24em] text-on-surface-variant transition hover:text-primary dark:text-gray-400 dark:hover:text-blue-400"
+                      >
+                        Previous
+                      </button>
+                    ) : null}
+                  </div>
+                  <div className="text-[11px] font-semibold uppercase tracking-[0.3em] text-on-surface-variant dark:text-gray-400">
+                    Add Item
                   </div>
                   <button
-                    type="button"
-                    onClick={resetFormState}
-                    className="rounded-full border border-outline-variant/20 p-2 text-on-surface-variant transition hover:bg-surface-container-high dark:border-gray-700 dark:hover:bg-[#222]"
+                    type={wizardStep === 3 ? "submit" : "button"}
+                    form={wizardStep === 3 ? "inventory-add-item-form" : undefined}
+                    onClick={wizardStep < 3 ? () => setWizardStep((step) => Math.min(3, step + 1)) : undefined}
+                    className="min-w-[72px] text-right text-[11px] font-semibold uppercase tracking-[0.24em] text-primary transition hover:text-primary-container dark:text-blue-400 dark:hover:text-blue-300"
                   >
-                    <X className="h-4 w-4" />
+                    {wizardStep === 3 ? "Add Item" : "Next"}
                   </button>
                 </div>
 
-                <div className="overflow-y-auto px-6 py-5 h-[calc(90vh-120px)]">
+                <div className="overflow-y-auto px-4 py-4 h-[calc(90vh-116px)]">
                   <div className="mb-5 flex flex-wrap items-center gap-2">
                     <div className={`rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] ${wizardStep === 1 ? "bg-primary/10 text-primary dark:bg-blue-500/10 dark:text-blue-300" : "bg-surface-container-high text-on-surface-variant dark:bg-[#222] dark:text-gray-400"}`}>
                       Step 1 • Image
@@ -1180,7 +1184,7 @@ export default function ManageInventory({ filterCategory, registerAddItemHandler
                     </div>
                   </div>
 
-                  <form onSubmit={handleSave} className="space-y-6">
+                  <form id="inventory-add-item-form" onSubmit={handleSave} className="space-y-6">
                     {normalize(selectedDivision) === "all" && !editingItem && (
                       <div className="rounded-xl border border-primary/20 bg-primary/10 p-3 text-xs text-primary dark:border-blue-500/30 dark:bg-blue-500/10 dark:text-blue-300">
                         Select a specific division from the global filter before creating a new item.
@@ -1188,12 +1192,12 @@ export default function ManageInventory({ filterCategory, registerAddItemHandler
                     )}
 
                     {wizardStep === 1 ? (
-                      <div className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
-                        <div className="rounded-3xl border border-outline-variant/20 bg-surface-container-high p-4 dark:border-gray-700 dark:bg-[#1f1f1f]">
-                          <div className="flex items-center justify-between">
+                      <div className="space-y-4">
+                        <div className="rounded-[24px] border border-outline-variant/20 bg-surface-container-high p-4 dark:border-gray-700 dark:bg-[#1f1f1f]">
+                          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                             <div>
                               <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-on-surface-variant dark:text-gray-400">Image editor</p>
-                              <p className="mt-1 text-sm font-semibold text-on-surface dark:text-white">Crop and refine the asset before saving</p>
+                              <p className="mt-1 text-sm font-semibold text-on-surface dark:text-white">Adjust the frame to match the final inventory card</p>
                             </div>
                             {previewImage && (
                               <div className="flex gap-2">
@@ -1208,8 +1212,8 @@ export default function ManageInventory({ filterCategory, registerAddItemHandler
                           </div>
 
                           {imageEditorSource ? (
-                            <div className="mt-4 space-y-4">
-                              <div className="relative h-[310px] overflow-hidden rounded-2xl border border-outline-variant/20 bg-black/90 dark:border-gray-700">
+                            <div className="space-y-4">
+                              <div className="relative h-[470px] overflow-hidden rounded-[22px] border border-outline-variant/20 bg-black/95 dark:border-gray-700">
                                 <ReactCrop
                                   crop={crop}
                                   onChange={handleCropChange}
@@ -1229,76 +1233,47 @@ export default function ManageInventory({ filterCategory, registerAddItemHandler
                                 </ReactCrop>
                               </div>
 
-                              <div className="flex flex-wrap items-center gap-2">
-                                <button type="button" onClick={() => setImageZoom((value) => Math.max(1, value - 0.1))} className="rounded-full border border-outline-variant/30 bg-surface-container-low px-3 py-2 text-sm dark:border-gray-700 dark:bg-[#1d1d1d]">
-                                  <ZoomOut className="h-4 w-4" />
-                                </button>
-                                <button type="button" onClick={() => setImageZoom((value) => Math.min(3, value + 0.1))} className="rounded-full border border-outline-variant/30 bg-surface-container-low px-3 py-2 text-sm dark:border-gray-700 dark:bg-[#1d1d1d]">
-                                  <ZoomIn className="h-4 w-4" />
-                                </button>
-                                <button type="button" onClick={() => setImageRotation((value) => (value + 90) % 360)} className="rounded-full border border-outline-variant/30 bg-surface-container-low px-3 py-2 text-sm dark:border-gray-700 dark:bg-[#1d1d1d]">
-                                  <RotateCw className="h-4 w-4" />
-                                </button>
-                                <button type="button" onClick={() => setImageFlipHorizontal((value) => !value)} className="rounded-full border border-outline-variant/30 bg-surface-container-low px-3 py-2 text-sm dark:border-gray-700 dark:bg-[#1d1d1d]">
-                                  <FlipHorizontal2 className="h-4 w-4" />
-                                </button>
-                                <button type="button" onClick={() => { setCrop({ unit: "%", width: 90, height: 90, x: 5, y: 5 }); setImageZoom(1); setImageRotation(0); setImageFlipHorizontal(false); setCompletedCrop(null); }} className="rounded-full border border-outline-variant/30 bg-surface-container-low px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-on-surface dark:border-gray-700 dark:bg-[#1d1d1d] dark:text-gray-300">
-                                  Reset
-                                </button>
-                                <label className="cursor-pointer rounded-full border border-outline-variant/30 bg-surface-container-low px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-on-surface dark:border-gray-700 dark:bg-[#1d1d1d] dark:text-gray-300">
-                                  <input type="file" accept="image/*" onChange={handleImageChange} className="hidden" />
-                                  Replace
-                                </label>
-                              </div>
+                              <div className="flex flex-wrap items-center justify-between gap-3 rounded-[18px] border border-outline-variant/20 bg-surface-container-low p-3 dark:border-gray-700 dark:bg-[#1d1d1d]">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <button type="button" onClick={() => setImageZoom((value) => Math.max(1, value - 0.1))} className="rounded-full border border-outline-variant/30 bg-surface-container-low px-3 py-2 text-sm dark:border-gray-700 dark:bg-[#1d1d1d]">
+                                    <ZoomOut className="h-4 w-4" />
+                                  </button>
+                                  <button type="button" onClick={() => setImageZoom((value) => Math.min(3, value + 0.1))} className="rounded-full border border-outline-variant/30 bg-surface-container-low px-3 py-2 text-sm dark:border-gray-700 dark:bg-[#1d1d1d]">
+                                    <ZoomIn className="h-4 w-4" />
+                                  </button>
+                                  <button type="button" onClick={() => setImageRotation((value) => (value + 90) % 360)} className="rounded-full border border-outline-variant/30 bg-surface-container-low px-3 py-2 text-sm dark:border-gray-700 dark:bg-[#1d1d1d]">
+                                    <RotateCw className="h-4 w-4" />
+                                  </button>
+                                  <button type="button" onClick={() => setImageFlipHorizontal((value) => !value)} className="rounded-full border border-outline-variant/30 bg-surface-container-low px-3 py-2 text-sm dark:border-gray-700 dark:bg-[#1d1d1d]">
+                                    <FlipHorizontal2 className="h-4 w-4" />
+                                  </button>
+                                  <button type="button" onClick={() => { setCrop(getInitialCrop()); setImageZoom(1); setImageRotation(0); setImageFlipHorizontal(false); setCompletedCrop(null); }} className="rounded-full border border-outline-variant/30 bg-surface-container-low px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-on-surface dark:border-gray-700 dark:bg-[#1d1d1d] dark:text-gray-300">
+                                    Reset
+                                  </button>
+                                  <label className="cursor-pointer rounded-full border border-outline-variant/30 bg-surface-container-low px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-on-surface dark:border-gray-700 dark:bg-[#1d1d1d] dark:text-gray-300">
+                                    <input type="file" accept="image/*" onChange={handleImageChange} className="hidden" />
+                                    Replace
+                                  </label>
+                                </div>
 
-                              <div className="flex flex-wrap items-center justify-end gap-2">
-                                <button type="button" onClick={handleRemoveImage} className="rounded-xl border border-outline-variant/30 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.24em] text-on-surface-variant transition hover:bg-surface-container-high dark:border-gray-700 dark:text-gray-400">
-                                  Clear
-                                </button>
-                                <button type="button" onClick={handleApplyCrop} disabled={isApplyingCrop} className="rounded-xl bg-primary px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.24em] text-white transition disabled:cursor-not-allowed disabled:opacity-60">
-                                  {isApplyingCrop ? "Processing..." : "Apply Crop"}
-                                </button>
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <button type="button" onClick={handleRemoveImage} className="rounded-xl border border-outline-variant/30 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.24em] text-on-surface-variant transition hover:bg-surface-container-high dark:border-gray-700 dark:text-gray-400">
+                                    Clear
+                                  </button>
+                                  <button type="button" onClick={handleApplyCrop} disabled={isApplyingCrop} className="rounded-xl bg-primary px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.24em] text-white transition disabled:cursor-not-allowed disabled:opacity-60">
+                                    {isApplyingCrop ? "Processing..." : "Apply Crop"}
+                                  </button>
+                                </div>
                               </div>
                             </div>
                           ) : (
-                            <label className="mt-4 flex h-[310px] cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-outline-variant/30 bg-surface-container-low transition hover:border-primary/50 dark:border-gray-700 dark:bg-[#1d1d1d] dark:hover:border-blue-600">
+                            <label className="flex h-[470px] cursor-pointer flex-col items-center justify-center rounded-[22px] border-2 border-dashed border-outline-variant/30 bg-surface-container-low transition hover:border-primary/50 dark:border-gray-700 dark:bg-[#1d1d1d] dark:hover:border-blue-600">
                               <input type="file" accept="image/*" onChange={handleImageChange} className="hidden" />
                               <Package className="mb-2 h-8 w-8 text-outline dark:text-gray-600" />
                               <span className="text-[10px] font-bold uppercase tracking-[0.24em] text-outline dark:text-gray-500">Upload & Edit Image</span>
-                              <span className="mt-2 text-[11px] text-on-surface-variant dark:text-gray-400">Crop, zoom, rotate, and flip before saving</span>
+                              <span className="mt-2 text-[11px] text-on-surface-variant dark:text-gray-400">Drag, zoom, rotate, and flip the image before moving on</span>
                             </label>
                           )}
-                        </div>
-
-                        <div className="space-y-4">
-                          <div className="rounded-3xl border border-outline-variant/20 bg-surface-container-high p-4 dark:border-gray-700 dark:bg-[#1f1f1f]">
-                            <div className="mb-3 flex items-center justify-between">
-                              <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-on-surface-variant dark:text-gray-400">Preview</p>
-                              <span className="text-[10px] text-on-surface-variant dark:text-gray-400">Matches inventory cards</span>
-                            </div>
-                            <div className="relative aspect-[16/14] overflow-hidden rounded-2xl border border-outline-variant/20 bg-surface-container-low dark:border-gray-700 dark:bg-[#1d1d1d]">
-                              {previewImage ? (
-                                <img src={previewImage} alt="Preview" className="h-full w-full object-cover" />
-                              ) : (
-                                <div className="flex h-full items-center justify-center text-center text-on-surface-variant dark:text-gray-400">
-                                  <div>
-                                    <Package className="mx-auto mb-2 h-8 w-8" />
-                                    <p className="text-sm font-semibold">No image yet</p>
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-
-                          <div className="flex justify-end">
-                            <button
-                              type="button"
-                              onClick={() => setWizardStep(2)}
-                              className="rounded-xl bg-primary px-4 py-2.5 text-[11px] font-semibold uppercase tracking-[0.24em] text-white transition hover:bg-primary-container dark:bg-blue-600 dark:hover:bg-blue-700"
-                            >
-                              Next
-                            </button>
-                          </div>
                         </div>
                       </div>
                     ) : wizardStep === 2 ? (
@@ -1448,24 +1423,6 @@ export default function ManageInventory({ filterCategory, registerAddItemHandler
                           </div>
                         </div>
 
-                        <div className="flex items-center justify-between border-t border-outline-variant/10 pt-4 dark:border-gray-700">
-                          <button
-                            type="button"
-                            onClick={() => setWizardStep(1)}
-                            className="rounded-xl border border-outline-variant/30 px-4 py-2.5 text-[11px] font-semibold uppercase tracking-[0.24em] text-on-surface-variant transition hover:bg-surface-container-high dark:border-gray-700 dark:text-gray-400"
-                          >
-                            Previous
-                          </button>
-                          <div className="flex gap-3">
-                            <button
-                              type="button"
-                              onClick={() => setWizardStep(3)}
-                              className="rounded-xl bg-primary px-4 py-2.5 text-[11px] font-semibold uppercase tracking-[0.24em] text-white transition hover:bg-primary-container dark:bg-blue-600 dark:hover:bg-blue-700"
-                            >
-                              Next
-                            </button>
-                          </div>
-                        </div>
                       </div>
                     ) : (
                       <div className="space-y-6">
@@ -1625,31 +1582,6 @@ export default function ManageInventory({ filterCategory, registerAddItemHandler
                           </div>
                         </div>
 
-                        <div className="flex items-center justify-between border-t border-outline-variant/10 pt-4 dark:border-gray-700">
-                          <button
-                            type="button"
-                            onClick={() => setWizardStep(2)}
-                            className="rounded-xl border border-outline-variant/30 px-4 py-2.5 text-[11px] font-semibold uppercase tracking-[0.24em] text-on-surface-variant transition hover:bg-surface-container-high dark:border-gray-700 dark:text-gray-400"
-                          >
-                            Previous
-                          </button>
-                          <div className="flex gap-3">
-                            <button
-                              type="button"
-                              onClick={resetFormState}
-                              className="rounded-xl border border-outline-variant/30 px-4 py-2.5 text-[11px] font-semibold uppercase tracking-[0.24em] text-on-surface-variant transition hover:bg-surface-container-high dark:border-gray-700 dark:text-gray-400"
-                            >
-                              Cancel
-                            </button>
-                            <button
-                              type="submit"
-                              disabled={normalize(selectedDivision) === "all" && !editingItem}
-                              className="rounded-xl bg-primary px-4 py-2.5 text-[11px] font-semibold uppercase tracking-[0.24em] text-white transition disabled:cursor-not-allowed disabled:opacity-60 dark:bg-blue-600 dark:hover:bg-blue-700"
-                            >
-                              {editingItem ? "Update" : "Add Item"}
-                            </button>
-                          </div>
-                        </div>
                       </div>
                     )}
                   </form>
