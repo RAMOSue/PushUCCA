@@ -88,7 +88,18 @@ function buildEmptyItem(group = "") {
     gender: "",
     color: "",
     date_acquired: "",
-    description: "", // ✅ ADDED: Description field
+    description: "",
+    condition: "",
+    status: "",
+    material: "",
+    size: "",
+    tribe: "",
+    cultural_origin: "",
+    accessories: "",
+    storage_location: "",
+    usage: "",
+    acquisition_details: "",
+    notes: "",
     instrument_classification: "",
     instrument_type: "",
     qty_small: "",
@@ -136,6 +147,13 @@ const createImage = (src) =>
   });
 
 const IMAGE_CARD_ASPECT_RATIO = 16 / 14;
+const getInitialCrop = () => ({
+  unit: "%",
+  width: 88,
+  height: 88 * (14 / 16),
+  x: 6,
+  y: 6,
+});
 
 const getCroppedImageFile = async (imageSrc, pixelCrop, rotation, flipHorizontal, fileName) => {
   const image = await createImage(imageSrc);
@@ -219,7 +237,7 @@ export default function ManageInventory({ filterCategory, registerAddItemHandler
   const [divisionLoading, setDivisionLoading] = useState(false);
   const [imageEditorSource, setImageEditorSource] = useState(null);
   const [wizardStep, setWizardStep] = useState(1);
-  const [crop, setCrop] = useState({ unit: "%", width: 90, height: 90, x: 5, y: 5 });
+  const [crop, setCrop] = useState(getInitialCrop());
   const [completedCrop, setCompletedCrop] = useState(null);
   const [imageZoom, setImageZoom] = useState(1);
   const [imageRotation, setImageRotation] = useState(0);
@@ -415,7 +433,7 @@ export default function ManageInventory({ filterCategory, registerAddItemHandler
       const dataUrl = await readFileAsDataUrl(file);
       setImageEditorSource(dataUrl);
       setWizardStep(1);
-      setCrop({ unit: "%", width: 90, height: 90, x: 5, y: 5 });
+      setCrop(getInitialCrop());
       setCompletedCrop(null);
       setImageZoom(1);
       setImageRotation(0);
@@ -426,6 +444,17 @@ export default function ManageInventory({ filterCategory, registerAddItemHandler
       toast.error("Unable to load image for editing.");
     }
   };
+
+  const handleCropChange = useCallback((nextCrop) => {
+    setCrop((prev) => ({
+      ...prev,
+      x: nextCrop.x,
+      y: nextCrop.y,
+      width: prev.width,
+      height: prev.height,
+      unit: nextCrop.unit || prev.unit,
+    }));
+  }, []);
 
   const handleCropComplete = useCallback((cropPixel) => {
     setCompletedCrop(cropPixel);
@@ -457,7 +486,7 @@ export default function ManageInventory({ filterCategory, registerAddItemHandler
 
       setPreviewImage(croppedDataUrl);
       setImageEditorSource(croppedDataUrl);
-      setCrop({ unit: "%", width: 90, height: 90, x: 5, y: 5 });
+      setCrop(getInitialCrop());
       setCompletedCrop(null);
       setNewItem((ni) => ({ ...ni, image_file: croppedFile, image_url: "" }));
       toast.success("Image cropped successfully");
@@ -471,7 +500,7 @@ export default function ManageInventory({ filterCategory, registerAddItemHandler
 
   const handleCloseCropEditor = () => {
     setImageEditorSource(null);
-    setCrop({ unit: "%", width: 90, height: 90, x: 5, y: 5 });
+    setCrop(getInitialCrop());
     setCompletedCrop(null);
     setImageZoom(1);
     setImageRotation(0);
@@ -485,7 +514,7 @@ export default function ManageInventory({ filterCategory, registerAddItemHandler
     if (!previewImage) return;
     setImageEditorSource(previewImage);
     setWizardStep(1);
-    setCrop({ unit: "%", width: 90, height: 90, x: 5, y: 5 });
+    setCrop(getInitialCrop());
     setCompletedCrop(null);
     setImageZoom(1);
     setImageRotation(0);
@@ -496,7 +525,7 @@ export default function ManageInventory({ filterCategory, registerAddItemHandler
     setPreviewImage(null);
     setImageEditorSource(null);
     setWizardStep(1);
-    setCrop({ unit: "%", width: 90, height: 90, x: 5, y: 5 });
+    setCrop(getInitialCrop());
     setCompletedCrop(null);
     setImageZoom(1);
     setImageRotation(0);
@@ -514,7 +543,7 @@ export default function ManageInventory({ filterCategory, registerAddItemHandler
     setPreviewImage(null);
     setImageEditorSource(null);
     setWizardStep(1);
-    setCrop({ unit: "%", width: 90, height: 90, x: 5, y: 5 });
+    setCrop(getInitialCrop());
     setCompletedCrop(null);
     setImageZoom(1);
     setImageRotation(0);
@@ -624,6 +653,17 @@ export default function ManageInventory({ filterCategory, registerAddItemHandler
     // ✅ Clean up payload: convert empty strings to null for optional fields
     payload.date_acquired = payload.date_acquired?.trim() || null;
     payload.description = payload.description?.trim() || null;
+    payload.condition = payload.condition?.trim() || null;
+    payload.status = payload.status?.trim() || null;
+    payload.material = payload.material?.trim() || null;
+    payload.size = payload.size?.trim() || null;
+    payload.tribe = payload.tribe?.trim() || null;
+    payload.cultural_origin = payload.cultural_origin?.trim() || null;
+    payload.accessories = payload.accessories?.trim() || null;
+    payload.storage_location = payload.storage_location?.trim() || null;
+    payload.usage = payload.usage?.trim() || null;
+    payload.acquisition_details = payload.acquisition_details?.trim() || null;
+    payload.notes = payload.notes?.trim() || null;
     payload.indigenous_group = payload.indigenous_group?.trim() || null;
     payload.indigenous_dance = payload.indigenous_dance?.trim() || null;
     payload.region = payload.region?.trim() || null;
@@ -631,8 +671,8 @@ export default function ManageInventory({ filterCategory, registerAddItemHandler
     payload.instrument_type = payload.instrument_type?.trim() || null;
     payload.color = payload.color?.trim() || null;
     payload.gender = payload.gender?.trim() || null;
-    payload.garment_type = payload.garment_type?.trim() || null; // ✅ ADDED: Sanitize garment_type
-    payload.collection_group = payload.collection_group?.trim() || payload.collection_group; // ✅ FIX: Don't set to null if empty
+    payload.garment_type = payload.garment_type?.trim() || null;
+    payload.collection_group = payload.collection_group?.trim() || payload.collection_group;
     
     // ✅ Ensure quantities are numbers, not strings
     payload.quantity = parseQty(payload.quantity);
@@ -646,6 +686,17 @@ export default function ManageInventory({ filterCategory, registerAddItemHandler
     delete payload.units;
     delete payload.image_file;
     delete payload.qr_code_text;
+    delete payload.condition;
+    delete payload.status;
+    delete payload.material;
+    delete payload.size;
+    delete payload.tribe;
+    delete payload.cultural_origin;
+    delete payload.accessories;
+    delete payload.storage_location;
+    delete payload.usage;
+    delete payload.acquisition_details;
+    delete payload.notes;
     delete payload.qr_code_url;
     delete payload.created_at;
     delete payload.updated_at;
@@ -1116,13 +1167,16 @@ export default function ManageInventory({ filterCategory, registerAddItemHandler
                   </button>
                 </div>
 
-                <div className="overflow-y-auto px-6 py-5 max-h-[calc(90vh-120px)]">
+                <div className="overflow-y-auto px-6 py-5 h-[calc(90vh-120px)]">
                   <div className="mb-5 flex flex-wrap items-center gap-2">
                     <div className={`rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] ${wizardStep === 1 ? "bg-primary/10 text-primary dark:bg-blue-500/10 dark:text-blue-300" : "bg-surface-container-high text-on-surface-variant dark:bg-[#222] dark:text-gray-400"}`}>
                       Step 1 • Image
                     </div>
                     <div className={`rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] ${wizardStep === 2 ? "bg-primary/10 text-primary dark:bg-blue-500/10 dark:text-blue-300" : "bg-surface-container-high text-on-surface-variant dark:bg-[#222] dark:text-gray-400"}`}>
                       Step 2 • Details
+                    </div>
+                    <div className={`rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] ${wizardStep === 3 ? "bg-primary/10 text-primary dark:bg-blue-500/10 dark:text-blue-300" : "bg-surface-container-high text-on-surface-variant dark:bg-[#222] dark:text-gray-400"}`}>
+                      Step 3 • Metadata
                     </div>
                   </div>
 
@@ -1158,16 +1212,18 @@ export default function ManageInventory({ filterCategory, registerAddItemHandler
                               <div className="relative h-[310px] overflow-hidden rounded-2xl border border-outline-variant/20 bg-black/90 dark:border-gray-700">
                                 <ReactCrop
                                   crop={crop}
-                                  onChange={setCrop}
+                                  onChange={handleCropChange}
                                   onComplete={handleCropComplete}
                                   minHeight={40}
                                   minWidth={40}
                                   zoom={imageZoom}
                                   onZoomChange={setImageZoom}
-                                  aspect={undefined}
+                                  aspect={IMAGE_CARD_ASPECT_RATIO}
                                   className="h-full w-full"
                                   style={{ height: "100%", width: "100%" }}
                                   imageStyle={{ transform: `rotate(${imageRotation}deg) scaleX(${imageFlipHorizontal ? -1 : 1})` }}
+                                  keepSelection={true}
+                                  ruleOfThirds={true}
                                 >
                                   <img src={imageEditorSource} alt="Crop editor" className="h-full w-full object-contain" />
                                 </ReactCrop>
@@ -1245,228 +1301,334 @@ export default function ManageInventory({ filterCategory, registerAddItemHandler
                           </div>
                         </div>
                       </div>
-                    ) : (
+                    ) : wizardStep === 2 ? (
                       <div className="space-y-6">
-                        <div className="space-y-4">
-                          <div className="space-y-1">
-                            <label className="font-headline text-sm font-semibold text-primary dark:text-blue-400">Item Name *</label>
-                            <input
-                              value={newItem.name}
-                              onChange={(e) => setNewItem({ ...newItem, name: e.target.value })}
-                              placeholder="e.g. Traditional Sarong"
-                              className="w-full bg-surface-container-low dark:bg-[#222] border-none rounded-lg px-4 py-2.5 text-sm dark:text-white dark:placeholder-gray-500 focus:ring-1 focus:ring-primary"
-                              required
-                            />
+                        <div className="rounded-3xl border border-outline-variant/20 bg-surface-container-high p-5 dark:border-gray-700 dark:bg-[#1f1f1f]">
+                          <div className="mb-4">
+                            <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-on-surface-variant dark:text-gray-400">Step 2 • Primary details</p>
+                            <h5 className="mt-1 text-lg font-semibold text-on-surface dark:text-white">Capture the core information for this item</h5>
                           </div>
 
-                          <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-1">
-                              <label className="font-headline text-sm font-semibold text-primary dark:text-blue-400">Category *</label>
-                              <select
-                                value={newItem.category}
-                                onChange={(e) => setNewItem({ ...newItem, category: e.target.value, garment_type: e.target.value === "costume" ? "" : null })}
-                                className="w-full bg-surface-container-low dark:bg-[#222] border-none rounded-lg px-3 py-2.5 text-xs dark:text-white focus:ring-1 focus:ring-primary"
-                                required
-                                disabled={normalize(selectedGroup) === "kayam"}
-                              >
-                                <option value="">Select</option>
-                                {categoryOptions.map((opt) => (
-                                  <option key={opt} value={opt}>{opt.charAt(0).toUpperCase() + opt.slice(1)}</option>
-                                ))}
-                              </select>
-                            </div>
-
-                            {newItem.category === "costume" && (
+                          <div className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
+                            <div className="space-y-4">
                               <div className="space-y-1">
-                                <label className="font-headline text-sm font-semibold text-primary dark:text-blue-400">Type *</label>
-                                <select
-                                  value={newItem.garment_type || ""}
-                                  onChange={(e) => setNewItem({ ...newItem, garment_type: e.target.value })}
-                                  className="w-full bg-surface-container-low dark:bg-[#222] border-none rounded-lg px-3 py-2.5 text-xs dark:text-white focus:ring-1 focus:ring-primary"
+                                <label className="font-headline text-sm font-semibold text-primary dark:text-blue-400">Item Name *</label>
+                                <input
+                                  value={newItem.name}
+                                  onChange={(e) => setNewItem({ ...newItem, name: e.target.value })}
+                                  placeholder="e.g. Traditional Sarong"
+                                  className="w-full bg-surface-container-low dark:bg-[#222] border-none rounded-lg px-4 py-2.5 text-sm dark:text-white dark:placeholder-gray-500 focus:ring-1 focus:ring-primary"
                                   required
-                                >
-                                  <option value="">Select Type</option>
-                                  {garmentTypeOptions.map((type) => (
-                                    <option key={type} value={type}>{type}</option>
-                                  ))}
-                                </select>
-                              </div>
-                            )}
-                          </div>
-
-                          {divisionLoading && <p className="text-[10px] text-on-surface-variant dark:text-gray-400">Loading divisions…</p>}
-
-                          {newItem.category === "costume" && newItem.garment_type?.toLowerCase() !== "accessory" ? (
-                            <div className="grid grid-cols-3 gap-2">
-                              <div className="space-y-1">
-                                <label className="text-[10px] font-semibold text-on-surface dark:text-gray-300">Small</label>
-                                <input
-                                  type="number"
-                                  min="0"
-                                  value={newItem.qty_small}
-                                  onChange={(e) => setNewItem({ ...newItem, qty_small: e.target.value })}
-                                  className="w-full bg-surface-container-low dark:bg-[#222] border-none rounded px-3 py-2 text-sm dark:text-white focus:ring-1 focus:ring-primary"
                                 />
                               </div>
-                              <div className="space-y-1">
-                                <label className="text-[10px] font-semibold text-on-surface dark:text-gray-300">Medium</label>
-                                <input
-                                  type="number"
-                                  min="0"
-                                  value={newItem.qty_medium}
-                                  onChange={(e) => setNewItem({ ...newItem, qty_medium: e.target.value })}
-                                  className="w-full bg-surface-container-low dark:bg-[#222] border-none rounded px-3 py-2 text-sm dark:text-white focus:ring-1 focus:ring-primary"
-                                />
-                              </div>
-                              <div className="space-y-1">
-                                <label className="text-[10px] font-semibold text-on-surface dark:text-gray-300">Large</label>
-                                <input
-                                  type="number"
-                                  min="0"
-                                  value={newItem.qty_large}
-                                  onChange={(e) => setNewItem({ ...newItem, qty_large: e.target.value })}
-                                  className="w-full bg-surface-container-low dark:bg-[#222] border-none rounded px-3 py-2 text-sm dark:text-white focus:ring-1 focus:ring-primary"
-                                />
-                              </div>
-                            </div>
-                          ) : newItem.category ? (
-                            <div className="space-y-1">
-                              <label className="font-headline text-sm font-semibold text-primary dark:text-blue-400">Quantity *</label>
-                              <input
-                                type="number"
-                                min="0"
-                                value={newItem.quantity}
-                                onChange={(e) => setNewItem({ ...newItem, quantity: parseInt(e.target.value) || 0 })}
-                                className="w-full bg-surface-container-low dark:bg-[#222] border-none rounded-lg px-4 py-2.5 text-sm dark:text-white focus:ring-1 focus:ring-primary"
-                                required
-                              />
-                            </div>
-                          ) : null}
-                        </div>
 
-                        {newItem.category === "costume" && (
-                          <div className="border-t border-outline-variant/10 dark:border-gray-700 pt-4">
-                            <button
-                              type="button"
-                              onClick={() => setShowAdvanced((v) => !v)}
-                              className="flex items-center justify-between w-full group"
-                            >
-                              <span className="text-[10px] font-bold text-outline dark:text-gray-500 group-hover:text-primary dark:group-hover:text-blue-400 transition-colors uppercase tracking-widest">
-                                Advanced Metadata
-                              </span>
-                              <span className={`transition-transform ${showAdvanced ? "rotate-180" : ""}`}>▼</span>
-                            </button>
-
-                            {showAdvanced && (
-                              <div className="mt-4 space-y-4">
+                              <div className="grid gap-4 md:grid-cols-2">
                                 <div className="space-y-1">
-                                  <label className="font-headline text-sm font-semibold text-primary dark:text-blue-400">Indigenous Dance</label>
+                                  <label className="font-headline text-sm font-semibold text-primary dark:text-blue-400">Category *</label>
                                   <select
-                                    value={newItem.indigenous_dance || ""}
-                                    onChange={(e) => handleIndigenousDanceChange(e.target.value)}
-                                    className="w-full bg-surface-container-low dark:bg-[#222] border-none rounded-lg px-4 py-2.5 text-sm dark:text-white focus:ring-1 focus:ring-primary"
-                                  >
-                                    <option value="">Select Dance</option>
-                                    {indigenousDanceData.map((danceItem) => (
-                                      <option key={danceItem.dance} value={danceItem.dance}>{danceItem.dance}</option>
-                                    ))}
-                                  </select>
-                                </div>
-
-                                <div className="space-y-1">
-                                  <label className="font-headline text-sm font-semibold text-primary dark:text-blue-400">Region</label>
-                                  <input
-                                    value={newItem.region || ""}
-                                    onChange={(e) => setNewItem({ ...newItem, region: e.target.value })}
-                                    readOnly={!!newItem.indigenous_dance && indigenousDanceData.some((d) => d.dance === newItem.indigenous_dance)}
-                                    className="w-full bg-surface-container-low dark:bg-[#222] border-none rounded-lg px-4 py-2.5 text-sm dark:text-white dark:placeholder-gray-500 focus:ring-1 focus:ring-primary"
-                                    placeholder="Auto-filled from dance"
-                                  />
-                                </div>
-
-                                <div className="space-y-1">
-                                  <label className="font-headline text-sm font-semibold text-primary dark:text-blue-400">Gender</label>
-                                  <select
-                                    value={newItem.gender || ""}
-                                    onChange={(e) => setNewItem({ ...newItem, gender: e.target.value })}
-                                    className="w-full bg-surface-container-low dark:bg-[#222] border-none rounded-lg px-4 py-2.5 text-sm dark:text-white focus:ring-1 focus:ring-primary"
+                                    value={newItem.category}
+                                    onChange={(e) => setNewItem({ ...newItem, category: e.target.value, garment_type: e.target.value === "costume" ? "" : null })}
+                                    className="w-full bg-surface-container-low dark:bg-[#222] border-none rounded-lg px-3 py-2.5 text-xs dark:text-white focus:ring-1 focus:ring-primary"
+                                    required
+                                    disabled={normalize(selectedGroup) === "kayam"}
                                   >
                                     <option value="">Select</option>
-                                    {genderOptions.map((g) => (
-                                      <option key={g} value={g}>{g}</option>
+                                    {categoryOptions.map((opt) => (
+                                      <option key={opt} value={opt}>{opt.charAt(0).toUpperCase() + opt.slice(1)}</option>
                                     ))}
                                   </select>
                                 </div>
 
-                                <div className="space-y-1">
-                                  <label className="font-headline text-sm font-semibold text-primary dark:text-blue-400">Color</label>
-                                  <input
-                                    value={newItem.color || ""}
-                                    onChange={(e) => setNewItem({ ...newItem, color: e.target.value })}
-                                    className="w-full bg-surface-container-low dark:bg-[#222] border-none rounded-lg px-4 py-2.5 text-sm dark:text-white dark:placeholder-gray-500 focus:ring-1 focus:ring-primary"
-                                  />
-                                </div>
-
-                                <div className="space-y-1">
-                                  <label className="font-headline text-sm font-semibold text-primary dark:text-blue-400">Description</label>
-                                  <textarea
-                                    value={newItem.description || ""}
-                                    onChange={(e) => setNewItem({ ...newItem, description: e.target.value })}
-                                    rows={3}
-                                    className="w-full bg-surface-container-low dark:bg-[#222] border-none rounded-lg px-4 py-2.5 text-sm dark:text-white dark:placeholder-gray-500 focus:ring-1 focus:ring-primary"
-                                  />
-                                </div>
+                                {newItem.category === "costume" && (
+                                  <div className="space-y-1">
+                                    <label className="font-headline text-sm font-semibold text-primary dark:text-blue-400">Type *</label>
+                                    <select
+                                      value={newItem.garment_type || ""}
+                                      onChange={(e) => setNewItem({ ...newItem, garment_type: e.target.value })}
+                                      className="w-full bg-surface-container-low dark:bg-[#222] border-none rounded-lg px-3 py-2.5 text-xs dark:text-white focus:ring-1 focus:ring-primary"
+                                      required
+                                    >
+                                      <option value="">Select Type</option>
+                                      {garmentTypeOptions.map((type) => (
+                                        <option key={type} value={type}>{type}</option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                )}
                               </div>
-                            )}
+
+                              {divisionLoading && <p className="text-[10px] text-on-surface-variant dark:text-gray-400">Loading divisions…</p>}
+
+                              {newItem.category === "costume" && newItem.garment_type?.toLowerCase() !== "accessory" ? (
+                                <div className="grid gap-2 sm:grid-cols-3">
+                                  <div className="space-y-1">
+                                    <label className="text-[10px] font-semibold text-on-surface dark:text-gray-300">Small</label>
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      value={newItem.qty_small}
+                                      onChange={(e) => setNewItem({ ...newItem, qty_small: e.target.value })}
+                                      className="w-full bg-surface-container-low dark:bg-[#222] border-none rounded px-3 py-2 text-sm dark:text-white focus:ring-1 focus:ring-primary"
+                                    />
+                                  </div>
+                                  <div className="space-y-1">
+                                    <label className="text-[10px] font-semibold text-on-surface dark:text-gray-300">Medium</label>
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      value={newItem.qty_medium}
+                                      onChange={(e) => setNewItem({ ...newItem, qty_medium: e.target.value })}
+                                      className="w-full bg-surface-container-low dark:bg-[#222] border-none rounded px-3 py-2 text-sm dark:text-white focus:ring-1 focus:ring-primary"
+                                    />
+                                  </div>
+                                  <div className="space-y-1">
+                                    <label className="text-[10px] font-semibold text-on-surface dark:text-gray-300">Large</label>
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      value={newItem.qty_large}
+                                      onChange={(e) => setNewItem({ ...newItem, qty_large: e.target.value })}
+                                      className="w-full bg-surface-container-low dark:bg-[#222] border-none rounded px-3 py-2 text-sm dark:text-white focus:ring-1 focus:ring-primary"
+                                    />
+                                  </div>
+                                </div>
+                              ) : newItem.category ? (
+                                <div className="space-y-1">
+                                  <label className="font-headline text-sm font-semibold text-primary dark:text-blue-400">Quantity *</label>
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    value={newItem.quantity}
+                                    onChange={(e) => setNewItem({ ...newItem, quantity: parseInt(e.target.value) || 0 })}
+                                    className="w-full bg-surface-container-low dark:bg-[#222] border-none rounded-lg px-4 py-2.5 text-sm dark:text-white focus:ring-1 focus:ring-primary"
+                                    required
+                                  />
+                                </div>
+                              ) : null}
+                            </div>
+
+                            <div className="space-y-4">
+                              <div className="space-y-1">
+                                <label className="font-headline text-sm font-semibold text-primary dark:text-blue-400">Date Acquired</label>
+                                <input
+                                  type="date"
+                                  value={newItem.date_acquired || ""}
+                                  onChange={(e) => setNewItem({ ...newItem, date_acquired: e.target.value })}
+                                  className="w-full bg-surface-container-low dark:bg-[#222] border-none rounded-lg px-4 py-2.5 text-sm dark:text-white focus:ring-1 focus:ring-primary"
+                                />
+                              </div>
+                              <div className="space-y-1">
+                                <label className="font-headline text-sm font-semibold text-primary dark:text-blue-400">Condition</label>
+                                <input
+                                  value={newItem.condition || ""}
+                                  onChange={(e) => setNewItem({ ...newItem, condition: e.target.value })}
+                                  className="w-full bg-surface-container-low dark:bg-[#222] border-none rounded-lg px-4 py-2.5 text-sm dark:text-white dark:placeholder-gray-500 focus:ring-1 focus:ring-primary"
+                                  placeholder="Good / Fair / Needs repair"
+                                />
+                              </div>
+                              <div className="space-y-1">
+                                <label className="font-headline text-sm font-semibold text-primary dark:text-blue-400">Status</label>
+                                <input
+                                  value={newItem.status || ""}
+                                  onChange={(e) => setNewItem({ ...newItem, status: e.target.value })}
+                                  className="w-full bg-surface-container-low dark:bg-[#222] border-none rounded-lg px-4 py-2.5 text-sm dark:text-white dark:placeholder-gray-500 focus:ring-1 focus:ring-primary"
+                                  placeholder="Available / On loan"
+                                />
+                              </div>
+                              <div className="space-y-1">
+                                <label className="font-headline text-sm font-semibold text-primary dark:text-blue-400">Description</label>
+                                <textarea
+                                  value={newItem.description || ""}
+                                  onChange={(e) => setNewItem({ ...newItem, description: e.target.value })}
+                                  rows={4}
+                                  className="w-full bg-surface-container-low dark:bg-[#222] border-none rounded-lg px-4 py-2.5 text-sm dark:text-white dark:placeholder-gray-500 focus:ring-1 focus:ring-primary"
+                                />
+                              </div>
+                            </div>
                           </div>
-                        )}
-
-                        {newItem.category === "instrument" && (
-                          <div className="space-y-4 border-t border-outline-variant/10 dark:border-gray-700 pt-4">
-                            <div className="space-y-1">
-                              <label className="font-headline text-sm font-semibold text-primary dark:text-blue-400">Classification</label>
-                              <select
-                                value={newItem.instrument_classification || ""}
-                                onChange={(e) => setNewItem({ ...newItem, instrument_classification: e.target.value })}
-                                className="w-full bg-surface-container-low dark:bg-[#222] border-none rounded-lg px-4 py-2.5 text-sm dark:text-white focus:ring-1 focus:ring-primary"
-                              >
-                                <option value="">Select</option>
-                                {classificationOptions.map((c) => (
-                                  <option key={c} value={c}>{c}</option>
-                                ))}
-                              </select>
-                            </div>
-
-                            <div className="space-y-1">
-                              <label className="font-headline text-sm font-semibold text-primary dark:text-blue-400">Type</label>
-                              <select
-                                value={newItem.instrument_type || ""}
-                                onChange={(e) => setNewItem({ ...newItem, instrument_type: e.target.value })}
-                                className="w-full bg-surface-container-low dark:bg-[#222] border-none rounded-lg px-4 py-2.5 text-sm dark:text-white focus:ring-1 focus:ring-primary"
-                              >
-                                <option value="">Select</option>
-                                {instrumentCategoryOptions.map((t) => (
-                                  <option key={t} value={t}>{t}</option>
-                                ))}
-                              </select>
-                            </div>
-
-                            <div className="space-y-1">
-                              <label className="font-headline text-sm font-semibold text-primary dark:text-blue-400">Description</label>
-                              <textarea
-                                value={newItem.description || ""}
-                                onChange={(e) => setNewItem({ ...newItem, description: e.target.value })}
-                                rows={3}
-                                className="w-full bg-surface-container-low dark:bg-[#222] border-none rounded-lg px-4 py-2.5 text-sm dark:text-white dark:placeholder-gray-500 focus:ring-1 focus:ring-primary"
-                              />
-                            </div>
-                          </div>
-                        )}
+                        </div>
 
                         <div className="flex items-center justify-between border-t border-outline-variant/10 pt-4 dark:border-gray-700">
                           <button
                             type="button"
                             onClick={() => setWizardStep(1)}
+                            className="rounded-xl border border-outline-variant/30 px-4 py-2.5 text-[11px] font-semibold uppercase tracking-[0.24em] text-on-surface-variant transition hover:bg-surface-container-high dark:border-gray-700 dark:text-gray-400"
+                          >
+                            Previous
+                          </button>
+                          <div className="flex gap-3">
+                            <button
+                              type="button"
+                              onClick={() => setWizardStep(3)}
+                              className="rounded-xl bg-primary px-4 py-2.5 text-[11px] font-semibold uppercase tracking-[0.24em] text-white transition hover:bg-primary-container dark:bg-blue-600 dark:hover:bg-blue-700"
+                            >
+                              Next
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-6">
+                        <div className="rounded-3xl border border-outline-variant/20 bg-surface-container-high p-5 dark:border-gray-700 dark:bg-[#1f1f1f]">
+                          <div className="mb-4">
+                            <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-on-surface-variant dark:text-gray-400">Step 3 • Additional metadata</p>
+                            <h5 className="mt-1 text-lg font-semibold text-on-surface dark:text-white">Finish with the supporting details for recordkeeping</h5>
+                          </div>
+
+                          <div className="grid gap-4 xl:grid-cols-2">
+                            <div className="space-y-4 rounded-2xl border border-outline-variant/20 bg-surface-container-low p-4 dark:border-gray-700 dark:bg-[#1d1d1d]">
+                              <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-on-surface-variant dark:text-gray-400">Cultural & identity</p>
+                              {newItem.category === "costume" ? (
+                                <>
+                                  <div className="space-y-1">
+                                    <label className="font-headline text-sm font-semibold text-primary dark:text-blue-400">Indigenous Group</label>
+                                    <input
+                                      value={newItem.indigenous_group || ""}
+                                      onChange={(e) => setNewItem({ ...newItem, indigenous_group: e.target.value })}
+                                      className="w-full bg-surface-container-low dark:bg-[#222] border-none rounded-lg px-4 py-2.5 text-sm dark:text-white dark:placeholder-gray-500 focus:ring-1 focus:ring-primary"
+                                      placeholder="e.g. B'laan"
+                                    />
+                                  </div>
+                                  <div className="space-y-1">
+                                    <label className="font-headline text-sm font-semibold text-primary dark:text-blue-400">Indigenous Dance</label>
+                                    <select
+                                      value={newItem.indigenous_dance || ""}
+                                      onChange={(e) => handleIndigenousDanceChange(e.target.value)}
+                                      className="w-full bg-surface-container-low dark:bg-[#222] border-none rounded-lg px-4 py-2.5 text-sm dark:text-white focus:ring-1 focus:ring-primary"
+                                    >
+                                      <option value="">Select Dance</option>
+                                      {indigenousDanceData.map((danceItem) => (
+                                        <option key={danceItem.dance} value={danceItem.dance}>{danceItem.dance}</option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                  <div className="space-y-1">
+                                    <label className="font-headline text-sm font-semibold text-primary dark:text-blue-400">Region</label>
+                                    <input
+                                      value={newItem.region || ""}
+                                      onChange={(e) => setNewItem({ ...newItem, region: e.target.value })}
+                                      readOnly={!!newItem.indigenous_dance && indigenousDanceData.some((d) => d.dance === newItem.indigenous_dance)}
+                                      className="w-full bg-surface-container-low dark:bg-[#222] border-none rounded-lg px-4 py-2.5 text-sm dark:text-white dark:placeholder-gray-500 focus:ring-1 focus:ring-primary"
+                                      placeholder="Auto-filled from dance"
+                                    />
+                                  </div>
+                                  <div className="space-y-1">
+                                    <label className="font-headline text-sm font-semibold text-primary dark:text-blue-400">Gender</label>
+                                    <select
+                                      value={newItem.gender || ""}
+                                      onChange={(e) => setNewItem({ ...newItem, gender: e.target.value })}
+                                      className="w-full bg-surface-container-low dark:bg-[#222] border-none rounded-lg px-4 py-2.5 text-sm dark:text-white focus:ring-1 focus:ring-primary"
+                                    >
+                                      <option value="">Select</option>
+                                      {genderOptions.map((g) => (
+                                        <option key={g} value={g}>{g}</option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                  <div className="space-y-1">
+                                    <label className="font-headline text-sm font-semibold text-primary dark:text-blue-400">Color</label>
+                                    <input
+                                      value={newItem.color || ""}
+                                      onChange={(e) => setNewItem({ ...newItem, color: e.target.value })}
+                                      className="w-full bg-surface-container-low dark:bg-[#222] border-none rounded-lg px-4 py-2.5 text-sm dark:text-white dark:placeholder-gray-500 focus:ring-1 focus:ring-primary"
+                                    />
+                                  </div>
+                                </>
+                              ) : newItem.category === "instrument" ? (
+                                <>
+                                  <div className="space-y-1">
+                                    <label className="font-headline text-sm font-semibold text-primary dark:text-blue-400">Classification</label>
+                                    <select
+                                      value={newItem.instrument_classification || ""}
+                                      onChange={(e) => setNewItem({ ...newItem, instrument_classification: e.target.value })}
+                                      className="w-full bg-surface-container-low dark:bg-[#222] border-none rounded-lg px-4 py-2.5 text-sm dark:text-white focus:ring-1 focus:ring-primary"
+                                    >
+                                      <option value="">Select</option>
+                                      {classificationOptions.map((c) => (
+                                        <option key={c} value={c}>{c}</option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                  <div className="space-y-1">
+                                    <label className="font-headline text-sm font-semibold text-primary dark:text-blue-400">Type</label>
+                                    <select
+                                      value={newItem.instrument_type || ""}
+                                      onChange={(e) => setNewItem({ ...newItem, instrument_type: e.target.value })}
+                                      className="w-full bg-surface-container-low dark:bg-[#222] border-none rounded-lg px-4 py-2.5 text-sm dark:text-white focus:ring-1 focus:ring-primary"
+                                    >
+                                      <option value="">Select</option>
+                                      {instrumentCategoryOptions.map((t) => (
+                                        <option key={t} value={t}>{t}</option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                </>
+                              ) : (
+                                <p className="text-sm text-on-surface-variant dark:text-gray-400">Choose a category to unlock this section.</p>
+                              )}
+                            </div>
+
+                            <div className="space-y-4 rounded-2xl border border-outline-variant/20 bg-surface-container-low p-4 dark:border-gray-700 dark:bg-[#1d1d1d]">
+                              <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-on-surface-variant dark:text-gray-400">Storage & logistics</p>
+                              <div className="space-y-1">
+                                <label className="font-headline text-sm font-semibold text-primary dark:text-blue-400">Storage Location</label>
+                                <input
+                                  value={newItem.storage_location || ""}
+                                  onChange={(e) => setNewItem({ ...newItem, storage_location: e.target.value })}
+                                  className="w-full bg-surface-container-low dark:bg-[#222] border-none rounded-lg px-4 py-2.5 text-sm dark:text-white dark:placeholder-gray-500 focus:ring-1 focus:ring-primary"
+                                  placeholder="Shelf / Cabinet"
+                                />
+                              </div>
+                              <div className="space-y-1">
+                                <label className="font-headline text-sm font-semibold text-primary dark:text-blue-400">Material</label>
+                                <input
+                                  value={newItem.material || ""}
+                                  onChange={(e) => setNewItem({ ...newItem, material: e.target.value })}
+                                  className="w-full bg-surface-container-low dark:bg-[#222] border-none rounded-lg px-4 py-2.5 text-sm dark:text-white dark:placeholder-gray-500 focus:ring-1 focus:ring-primary"
+                                />
+                              </div>
+                              <div className="space-y-1">
+                                <label className="font-headline text-sm font-semibold text-primary dark:text-blue-400">Size</label>
+                                <input
+                                  value={newItem.size || ""}
+                                  onChange={(e) => setNewItem({ ...newItem, size: e.target.value })}
+                                  className="w-full bg-surface-container-low dark:bg-[#222] border-none rounded-lg px-4 py-2.5 text-sm dark:text-white dark:placeholder-gray-500 focus:ring-1 focus:ring-primary"
+                                />
+                              </div>
+                              <div className="space-y-1">
+                                <label className="font-headline text-sm font-semibold text-primary dark:text-blue-400">Usage</label>
+                                <input
+                                  value={newItem.usage || ""}
+                                  onChange={(e) => setNewItem({ ...newItem, usage: e.target.value })}
+                                  className="w-full bg-surface-container-low dark:bg-[#222] border-none rounded-lg px-4 py-2.5 text-sm dark:text-white dark:placeholder-gray-500 focus:ring-1 focus:ring-primary"
+                                />
+                              </div>
+                              <div className="space-y-1">
+                                <label className="font-headline text-sm font-semibold text-primary dark:text-blue-400">Acquisition Details</label>
+                                <textarea
+                                  value={newItem.acquisition_details || ""}
+                                  onChange={(e) => setNewItem({ ...newItem, acquisition_details: e.target.value })}
+                                  rows={3}
+                                  className="w-full bg-surface-container-low dark:bg-[#222] border-none rounded-lg px-4 py-2.5 text-sm dark:text-white dark:placeholder-gray-500 focus:ring-1 focus:ring-primary"
+                                />
+                              </div>
+                              <div className="space-y-1">
+                                <label className="font-headline text-sm font-semibold text-primary dark:text-blue-400">Notes</label>
+                                <textarea
+                                  value={newItem.notes || ""}
+                                  onChange={(e) => setNewItem({ ...newItem, notes: e.target.value })}
+                                  rows={3}
+                                  className="w-full bg-surface-container-low dark:bg-[#222] border-none rounded-lg px-4 py-2.5 text-sm dark:text-white dark:placeholder-gray-500 focus:ring-1 focus:ring-primary"
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between border-t border-outline-variant/10 pt-4 dark:border-gray-700">
+                          <button
+                            type="button"
+                            onClick={() => setWizardStep(2)}
                             className="rounded-xl border border-outline-variant/30 px-4 py-2.5 text-[11px] font-semibold uppercase tracking-[0.24em] text-on-surface-variant transition hover:bg-surface-container-high dark:border-gray-700 dark:text-gray-400"
                           >
                             Previous
