@@ -1,12 +1,12 @@
 // ManageInventory.jsx
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import axios from "axios";
 import toast from "react-hot-toast";
 import ReactCrop from "react-image-crop";
 import "react-image-crop/dist/ReactCrop.css";
 import UnitModal from "./UnitModal";
 import PageLayout from "../../components/layout/PageLayout";
-import { Package, GridIcon, Music, AlertTriangle, Search, Filter, Plus, QrCode, Edit2, Trash2, ChevronRight, RotateCw, FlipHorizontal2, ZoomIn, ZoomOut, X } from "lucide-react";
+import { Package, GridIcon, Music, AlertTriangle, Search, Filter, Plus, QrCode, Edit2, Trash2, ChevronRight, RotateCw, FlipHorizontal2, ZoomIn, ZoomOut, X, Check, Undo2 } from "lucide-react";
 import { getInventoryDivisionInfo, setInventoryDivisionAssignment } from "../../utils/inventoryDivisionStorage";
 import { useSidebarStore } from "../../../context/sidebarStore";
 
@@ -146,14 +146,29 @@ const createImage = (src) =>
     image.src = src;
   });
 
-const IMAGE_CARD_ASPECT_RATIO = 16 / 14;
+const IMAGE_CARD_ASPECT_RATIO = 1;
 const getInitialCrop = () => ({
   unit: "%",
-  width: 88,
-  height: 88 * (14 / 16),
-  x: 6,
-  y: 6,
+  width: 90,
+  height: 90,
+  x: 5,
+  y: 5,
 });
+
+const getFitZoomForImage = (image, container) => {
+  if (!container || !image) return 1;
+
+  const rect = container.getBoundingClientRect();
+  const width = rect.width || 620;
+  const height = rect.height || 420;
+  const imageAspect = image.naturalWidth / image.naturalHeight;
+  const containerAspect = width / height;
+  const fitByWidth = width / image.naturalWidth;
+  const fitByHeight = height / image.naturalHeight;
+  const zoom = imageAspect > containerAspect ? fitByWidth : fitByHeight;
+
+  return Math.max(0.8, Math.min(1.6, zoom));
+};
 
 const getCroppedImageFile = async (imageSrc, pixelCrop, rotation, flipHorizontal, fileName) => {
   const image = await createImage(imageSrc);
@@ -243,6 +258,7 @@ export default function ManageInventory({ filterCategory, registerAddItemHandler
   const [imageRotation, setImageRotation] = useState(0);
   const [imageFlipHorizontal, setImageFlipHorizontal] = useState(false);
   const [isApplyingCrop, setIsApplyingCrop] = useState(false);
+  const cropEditorViewportRef = useRef(null);
 
   const activeItem = useMemo(
     () => items.find((item) => (item.uuid || item.id) === activeItemId),
@@ -457,6 +473,13 @@ export default function ManageInventory({ filterCategory, registerAddItemHandler
     setCompletedCrop(cropPixel);
   }, []);
 
+  const handleImageLoaded = useCallback((image) => {
+    const zoom = getFitZoomForImage(image, cropEditorViewportRef.current);
+    setImageZoom(zoom);
+    setCrop(getInitialCrop());
+    setCompletedCrop(null);
+  }, []);
+
   const handleApplyCrop = async () => {
     if (!imageEditorSource || !completedCrop) {
       toast.error("Please select a crop area before applying.");
@@ -482,11 +505,14 @@ export default function ManageInventory({ filterCategory, registerAddItemHandler
       const croppedDataUrl = await readFileAsDataUrl(croppedFile);
 
       setPreviewImage(croppedDataUrl);
-      setImageEditorSource(croppedDataUrl);
+      setImageEditorSource(null);
       setCrop(getInitialCrop());
       setCompletedCrop(null);
+      setImageZoom(1);
+      setImageRotation(0);
+      setImageFlipHorizontal(false);
       setNewItem((ni) => ({ ...ni, image_file: croppedFile, image_url: "" }));
-      toast.success("Image cropped successfully");
+      toast.success("Image ready to upload");
     } catch (error) {
       console.error("Image crop failed:", error);
       toast.error("Unable to crop the selected image.");
@@ -1182,22 +1208,25 @@ export default function ManageInventory({ filterCategory, registerAddItemHandler
                     {wizardStep === 1 ? (
                       <div className="flex-1">
                         <div className="flex h-full flex-col rounded-[24px] border border-outline-variant/20 bg-surface-container-high p-4 dark:border-gray-700 dark:bg-[#1f1f1f]">
-                          {previewImage && (
-                            <div className="mb-3 flex justify-center gap-2">
-                              <button type="button" onClick={handleReEditImage} className="inline-flex items-center gap-2 rounded-full border border-outline-variant/30 bg-surface-container-low px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.24em] text-primary transition hover:bg-surface-container-high dark:border-gray-700 dark:bg-[#1d1d1d] dark:text-blue-400">
-                                <RotateCw className="h-3.5 w-3.5" />
-                                Re-edit
-                              </button>
-                              <button type="button" onClick={handleRemoveImage} className="inline-flex items-center gap-2 rounded-full border border-outline-variant/30 bg-surface-container-low px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.24em] text-error transition hover:bg-surface-container-high dark:border-gray-700 dark:bg-[#1d1d1d] dark:text-red-400">
-                                <Trash2 className="h-3.5 w-3.5" />
-                                Remove
-                              </button>
+                          {previewImage && !imageEditorSource ? (
+                            <div className="flex flex-1 flex-col items-center justify-center gap-3">
+                              <div className="w-full max-w-[420px] flex-1 overflow-hidden rounded-[22px] border border-outline-variant/20 bg-black/95 dark:border-gray-700">
+                                <img src={previewImage} alt="Image preview" className="h-full w-full object-contain" />
+                              </div>
+                              <div className="flex flex-wrap justify-center gap-2">
+                                <button type="button" onClick={handleReEditImage} className="inline-flex items-center gap-2 rounded-full border border-outline-variant/30 bg-surface-container-low px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.24em] text-primary transition hover:bg-surface-container-high dark:border-gray-700 dark:bg-[#1d1d1d] dark:text-blue-400">
+                                  <Undo2 className="h-3.5 w-3.5" />
+                                  Undo / Re-edit
+                                </button>
+                                <button type="button" onClick={handleRemoveImage} className="inline-flex items-center gap-2 rounded-full border border-outline-variant/30 bg-surface-container-low px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.24em] text-error transition hover:bg-surface-container-high dark:border-gray-700 dark:bg-[#1d1d1d] dark:text-red-400">
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                  Remove
+                                </button>
+                              </div>
                             </div>
-                          )}
-
-                          {imageEditorSource ? (
+                          ) : imageEditorSource ? (
                             <div className="flex-1 space-y-3">
-                              <div className="relative flex-1 overflow-hidden rounded-[22px] border border-outline-variant/20 bg-black/95 dark:border-gray-700">
+                              <div ref={cropEditorViewportRef} className="relative flex-1 overflow-hidden rounded-[22px] border border-outline-variant/20 bg-black/95 dark:border-gray-700">
                                 <ReactCrop
                                   crop={crop}
                                   onChange={handleCropChange}
@@ -1211,7 +1240,7 @@ export default function ManageInventory({ filterCategory, registerAddItemHandler
                                   style={{ height: "100%", width: "100%" }}
                                   imageStyle={{ transform: `rotate(${imageRotation}deg) scaleX(${imageFlipHorizontal ? -1 : 1})` }}
                                   keepSelection={true}
-                                  ruleOfThirds={true}
+                                  onImageLoaded={handleImageLoaded}
                                 >
                                   <img src={imageEditorSource} alt="Crop editor" className="h-full w-full object-contain" />
                                 </ReactCrop>
@@ -1219,10 +1248,10 @@ export default function ManageInventory({ filterCategory, registerAddItemHandler
 
                               <div className="flex flex-wrap items-center justify-between gap-3 rounded-[18px] border border-outline-variant/20 bg-surface-container-low p-3 dark:border-gray-700 dark:bg-[#1d1d1d]">
                                 <div className="flex flex-wrap items-center gap-2">
-                                  <button type="button" onClick={() => setImageZoom((value) => Math.max(1, value - 0.1))} className="rounded-full border border-outline-variant/30 bg-surface-container-low px-3 py-2 text-sm dark:border-gray-700 dark:bg-[#1d1d1d]">
+                                  <button type="button" onClick={() => setImageZoom((value) => Math.max(0.8, value - 0.1))} className="rounded-full border border-outline-variant/30 bg-surface-container-low px-3 py-2 text-sm dark:border-gray-700 dark:bg-[#1d1d1d]">
                                     <ZoomOut className="h-4 w-4" />
                                   </button>
-                                  <button type="button" onClick={() => setImageZoom((value) => Math.min(3, value + 0.1))} className="rounded-full border border-outline-variant/30 bg-surface-container-low px-3 py-2 text-sm dark:border-gray-700 dark:bg-[#1d1d1d]">
+                                  <button type="button" onClick={() => setImageZoom((value) => Math.min(2, value + 0.1))} className="rounded-full border border-outline-variant/30 bg-surface-container-low px-3 py-2 text-sm dark:border-gray-700 dark:bg-[#1d1d1d]">
                                     <ZoomIn className="h-4 w-4" />
                                   </button>
                                   <button type="button" onClick={() => setImageRotation((value) => (value + 90) % 360)} className="rounded-full border border-outline-variant/30 bg-surface-container-low px-3 py-2 text-sm dark:border-gray-700 dark:bg-[#1d1d1d]">
@@ -1244,8 +1273,9 @@ export default function ManageInventory({ filterCategory, registerAddItemHandler
                                   <button type="button" onClick={handleRemoveImage} className="rounded-xl border border-outline-variant/30 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.24em] text-on-surface-variant transition hover:bg-surface-container-high dark:border-gray-700 dark:text-gray-400">
                                     Clear
                                   </button>
-                                  <button type="button" onClick={handleApplyCrop} disabled={isApplyingCrop} className="rounded-xl bg-primary px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.24em] text-white transition disabled:cursor-not-allowed disabled:opacity-60">
-                                    {isApplyingCrop ? "Processing..." : "Apply Crop"}
+                                  <button type="button" onClick={handleApplyCrop} disabled={isApplyingCrop} className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.24em] text-white transition disabled:cursor-not-allowed disabled:opacity-60">
+                                    <Check className="h-4 w-4" />
+                                    {isApplyingCrop ? "Processing..." : "Apply"}
                                   </button>
                                 </div>
                               </div>
@@ -1262,16 +1292,16 @@ export default function ManageInventory({ filterCategory, registerAddItemHandler
                       </div>
                     ) : wizardStep === 2 ? (
                       <div className="flex-1 space-y-4">
-                        <div className="rounded-3xl border border-outline-variant/20 bg-surface-container-high p-5 dark:border-gray-700 dark:bg-[#1f1f1f]">
-                          <div className="mb-4">
+                        <div className="rounded-3xl border border-outline-variant/20 bg-surface-container-high p-4 dark:border-gray-700 dark:bg-[#1f1f1f]">
+                          <div className="mb-3">
                             <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-on-surface-variant dark:text-gray-400">Step 2 • Primary details</p>
-                            <h5 className="mt-1 text-lg font-semibold text-on-surface dark:text-white">Capture the core information for this item</h5>
+                            <h5 className="mt-1 text-base font-semibold text-on-surface dark:text-white">Capture the core information for this item</h5>
                           </div>
 
-                          <div className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
-                            <div className="space-y-4">
+                          <div className="grid gap-3 lg:grid-cols-[1.1fr_0.9fr]">
+                            <div className="space-y-3">
                               <div className="space-y-1">
-                                <label className="font-headline text-sm font-semibold text-primary dark:text-blue-400">Item Name *</label>
+                                <label className="text-[11px] font-semibold uppercase tracking-[0.24em] text-on-surface-variant dark:text-gray-400">Item Name *</label>
                                 <input
                                   value={newItem.name}
                                   onChange={(e) => setNewItem({ ...newItem, name: e.target.value })}
@@ -1281,9 +1311,9 @@ export default function ManageInventory({ filterCategory, registerAddItemHandler
                                 />
                               </div>
 
-                              <div className="grid gap-4 md:grid-cols-2">
+                              <div className="grid gap-3 md:grid-cols-2">
                                 <div className="space-y-1">
-                                  <label className="font-headline text-sm font-semibold text-primary dark:text-blue-400">Category *</label>
+                                  <label className="text-[11px] font-semibold uppercase tracking-[0.24em] text-on-surface-variant dark:text-gray-400">Category *</label>
                                   <select
                                     value={newItem.category}
                                     onChange={(e) => setNewItem({ ...newItem, category: e.target.value, garment_type: e.target.value === "costume" ? "" : null })}
@@ -1300,7 +1330,7 @@ export default function ManageInventory({ filterCategory, registerAddItemHandler
 
                                 {newItem.category === "costume" && (
                                   <div className="space-y-1">
-                                    <label className="font-headline text-sm font-semibold text-primary dark:text-blue-400">Type *</label>
+                                    <label className="text-[11px] font-semibold uppercase tracking-[0.24em] text-on-surface-variant dark:text-gray-400">Type *</label>
                                     <select
                                       value={newItem.garment_type || ""}
                                       onChange={(e) => setNewItem({ ...newItem, garment_type: e.target.value })}
@@ -1353,7 +1383,7 @@ export default function ManageInventory({ filterCategory, registerAddItemHandler
                                 </div>
                               ) : newItem.category ? (
                                 <div className="space-y-1">
-                                  <label className="font-headline text-sm font-semibold text-primary dark:text-blue-400">Quantity *</label>
+                                  <label className="text-[11px] font-semibold uppercase tracking-[0.24em] text-on-surface-variant dark:text-gray-400">Quantity *</label>
                                   <input
                                     type="number"
                                     min="0"
@@ -1366,9 +1396,9 @@ export default function ManageInventory({ filterCategory, registerAddItemHandler
                               ) : null}
                             </div>
 
-                            <div className="space-y-4">
+                            <div className="space-y-3">
                               <div className="space-y-1">
-                                <label className="font-headline text-sm font-semibold text-primary dark:text-blue-400">Date Acquired</label>
+                                <label className="text-[11px] font-semibold uppercase tracking-[0.24em] text-on-surface-variant dark:text-gray-400">Date Acquired</label>
                                 <input
                                   type="date"
                                   value={newItem.date_acquired || ""}
@@ -1377,7 +1407,7 @@ export default function ManageInventory({ filterCategory, registerAddItemHandler
                                 />
                               </div>
                               <div className="space-y-1">
-                                <label className="font-headline text-sm font-semibold text-primary dark:text-blue-400">Condition</label>
+                                <label className="text-[11px] font-semibold uppercase tracking-[0.24em] text-on-surface-variant dark:text-gray-400">Condition</label>
                                 <input
                                   value={newItem.condition || ""}
                                   onChange={(e) => setNewItem({ ...newItem, condition: e.target.value })}
@@ -1386,7 +1416,7 @@ export default function ManageInventory({ filterCategory, registerAddItemHandler
                                 />
                               </div>
                               <div className="space-y-1">
-                                <label className="font-headline text-sm font-semibold text-primary dark:text-blue-400">Status</label>
+                                <label className="text-[11px] font-semibold uppercase tracking-[0.24em] text-on-surface-variant dark:text-gray-400">Status</label>
                                 <input
                                   value={newItem.status || ""}
                                   onChange={(e) => setNewItem({ ...newItem, status: e.target.value })}
@@ -1395,7 +1425,7 @@ export default function ManageInventory({ filterCategory, registerAddItemHandler
                                 />
                               </div>
                               <div className="space-y-1">
-                                <label className="font-headline text-sm font-semibold text-primary dark:text-blue-400">Description</label>
+                                <label className="text-[11px] font-semibold uppercase tracking-[0.24em] text-on-surface-variant dark:text-gray-400">Description</label>
                                 <textarea
                                   value={newItem.description || ""}
                                   onChange={(e) => setNewItem({ ...newItem, description: e.target.value })}
@@ -1410,19 +1440,19 @@ export default function ManageInventory({ filterCategory, registerAddItemHandler
                       </div>
                     ) : (
                       <div className="flex-1 space-y-4">
-                        <div className="rounded-3xl border border-outline-variant/20 bg-surface-container-high p-5 dark:border-gray-700 dark:bg-[#1f1f1f]">
-                          <div className="mb-4">
+                        <div className="rounded-3xl border border-outline-variant/20 bg-surface-container-high p-4 dark:border-gray-700 dark:bg-[#1f1f1f]">
+                          <div className="mb-3">
                             <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-on-surface-variant dark:text-gray-400">Step 3 • Additional metadata</p>
-                            <h5 className="mt-1 text-lg font-semibold text-on-surface dark:text-white">Finish with the supporting details for recordkeeping</h5>
+                            <h5 className="mt-1 text-base font-semibold text-on-surface dark:text-white">Finish with the supporting details for recordkeeping</h5>
                           </div>
 
-                          <div className="grid gap-4 xl:grid-cols-2">
-                            <div className="space-y-4 rounded-2xl border border-outline-variant/20 bg-surface-container-low p-4 dark:border-gray-700 dark:bg-[#1d1d1d]">
+                          <div className="grid gap-3 xl:grid-cols-2">
+                            <div className="space-y-3 rounded-2xl border border-outline-variant/20 bg-surface-container-low p-3 dark:border-gray-700 dark:bg-[#1d1d1d]">
                               <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-on-surface-variant dark:text-gray-400">Cultural & identity</p>
                               {newItem.category === "costume" ? (
                                 <>
                                   <div className="space-y-1">
-                                    <label className="font-headline text-sm font-semibold text-primary dark:text-blue-400">Indigenous Group</label>
+                                    <label className="text-[11px] font-semibold uppercase tracking-[0.24em] text-on-surface-variant dark:text-gray-400">Indigenous Group</label>
                                     <input
                                       value={newItem.indigenous_group || ""}
                                       onChange={(e) => setNewItem({ ...newItem, indigenous_group: e.target.value })}
@@ -1431,7 +1461,7 @@ export default function ManageInventory({ filterCategory, registerAddItemHandler
                                     />
                                   </div>
                                   <div className="space-y-1">
-                                    <label className="font-headline text-sm font-semibold text-primary dark:text-blue-400">Indigenous Dance</label>
+                                    <label className="text-[11px] font-semibold uppercase tracking-[0.24em] text-on-surface-variant dark:text-gray-400">Indigenous Dance</label>
                                     <select
                                       value={newItem.indigenous_dance || ""}
                                       onChange={(e) => handleIndigenousDanceChange(e.target.value)}
@@ -1444,7 +1474,7 @@ export default function ManageInventory({ filterCategory, registerAddItemHandler
                                     </select>
                                   </div>
                                   <div className="space-y-1">
-                                    <label className="font-headline text-sm font-semibold text-primary dark:text-blue-400">Region</label>
+                                    <label className="text-[11px] font-semibold uppercase tracking-[0.24em] text-on-surface-variant dark:text-gray-400">Region</label>
                                     <input
                                       value={newItem.region || ""}
                                       onChange={(e) => setNewItem({ ...newItem, region: e.target.value })}
@@ -1454,7 +1484,7 @@ export default function ManageInventory({ filterCategory, registerAddItemHandler
                                     />
                                   </div>
                                   <div className="space-y-1">
-                                    <label className="font-headline text-sm font-semibold text-primary dark:text-blue-400">Gender</label>
+                                    <label className="text-[11px] font-semibold uppercase tracking-[0.24em] text-on-surface-variant dark:text-gray-400">Gender</label>
                                     <select
                                       value={newItem.gender || ""}
                                       onChange={(e) => setNewItem({ ...newItem, gender: e.target.value })}
@@ -1467,7 +1497,7 @@ export default function ManageInventory({ filterCategory, registerAddItemHandler
                                     </select>
                                   </div>
                                   <div className="space-y-1">
-                                    <label className="font-headline text-sm font-semibold text-primary dark:text-blue-400">Color</label>
+                                    <label className="text-[11px] font-semibold uppercase tracking-[0.24em] text-on-surface-variant dark:text-gray-400">Color</label>
                                     <input
                                       value={newItem.color || ""}
                                       onChange={(e) => setNewItem({ ...newItem, color: e.target.value })}
@@ -1478,7 +1508,7 @@ export default function ManageInventory({ filterCategory, registerAddItemHandler
                               ) : newItem.category === "instrument" ? (
                                 <>
                                   <div className="space-y-1">
-                                    <label className="font-headline text-sm font-semibold text-primary dark:text-blue-400">Classification</label>
+                                    <label className="text-[11px] font-semibold uppercase tracking-[0.24em] text-on-surface-variant dark:text-gray-400">Classification</label>
                                     <select
                                       value={newItem.instrument_classification || ""}
                                       onChange={(e) => setNewItem({ ...newItem, instrument_classification: e.target.value })}
@@ -1491,7 +1521,7 @@ export default function ManageInventory({ filterCategory, registerAddItemHandler
                                     </select>
                                   </div>
                                   <div className="space-y-1">
-                                    <label className="font-headline text-sm font-semibold text-primary dark:text-blue-400">Type</label>
+                                    <label className="text-[11px] font-semibold uppercase tracking-[0.24em] text-on-surface-variant dark:text-gray-400">Type</label>
                                     <select
                                       value={newItem.instrument_type || ""}
                                       onChange={(e) => setNewItem({ ...newItem, instrument_type: e.target.value })}
@@ -1509,10 +1539,10 @@ export default function ManageInventory({ filterCategory, registerAddItemHandler
                               )}
                             </div>
 
-                            <div className="space-y-4 rounded-2xl border border-outline-variant/20 bg-surface-container-low p-4 dark:border-gray-700 dark:bg-[#1d1d1d]">
+                            <div className="space-y-3 rounded-2xl border border-outline-variant/20 bg-surface-container-low p-3 dark:border-gray-700 dark:bg-[#1d1d1d]">
                               <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-on-surface-variant dark:text-gray-400">Storage & logistics</p>
                               <div className="space-y-1">
-                                <label className="font-headline text-sm font-semibold text-primary dark:text-blue-400">Storage Location</label>
+                                <label className="text-[11px] font-semibold uppercase tracking-[0.24em] text-on-surface-variant dark:text-gray-400">Storage Location</label>
                                 <input
                                   value={newItem.storage_location || ""}
                                   onChange={(e) => setNewItem({ ...newItem, storage_location: e.target.value })}
@@ -1521,7 +1551,7 @@ export default function ManageInventory({ filterCategory, registerAddItemHandler
                                 />
                               </div>
                               <div className="space-y-1">
-                                <label className="font-headline text-sm font-semibold text-primary dark:text-blue-400">Material</label>
+                                <label className="text-[11px] font-semibold uppercase tracking-[0.24em] text-on-surface-variant dark:text-gray-400">Material</label>
                                 <input
                                   value={newItem.material || ""}
                                   onChange={(e) => setNewItem({ ...newItem, material: e.target.value })}
@@ -1529,7 +1559,7 @@ export default function ManageInventory({ filterCategory, registerAddItemHandler
                                 />
                               </div>
                               <div className="space-y-1">
-                                <label className="font-headline text-sm font-semibold text-primary dark:text-blue-400">Size</label>
+                                <label className="text-[11px] font-semibold uppercase tracking-[0.24em] text-on-surface-variant dark:text-gray-400">Size</label>
                                 <input
                                   value={newItem.size || ""}
                                   onChange={(e) => setNewItem({ ...newItem, size: e.target.value })}
@@ -1537,7 +1567,7 @@ export default function ManageInventory({ filterCategory, registerAddItemHandler
                                 />
                               </div>
                               <div className="space-y-1">
-                                <label className="font-headline text-sm font-semibold text-primary dark:text-blue-400">Usage</label>
+                                <label className="text-[11px] font-semibold uppercase tracking-[0.24em] text-on-surface-variant dark:text-gray-400">Usage</label>
                                 <input
                                   value={newItem.usage || ""}
                                   onChange={(e) => setNewItem({ ...newItem, usage: e.target.value })}
@@ -1545,7 +1575,7 @@ export default function ManageInventory({ filterCategory, registerAddItemHandler
                                 />
                               </div>
                               <div className="space-y-1">
-                                <label className="font-headline text-sm font-semibold text-primary dark:text-blue-400">Acquisition Details</label>
+                                <label className="text-[11px] font-semibold uppercase tracking-[0.24em] text-on-surface-variant dark:text-gray-400">Acquisition Details</label>
                                 <textarea
                                   value={newItem.acquisition_details || ""}
                                   onChange={(e) => setNewItem({ ...newItem, acquisition_details: e.target.value })}
@@ -1554,7 +1584,7 @@ export default function ManageInventory({ filterCategory, registerAddItemHandler
                                 />
                               </div>
                               <div className="space-y-1">
-                                <label className="font-headline text-sm font-semibold text-primary dark:text-blue-400">Notes</label>
+                                <label className="text-[11px] font-semibold uppercase tracking-[0.24em] text-on-surface-variant dark:text-gray-400">Notes</label>
                                 <textarea
                                   value={newItem.notes || ""}
                                   onChange={(e) => setNewItem({ ...newItem, notes: e.target.value })}
