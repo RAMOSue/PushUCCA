@@ -2,9 +2,10 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import axios from "axios";
 import toast from "react-hot-toast";
+import Cropper from "react-easy-crop";
 import UnitModal from "./UnitModal";
 import PageLayout from "../../components/layout/PageLayout";
-import { Package, GridIcon, Music, AlertTriangle, Search, Filter, Plus, QrCode, Edit2, Trash2, ChevronRight } from "lucide-react";
+import { Package, GridIcon, Music, AlertTriangle, Search, Filter, Plus, QrCode, Edit2, Trash2, ChevronRight, RotateCw, FlipHorizontal2, ZoomIn, ZoomOut, X } from "lucide-react";
 import { getInventoryDivisionInfo, setInventoryDivisionAssignment } from "../../utils/inventoryDivisionStorage";
 import { useSidebarStore } from "../../../context/sidebarStore";
 
@@ -117,6 +118,83 @@ function categoryOptionsForGroup(grp) {
   return normalize(grp) === "kayam" ? ["instrument"] : ["costume", "instrument"];
 }
 
+const readFileAsDataUrl = (file) =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(new Error("Failed to read image file"));
+    reader.readAsDataURL(file);
+  });
+
+const createImage = (src) =>
+  new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error("Failed to load image"));
+    image.src = src;
+  });
+
+const getCroppedImageFile = async (imageSrc, pixelCrop, rotation, flipHorizontal, fileName) => {
+  const image = await createImage(imageSrc);
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d");
+
+  if (!ctx) {
+    throw new Error("Unable to create image canvas");
+  }
+
+  const rotRad = (rotation * Math.PI) / 180;
+  const scaleX = flipHorizontal ? -1 : 1;
+  const scaleY = 1;
+
+  const safeWidth = Math.abs(Math.cos(rotRad) * image.width) + Math.abs(Math.sin(rotRad) * image.height);
+  const safeHeight = Math.abs(Math.sin(rotRad) * image.width) + Math.abs(Math.cos(rotRad) * image.height);
+
+  canvas.width = safeWidth;
+  canvas.height = safeHeight;
+
+  ctx.translate(safeWidth / 2, safeHeight / 2);
+  ctx.rotate(rotRad);
+  ctx.scale(scaleX, scaleY);
+  ctx.translate(-image.width / 2, -image.height / 2);
+  ctx.drawImage(image, 0, 0);
+
+  const croppedCanvas = document.createElement("canvas");
+  croppedCanvas.width = pixelCrop.width;
+  croppedCanvas.height = pixelCrop.height;
+
+  const croppedContext = croppedCanvas.getContext("2d");
+  if (!croppedContext) {
+    throw new Error("Unable to create cropped canvas");
+  }
+
+  croppedContext.drawImage(
+    canvas,
+    pixelCrop.x,
+    pixelCrop.y,
+    pixelCrop.width,
+    pixelCrop.height,
+    0,
+    0,
+    pixelCrop.width,
+    pixelCrop.height
+  );
+
+  return new Promise((resolve, reject) => {
+    croppedCanvas.toBlob((blob) => {
+      if (!blob) {
+        reject(new Error("Unable to generate cropped image"));
+        return;
+      }
+
+      const file = new File([blob], fileName || "inventory-image.jpg", {
+        type: blob.type || "image/jpeg",
+      });
+      resolve(file);
+    }, "image/jpeg", 0.95);
+  });
+};
+
 /* -------------------------------------------------------------- */
 export default function ManageInventory({ filterCategory, registerAddItemHandler }) {
   const { selectedDivision, globalSearchQuery } = useSidebarStore();
@@ -136,6 +214,13 @@ export default function ManageInventory({ filterCategory, registerAddItemHandler
   const [activeItemId, setActiveItemId] = useState(null);
   const [divisions, setDivisions] = useState([]);
   const [divisionLoading, setDivisionLoading] = useState(false);
+  const [imageEditorSource, setImageEditorSource] = useState(null);
+  const [imageCrop, setImageCrop] = useState({ x: 0, y: 0 });
+  const [imageZoom, setImageZoom] = useState(1);
+  const [imageRotation, setImageRotation] = useState(0);
+  const [imageFlipHorizontal, setImageFlipHorizontal] = useState(false);
+  const [imageCropAreaPixels, setImageCropAreaPixels] = useState(null);
+  const [isApplyingCrop, setIsApplyingCrop] = useState(false);
 
   const activeItem = useMemo(
     () => items.find((item) => (item.uuid || item.id) === activeItemId),
@@ -260,6 +345,19 @@ export default function ManageInventory({ filterCategory, registerAddItemHandler
     }
   }, [filteredItems, activeItemId]);
 
+  useEffect(() => {
+    if (editingItem) return;
+
+    if (normalize(selectedDivision) === "all") {
+      setSelectedGroup("Dulimbay");
+      setNewItem((prev) => ({ ...prev, collection_group: "Dulimbay" }));
+      return;
+    }
+
+    setSelectedGroup(selectedDivision);
+    setNewItem((prev) => ({ ...prev, collection_group: selectedDivision }));
+  }, [editingItem, selectedDivision]);
+
   const upsertIndigenousGroup = (gRaw) => {
     const g = gRaw?.trim();
     if (!g) return;
@@ -305,13 +403,65 @@ export default function ManageInventory({ filterCategory, registerAddItemHandler
     }
   };
 
-  const handleImageChange = (e) => {
+  const handleImageChange = async (e) => {
     const file = e.target.files[0];
-    if (file) {
-      const previewURL = URL.createObjectURL(file);
-      setPreviewImage(previewURL);
-      setNewItem((ni) => ({ ...ni, image_file: file }));
+    if (!file) return;
+
+    try {
+      const dataUrl = await readFileAsDataUrl(file);
+      setImageEditorSource(dataUrl);
+      setPreviewImage(dataUrl);
+      setImageCrop({ x: 0, y: 0 });
+      setImageZoom(1);
+      setImageRotation(0);
+      setImageFlipHorizontal(false);
+      setImageCropAreaPixels(null);
+      setNewItem((ni) => ({ ...ni, image_file: file, image_url: "" }));
+    } catch (error) {
+      console.error("Image load failed:", error);
+      toast.error("Unable to load image for editing.");
     }
+  };
+
+  const handleCropComplete = useCallback((_, croppedAreaPixels) => {
+    setImageCropAreaPixels(croppedAreaPixels);
+  }, []);
+
+  const handleApplyCrop = async () => {
+    if (!imageEditorSource || !imageCropAreaPixels) return;
+
+    try {
+      setIsApplyingCrop(true);
+      const croppedFile = await getCroppedImageFile(
+        imageEditorSource,
+        imageCropAreaPixels,
+        imageRotation,
+        imageFlipHorizontal,
+        newItem.image_file?.name || "inventory-image.jpg"
+      );
+      const croppedDataUrl = await readFileAsDataUrl(croppedFile);
+
+      setPreviewImage(croppedDataUrl);
+      setImageEditorSource(croppedDataUrl);
+      setNewItem((ni) => ({ ...ni, image_file: croppedFile, image_url: "" }));
+      toast.success("Image cropped successfully");
+    } catch (error) {
+      console.error("Image crop failed:", error);
+      toast.error("Unable to crop the selected image.");
+    } finally {
+      setIsApplyingCrop(false);
+    }
+  };
+
+  const handleRemoveImage = () => {
+    setPreviewImage(null);
+    setImageEditorSource(null);
+    setImageCrop({ x: 0, y: 0 });
+    setImageZoom(1);
+    setImageRotation(0);
+    setImageFlipHorizontal(false);
+    setImageCropAreaPixels(null);
+    setNewItem((ni) => ({ ...ni, image_file: null, image_url: "" }));
   };
 
   const parseQty = (v) => {
@@ -326,6 +476,11 @@ export default function ManageInventory({ filterCategory, registerAddItemHandler
     e.preventDefault();
     const grp = newItem.collection_group || selectedGroup;
     const category = newItem.category;
+
+    if (normalize(selectedDivision) === "all") {
+      toast.error("Please select Dulimbay, Budjong, or Kayam before creating an item.");
+      return;
+    }
 
     if (!grp || !category) {
       toast.error("Please choose group & category.");
@@ -342,9 +497,15 @@ export default function ManageInventory({ filterCategory, registerAddItemHandler
       return;
     }
 
-    const selectedDivision = divisions.find((d) => String(d.id) === String(newItem.division_id));
-    if (!selectedDivision) {
-      toast.error("Please select a division for this item.");
+    const divisionLookupName = editingItem ? (newItem.division_name || newItem.collection_group || grp) : (selectedDivision || grp);
+    const matchedDivision =
+      divisions.find((d) => normalize(d.name) === normalize(divisionLookupName)) ||
+      divisions.find((d) => String(d.id) === String(newItem.division_id)) ||
+      divisions.find((d) => String(d.id) === String(editingItem?.division_id)) ||
+      null;
+
+    if (!matchedDivision) {
+      toast.error("Unable to resolve the selected division for this item.");
       return;
     }
 
@@ -400,6 +561,10 @@ export default function ManageInventory({ filterCategory, registerAddItemHandler
         qty_large: 0,
       };
     }
+
+    payload.division_id = matchedDivision.id;
+    payload.division_name = matchedDivision.name;
+    payload.collection_group = matchedDivision.name;
 
     // ✅ Clean up payload: convert empty strings to null for optional fields
     payload.date_acquired = payload.date_acquired?.trim() || null;
@@ -481,8 +646,8 @@ export default function ManageInventory({ filterCategory, registerAddItemHandler
 
         toast.success(`Updated quantity for ${existingItem.name}`);
         setInventoryDivisionAssignment(existingItem.uuid || existingItem.id, {
-          division_id: selectedDivision.id,
-          division_name: selectedDivision.name,
+          division_id: matchedDivision.id,
+          division_name: matchedDivision.name,
         });
 
         // ✅ Always use UUID (server ensures this is the `id` field)
@@ -501,8 +666,8 @@ export default function ManageInventory({ filterCategory, registerAddItemHandler
         await axios.put(`/api/inventory/${editingItem.uuid}`, payload, { withCredentials: true });
         toast.success("Item updated successfully");
         setInventoryDivisionAssignment(editingItem.uuid || editingItem.id, {
-          division_id: selectedDivision.id,
-          division_name: selectedDivision.name,
+          division_id: matchedDivision.id,
+          division_name: matchedDivision.name,
         });
 
         // ✅ Generate units for edited item (if quantities changed)
@@ -525,8 +690,8 @@ export default function ManageInventory({ filterCategory, registerAddItemHandler
 
         toast.success("Item added successfully");
         setInventoryDivisionAssignment(newItemId, {
-          division_id: selectedDivision.id,
-          division_name: selectedDivision.name,
+          division_id: matchedDivision.id,
+          division_name: matchedDivision.name,
         });
 
         // ✅ DO NOT call generate-units here - addInventoryItem already creates all units
@@ -536,6 +701,12 @@ export default function ManageInventory({ filterCategory, registerAddItemHandler
       // Reset form
       setNewItem(buildEmptyItem(selectedGroup));
       setPreviewImage(null);
+      setImageEditorSource(null);
+      setImageCrop({ x: 0, y: 0 });
+      setImageZoom(1);
+      setImageRotation(0);
+      setImageFlipHorizontal(false);
+      setImageCropAreaPixels(null);
       setEditingItem(null);
       setShowAdvanced(false);
       setFormPanelOpen(false);
@@ -658,14 +829,27 @@ export default function ManageInventory({ filterCategory, registerAddItemHandler
   useEffect(() => {
     if (typeof registerAddItemHandler === 'function') {
       registerAddItemHandler(() => {
-        setNewItem(buildEmptyItem(selectedGroup));
+        if (normalize(selectedDivision) === "all") {
+          toast.error("Please select Dulimbay, Budjong, or Kayam before creating an item.");
+          return;
+        }
+
+        const nextGroup = normalize(selectedDivision) === "all" ? "Dulimbay" : selectedDivision;
+        setSelectedGroup(nextGroup);
+        setNewItem(buildEmptyItem(nextGroup));
         setEditingItem(null);
         setPreviewImage(null);
+        setImageEditorSource(null);
+        setImageCrop({ x: 0, y: 0 });
+        setImageZoom(1);
+        setImageRotation(0);
+        setImageFlipHorizontal(false);
+        setImageCropAreaPixels(null);
         setShowAdvanced(false);
         setFormPanelOpen(true);
       });
     }
-  }, [registerAddItemHandler, selectedGroup]);
+  }, [registerAddItemHandler, selectedDivision, selectedGroup]);
 
   if (loading) return (
     <div className="flex items-center justify-center min-h-screen">
@@ -880,21 +1064,87 @@ export default function ManageInventory({ filterCategory, registerAddItemHandler
                 </div>
 
                 <div className="space-y-6 flex-1 overflow-y-auto">
-                  {/* Image Upload */}
-                  <div className="space-y-2">
-                    <label className="font-headline text-sm font-semibold text-primary dark:text-blue-400">Asset Image</label>
-                    <div className="h-40 border-2 border-dashed border-outline-variant/30 dark:border-gray-700 rounded-xl flex flex-col items-center justify-center bg-surface-container-high dark:bg-[#222] group hover:border-primary/50 dark:hover:border-blue-600 transition-colors cursor-pointer">
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={handleImageChange}
-                        className="absolute opacity-0 cursor-pointer w-full h-40"
-                      />
-                      <Package className="w-8 text-outline dark:text-gray-600 mb-2 group-hover:text-primary dark:group-hover:text-blue-400 transition-colors" />
-                      <span className="text-[10px] text-outline dark:text-gray-500 font-bold uppercase">Upload Media</span>
+                  {normalize(selectedDivision) === "all" && !editingItem && (
+                    <div className="rounded-xl border border-primary/20 bg-primary/10 p-3 text-xs text-primary dark:border-blue-500/30 dark:bg-blue-500/10 dark:text-blue-300">
+                      Select a specific division from the global filter before creating a new item.
                     </div>
+                  )}
+
+                  {/* Image Upload */}
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <label className="font-headline text-sm font-semibold text-primary dark:text-blue-400">Asset Image</label>
+                      {previewImage && (
+                        <button type="button" onClick={handleRemoveImage} className="text-[11px] font-semibold uppercase tracking-wide text-error dark:text-red-400">
+                          Remove
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="rounded-2xl border border-outline-variant/30 dark:border-gray-700 bg-surface-container-high dark:bg-[#222] p-3">
+                      {!imageEditorSource ? (
+                        <label className="flex h-44 cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-outline-variant/30 bg-surface-container-low dark:border-gray-700 dark:bg-[#1d1d1d] transition hover:border-primary/50 dark:hover:border-blue-600">
+                          <input type="file" accept="image/*" onChange={handleImageChange} className="hidden" />
+                          <Package className="mb-2 h-8 w-8 text-outline dark:text-gray-600" />
+                          <span className="text-[10px] font-bold uppercase tracking-[0.24em] text-outline dark:text-gray-500">Upload & Edit Image</span>
+                          <span className="mt-2 text-[11px] text-on-surface-variant dark:text-gray-400">Crop, zoom, rotate, and flip before saving</span>
+                        </label>
+                      ) : (
+                        <div className="space-y-3">
+                          <div className="overflow-hidden rounded-xl border border-outline-variant/20 dark:border-gray-700 bg-black/80">
+                            <div className="relative h-56">
+                              <Cropper
+                                image={imageEditorSource}
+                                crop={imageCrop}
+                                zoom={imageZoom}
+                                rotation={imageRotation}
+                                onCropChange={setImageCrop}
+                                onZoomChange={setImageZoom}
+                                onCropComplete={handleCropComplete}
+                                cropShape="rect"
+                                showGrid
+                                style={{ containerStyle: { height: "100%", width: "100%" }, mediaStyle: { objectFit: "contain" } }}
+                                transform={`rotate(${imageRotation}deg) scaleX(${imageFlipHorizontal ? -1 : 1})`}
+                              />
+                            </div>
+                          </div>
+
+                          <div className="flex flex-wrap items-center gap-2">
+                            <button type="button" onClick={() => setImageZoom((value) => Math.max(1, value - 0.1))} className="rounded-full border border-outline-variant/30 bg-surface-container-low px-3 py-2 text-sm dark:border-gray-700 dark:bg-[#1d1d1d]">
+                              <ZoomOut className="h-4 w-4" />
+                            </button>
+                            <button type="button" onClick={() => setImageZoom((value) => Math.min(3, value + 0.1))} className="rounded-full border border-outline-variant/30 bg-surface-container-low px-3 py-2 text-sm dark:border-gray-700 dark:bg-[#1d1d1d]">
+                              <ZoomIn className="h-4 w-4" />
+                            </button>
+                            <button type="button" onClick={() => setImageRotation((value) => (value + 90) % 360)} className="rounded-full border border-outline-variant/30 bg-surface-container-low px-3 py-2 text-sm dark:border-gray-700 dark:bg-[#1d1d1d]">
+                              <RotateCw className="h-4 w-4" />
+                            </button>
+                            <button type="button" onClick={() => setImageFlipHorizontal((value) => !value)} className="rounded-full border border-outline-variant/30 bg-surface-container-low px-3 py-2 text-sm dark:border-gray-700 dark:bg-[#1d1d1d]">
+                              <FlipHorizontal2 className="h-4 w-4" />
+                            </button>
+                            <label className="cursor-pointer rounded-full border border-outline-variant/30 bg-surface-container-low px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-on-surface dark:border-gray-700 dark:bg-[#1d1d1d] dark:text-gray-300">
+                              <input type="file" accept="image/*" onChange={handleImageChange} className="hidden" />
+                              Replace
+                            </label>
+                          </div>
+
+                          <button type="button" onClick={handleApplyCrop} disabled={isApplyingCrop} className="w-full rounded-xl bg-primary px-3 py-2.5 text-[11px] font-semibold uppercase tracking-[0.24em] text-white transition disabled:cursor-not-allowed disabled:opacity-60">
+                            {isApplyingCrop ? "Processing..." : "Apply Crop"}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
                     {previewImage && (
-                      <img src={previewImage} alt="Preview" className="w-full h-24 object-cover rounded-lg border border-outline-variant/20 dark:border-gray-700" />
+                      <div className="rounded-xl border border-outline-variant/20 dark:border-gray-700 bg-surface-container-low dark:bg-[#1f1f1f] p-3">
+                        <div className="mb-2 flex items-center justify-between">
+                          <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-on-surface-variant dark:text-gray-400">Preview</p>
+                          <button type="button" onClick={() => setImageEditorSource(previewImage)} className="text-[11px] font-semibold uppercase tracking-wide text-primary dark:text-blue-400">
+                            Re-edit
+                          </button>
+                        </div>
+                        <img src={previewImage} alt="Preview" className="h-32 w-full rounded-lg object-cover" />
+                      </div>
                     )}
                   </div>
 
@@ -946,22 +1196,7 @@ export default function ManageInventory({ filterCategory, registerAddItemHandler
                       )}
                     </div>
 
-                    <div className="space-y-1">
-                      <label className="font-headline text-sm font-semibold text-primary dark:text-blue-400">Division *</label>
-                      <select
-                        value={newItem.division_id || ""}
-                        onChange={(e) => setNewItem({ ...newItem, division_id: e.target.value, division_name: divisions.find((d) => String(d.id) === String(e.target.value))?.name || "" })}
-                        className="w-full bg-surface-container-low dark:bg-[#222] border-none rounded-lg px-3 py-2.5 text-xs dark:text-white focus:ring-1 focus:ring-primary"
-                        required
-                        disabled={divisionLoading}
-                      >
-                        <option value="">Select division</option>
-                        {divisions.map((division) => (
-                          <option key={division.id} value={division.id}>{division.name}</option>
-                        ))}
-                      </select>
-                      {divisionLoading && <p className="text-[10px] text-on-surface-variant dark:text-gray-400">Loading divisions…</p>}
-                    </div>
+                    {divisionLoading && <p className="text-[10px] text-on-surface-variant dark:text-gray-400">Loading divisions…</p>}
 
                     {/* Quantity Fields */}
                     {newItem.category === "costume" && newItem.garment_type?.toLowerCase() !== "accessory" ? (
@@ -1137,7 +1372,8 @@ export default function ManageInventory({ filterCategory, registerAddItemHandler
                 <div className="flex gap-3 pt-6 border-t border-outline-variant/10 dark:border-gray-700 sticky bottom-0 bg-surface-container-lowest dark:bg-[#1a1a1a]">
                   <button
                     type="submit"
-                    className="flex-1 bg-primary dark:bg-blue-600 text-white font-bold py-3 rounded-xl text-xs uppercase tracking-widest hover:bg-primary-container dark:hover:bg-blue-700 transition-colors shadow-lg shadow-primary/10 dark:shadow-blue-600/20"
+                    disabled={normalize(selectedDivision) === "all" && !editingItem}
+                    className="flex-1 bg-primary dark:bg-blue-600 text-white font-bold py-3 rounded-xl text-xs uppercase tracking-widest hover:bg-primary-container dark:hover:bg-blue-700 transition-colors shadow-lg shadow-primary/10 dark:shadow-blue-600/20 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {editingItem ? "Update" : "Add Item"}
                   </button>
