@@ -2,7 +2,8 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import axios from "axios";
 import toast from "react-hot-toast";
-import Cropper from "react-easy-crop";
+import ReactCrop from "react-image-crop";
+import "react-image-crop/dist/ReactCrop.css";
 import UnitModal from "./UnitModal";
 import PageLayout from "../../components/layout/PageLayout";
 import { Package, GridIcon, Music, AlertTriangle, Search, Filter, Plus, QrCode, Edit2, Trash2, ChevronRight, RotateCw, FlipHorizontal2, ZoomIn, ZoomOut, X } from "lucide-react";
@@ -215,11 +216,12 @@ export default function ManageInventory({ filterCategory, registerAddItemHandler
   const [divisions, setDivisions] = useState([]);
   const [divisionLoading, setDivisionLoading] = useState(false);
   const [imageEditorSource, setImageEditorSource] = useState(null);
-  const [imageCrop, setImageCrop] = useState({ x: 0, y: 0 });
+  const [cropEditorOpen, setCropEditorOpen] = useState(false);
+  const [crop, setCrop] = useState({ unit: "%", width: 90, height: 90, x: 5, y: 5 });
+  const [completedCrop, setCompletedCrop] = useState(null);
   const [imageZoom, setImageZoom] = useState(1);
   const [imageRotation, setImageRotation] = useState(0);
   const [imageFlipHorizontal, setImageFlipHorizontal] = useState(false);
-  const [imageCropAreaPixels, setImageCropAreaPixels] = useState(null);
   const [isApplyingCrop, setIsApplyingCrop] = useState(false);
 
   const activeItem = useMemo(
@@ -410,12 +412,12 @@ export default function ManageInventory({ filterCategory, registerAddItemHandler
     try {
       const dataUrl = await readFileAsDataUrl(file);
       setImageEditorSource(dataUrl);
-      setPreviewImage(dataUrl);
-      setImageCrop({ x: 0, y: 0 });
+      setCropEditorOpen(true);
+      setCrop({ unit: "%", width: 90, height: 90, x: 5, y: 5 });
+      setCompletedCrop(null);
       setImageZoom(1);
       setImageRotation(0);
       setImageFlipHorizontal(false);
-      setImageCropAreaPixels(null);
       setNewItem((ni) => ({ ...ni, image_file: file, image_url: "" }));
     } catch (error) {
       console.error("Image load failed:", error);
@@ -423,18 +425,21 @@ export default function ManageInventory({ filterCategory, registerAddItemHandler
     }
   };
 
-  const handleCropComplete = useCallback((_, croppedAreaPixels) => {
-    setImageCropAreaPixels(croppedAreaPixels);
+  const handleCropComplete = useCallback((cropPixel) => {
+    setCompletedCrop(cropPixel);
   }, []);
 
   const handleApplyCrop = async () => {
-    if (!imageEditorSource || !imageCropAreaPixels) return;
+    if (!imageEditorSource || !completedCrop) {
+      toast.error("Please select a crop area before applying.");
+      return;
+    }
 
     try {
       setIsApplyingCrop(true);
       const croppedFile = await getCroppedImageFile(
         imageEditorSource,
-        imageCropAreaPixels,
+        completedCrop,
         imageRotation,
         imageFlipHorizontal,
         newItem.image_file?.name || "inventory-image.jpg"
@@ -443,6 +448,7 @@ export default function ManageInventory({ filterCategory, registerAddItemHandler
 
       setPreviewImage(croppedDataUrl);
       setImageEditorSource(croppedDataUrl);
+      setCropEditorOpen(false);
       setNewItem((ni) => ({ ...ni, image_file: croppedFile, image_url: "" }));
       toast.success("Image cropped successfully");
     } catch (error) {
@@ -453,14 +459,38 @@ export default function ManageInventory({ filterCategory, registerAddItemHandler
     }
   };
 
-  const handleRemoveImage = () => {
-    setPreviewImage(null);
+  const handleCloseCropEditor = () => {
+    setCropEditorOpen(false);
     setImageEditorSource(null);
-    setImageCrop({ x: 0, y: 0 });
+    setCrop({ unit: "%", width: 90, height: 90, x: 5, y: 5 });
+    setCompletedCrop(null);
     setImageZoom(1);
     setImageRotation(0);
     setImageFlipHorizontal(false);
-    setImageCropAreaPixels(null);
+    setPreviewImage(null);
+    setNewItem((ni) => ({ ...ni, image_file: null, image_url: "" }));
+  };
+
+  const handleReEditImage = () => {
+    if (!previewImage) return;
+    setImageEditorSource(previewImage);
+    setCropEditorOpen(true);
+    setCrop({ unit: "%", width: 90, height: 90, x: 5, y: 5 });
+    setCompletedCrop(null);
+    setImageZoom(1);
+    setImageRotation(0);
+    setImageFlipHorizontal(false);
+  };
+
+  const handleRemoveImage = () => {
+    setPreviewImage(null);
+    setImageEditorSource(null);
+    setCropEditorOpen(false);
+    setCrop({ unit: "%", width: 90, height: 90, x: 5, y: 5 });
+    setCompletedCrop(null);
+    setImageZoom(1);
+    setImageRotation(0);
+    setImageFlipHorizontal(false);
     setNewItem((ni) => ({ ...ni, image_file: null, image_url: "" }));
   };
 
@@ -702,11 +732,12 @@ export default function ManageInventory({ filterCategory, registerAddItemHandler
       setNewItem(buildEmptyItem(selectedGroup));
       setPreviewImage(null);
       setImageEditorSource(null);
-      setImageCrop({ x: 0, y: 0 });
+      setCropEditorOpen(false);
+      setCrop({ unit: "%", width: 90, height: 90, x: 5, y: 5 });
+      setCompletedCrop(null);
       setImageZoom(1);
       setImageRotation(0);
       setImageFlipHorizontal(false);
-      setImageCropAreaPixels(null);
       setEditingItem(null);
       setShowAdvanced(false);
       setFormPanelOpen(false);
@@ -840,11 +871,12 @@ export default function ManageInventory({ filterCategory, registerAddItemHandler
         setEditingItem(null);
         setPreviewImage(null);
         setImageEditorSource(null);
-        setImageCrop({ x: 0, y: 0 });
+        setCropEditorOpen(false);
+        setCrop({ unit: "%", width: 90, height: 90, x: 5, y: 5 });
+        setCompletedCrop(null);
         setImageZoom(1);
         setImageRotation(0);
         setImageFlipHorizontal(false);
-        setImageCropAreaPixels(null);
         setShowAdvanced(false);
         setFormPanelOpen(true);
       });
@@ -1075,75 +1107,35 @@ export default function ManageInventory({ filterCategory, registerAddItemHandler
                     <div className="flex items-center justify-between">
                       <label className="font-headline text-sm font-semibold text-primary dark:text-blue-400">Asset Image</label>
                       {previewImage && (
-                        <button type="button" onClick={handleRemoveImage} className="text-[11px] font-semibold uppercase tracking-wide text-error dark:text-red-400">
-                          Remove
-                        </button>
+                        <div className="flex items-center gap-2">
+                          <button type="button" onClick={handleReEditImage} className="text-[11px] font-semibold uppercase tracking-wide text-primary dark:text-blue-400">
+                            Re-edit
+                          </button>
+                          <button type="button" onClick={handleRemoveImage} className="text-[11px] font-semibold uppercase tracking-wide text-error dark:text-red-400">
+                            Remove
+                          </button>
+                        </div>
                       )}
                     </div>
 
                     <div className="rounded-2xl border border-outline-variant/30 dark:border-gray-700 bg-surface-container-high dark:bg-[#222] p-3">
-                      {!imageEditorSource ? (
-                        <label className="flex h-44 cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-outline-variant/30 bg-surface-container-low dark:border-gray-700 dark:bg-[#1d1d1d] transition hover:border-primary/50 dark:hover:border-blue-600">
-                          <input type="file" accept="image/*" onChange={handleImageChange} className="hidden" />
-                          <Package className="mb-2 h-8 w-8 text-outline dark:text-gray-600" />
-                          <span className="text-[10px] font-bold uppercase tracking-[0.24em] text-outline dark:text-gray-500">Upload & Edit Image</span>
-                          <span className="mt-2 text-[11px] text-on-surface-variant dark:text-gray-400">Crop, zoom, rotate, and flip before saving</span>
-                        </label>
-                      ) : (
-                        <div className="space-y-3">
-                          <div className="overflow-hidden rounded-xl border border-outline-variant/20 dark:border-gray-700 bg-black/80">
-                            <div className="relative h-56">
-                              <Cropper
-                                image={imageEditorSource}
-                                crop={imageCrop}
-                                zoom={imageZoom}
-                                rotation={imageRotation}
-                                onCropChange={setImageCrop}
-                                onZoomChange={setImageZoom}
-                                onCropComplete={handleCropComplete}
-                                cropShape="rect"
-                                showGrid
-                                style={{ containerStyle: { height: "100%", width: "100%" }, mediaStyle: { objectFit: "contain" } }}
-                                transform={`rotate(${imageRotation}deg) scaleX(${imageFlipHorizontal ? -1 : 1})`}
-                              />
-                            </div>
-                          </div>
-
-                          <div className="flex flex-wrap items-center gap-2">
-                            <button type="button" onClick={() => setImageZoom((value) => Math.max(1, value - 0.1))} className="rounded-full border border-outline-variant/30 bg-surface-container-low px-3 py-2 text-sm dark:border-gray-700 dark:bg-[#1d1d1d]">
-                              <ZoomOut className="h-4 w-4" />
-                            </button>
-                            <button type="button" onClick={() => setImageZoom((value) => Math.min(3, value + 0.1))} className="rounded-full border border-outline-variant/30 bg-surface-container-low px-3 py-2 text-sm dark:border-gray-700 dark:bg-[#1d1d1d]">
-                              <ZoomIn className="h-4 w-4" />
-                            </button>
-                            <button type="button" onClick={() => setImageRotation((value) => (value + 90) % 360)} className="rounded-full border border-outline-variant/30 bg-surface-container-low px-3 py-2 text-sm dark:border-gray-700 dark:bg-[#1d1d1d]">
-                              <RotateCw className="h-4 w-4" />
-                            </button>
-                            <button type="button" onClick={() => setImageFlipHorizontal((value) => !value)} className="rounded-full border border-outline-variant/30 bg-surface-container-low px-3 py-2 text-sm dark:border-gray-700 dark:bg-[#1d1d1d]">
-                              <FlipHorizontal2 className="h-4 w-4" />
-                            </button>
-                            <label className="cursor-pointer rounded-full border border-outline-variant/30 bg-surface-container-low px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-on-surface dark:border-gray-700 dark:bg-[#1d1d1d] dark:text-gray-300">
-                              <input type="file" accept="image/*" onChange={handleImageChange} className="hidden" />
-                              Replace
-                            </label>
-                          </div>
-
-                          <button type="button" onClick={handleApplyCrop} disabled={isApplyingCrop} className="w-full rounded-xl bg-primary px-3 py-2.5 text-[11px] font-semibold uppercase tracking-[0.24em] text-white transition disabled:cursor-not-allowed disabled:opacity-60">
-                            {isApplyingCrop ? "Processing..." : "Apply Crop"}
-                          </button>
-                        </div>
-                      )}
+                      <label className="flex h-44 cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-outline-variant/30 bg-surface-container-low dark:border-gray-700 dark:bg-[#1d1d1d] transition hover:border-primary/50 dark:hover:border-blue-600">
+                        <input type="file" accept="image/*" onChange={handleImageChange} className="hidden" />
+                        <Package className="mb-2 h-8 w-8 text-outline dark:text-gray-600" />
+                        <span className="text-[10px] font-bold uppercase tracking-[0.24em] text-outline dark:text-gray-500">Upload & Edit Image</span>
+                        <span className="mt-2 text-[11px] text-on-surface-variant dark:text-gray-400">Crop, zoom, rotate, and flip before saving</span>
+                      </label>
                     </div>
 
                     {previewImage && (
                       <div className="rounded-xl border border-outline-variant/20 dark:border-gray-700 bg-surface-container-low dark:bg-[#1f1f1f] p-3">
                         <div className="mb-2 flex items-center justify-between">
                           <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-on-surface-variant dark:text-gray-400">Preview</p>
-                          <button type="button" onClick={() => setImageEditorSource(previewImage)} className="text-[11px] font-semibold uppercase tracking-wide text-primary dark:text-blue-400">
-                            Re-edit
-                          </button>
+                          <span className="text-[10px] text-on-surface-variant dark:text-gray-400">Matches Available Items cards</span>
                         </div>
-                        <img src={previewImage} alt="Preview" className="h-32 w-full rounded-lg object-cover" />
+                        <div className="relative h-24 overflow-hidden rounded-xl border border-outline-variant/20 bg-surface-container-high dark:border-gray-700 dark:bg-[#222] sm:h-32 md:h-48">
+                          <img src={previewImage} alt="Preview" className="h-full w-full object-cover" />
+                        </div>
                       </div>
                     )}
                   </div>
@@ -1398,6 +1390,75 @@ export default function ManageInventory({ filterCategory, registerAddItemHandler
 
         {/* Floating action moved into filter row above */}
       </div>
+
+      {cropEditorOpen && imageEditorSource && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/80 p-4">
+          <div className="flex h-full w-full max-w-6xl flex-col overflow-hidden rounded-3xl border border-outline-variant/20 bg-surface-container-lowest dark:border-gray-700 dark:bg-[#121212]">
+            <div className="flex items-center justify-between border-b border-outline-variant/20 px-4 py-3 dark:border-gray-700">
+              <div>
+                <p className="text-sm font-semibold text-on-surface dark:text-white">Crop Image</p>
+                <p className="text-[11px] uppercase tracking-[0.24em] text-on-surface-variant dark:text-gray-400">Drag, resize, zoom, rotate, and flip</p>
+              </div>
+              <button type="button" onClick={handleCloseCropEditor} className="rounded-full border border-outline-variant/20 p-2 text-on-surface-variant transition hover:bg-surface-container-high dark:border-gray-700 dark:hover:bg-[#222]">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-hidden p-4">
+              <div className="relative h-full w-full overflow-hidden rounded-2xl bg-black/90">
+                <ReactCrop
+                  crop={crop}
+                  onChange={setCrop}
+                  onComplete={handleCropComplete}
+                  minHeight={40}
+                  minWidth={40}
+                  zoom={imageZoom}
+                  onZoomChange={setImageZoom}
+                  aspect={undefined}
+                  className="h-full w-full"
+                  style={{ height: "100%", width: "100%" }}
+                  imageStyle={{ transform: `rotate(${imageRotation}deg) scaleX(${imageFlipHorizontal ? -1 : 1})` }}
+                >
+                  <img src={imageEditorSource} alt="Crop editor" className="h-full w-full object-contain" />
+                </ReactCrop>
+              </div>
+            </div>
+
+            <div className="border-t border-outline-variant/20 px-4 py-3 dark:border-gray-700">
+              <div className="flex flex-wrap items-center gap-2">
+                <button type="button" onClick={() => setImageZoom((value) => Math.max(1, value - 0.1))} className="rounded-full border border-outline-variant/30 bg-surface-container-low px-3 py-2 text-sm dark:border-gray-700 dark:bg-[#1d1d1d]">
+                  <ZoomOut className="h-4 w-4" />
+                </button>
+                <button type="button" onClick={() => setImageZoom((value) => Math.min(3, value + 0.1))} className="rounded-full border border-outline-variant/30 bg-surface-container-low px-3 py-2 text-sm dark:border-gray-700 dark:bg-[#1d1d1d]">
+                  <ZoomIn className="h-4 w-4" />
+                </button>
+                <button type="button" onClick={() => setImageRotation((value) => (value + 90) % 360)} className="rounded-full border border-outline-variant/30 bg-surface-container-low px-3 py-2 text-sm dark:border-gray-700 dark:bg-[#1d1d1d]">
+                  <RotateCw className="h-4 w-4" />
+                </button>
+                <button type="button" onClick={() => setImageFlipHorizontal((value) => !value)} className="rounded-full border border-outline-variant/30 bg-surface-container-low px-3 py-2 text-sm dark:border-gray-700 dark:bg-[#1d1d1d]">
+                  <FlipHorizontal2 className="h-4 w-4" />
+                </button>
+                <button type="button" onClick={() => { setCrop({ unit: "%", width: 90, height: 90, x: 5, y: 5 }); setImageZoom(1); setImageRotation(0); setImageFlipHorizontal(false); setCompletedCrop(null); }} className="rounded-full border border-outline-variant/30 bg-surface-container-low px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-on-surface dark:border-gray-700 dark:bg-[#1d1d1d] dark:text-gray-300">
+                  Reset
+                </button>
+                <label className="cursor-pointer rounded-full border border-outline-variant/30 bg-surface-container-low px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-on-surface dark:border-gray-700 dark:bg-[#1d1d1d] dark:text-gray-300">
+                  <input type="file" accept="image/*" onChange={handleImageChange} className="hidden" />
+                  Replace
+                </label>
+              </div>
+
+              <div className="mt-3 flex flex-wrap items-center justify-end gap-2">
+                <button type="button" onClick={handleCloseCropEditor} className="rounded-xl border border-outline-variant/30 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.24em] text-on-surface-variant transition hover:bg-surface-container-high dark:border-gray-700 dark:text-gray-400">
+                  Cancel
+                </button>
+                <button type="button" onClick={handleApplyCrop} disabled={isApplyingCrop} className="rounded-xl bg-primary px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.24em] text-white transition disabled:cursor-not-allowed disabled:opacity-60">
+                  {isApplyingCrop ? "Processing..." : "Apply Crop"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Unit Modal for QR display */}
       {unitModalOpen && selectedItemForQR && (

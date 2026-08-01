@@ -29,6 +29,7 @@
     "react-dom": "^19.1.0",
     "react-easy-crop": "^6.2.3",
     "react-hot-toast": "^2.5.2",
+    "react-image-crop": "^11.1.2",
     "react-router-dom": "^7.6.3",
     "recharts": "^3.5.0",
     "sonner": "^2.0.6",
