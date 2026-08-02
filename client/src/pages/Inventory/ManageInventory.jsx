@@ -164,7 +164,7 @@ const getFitZoomForImage = (image, containerSize) => {
   const fitByHeight = height / image.naturalHeight;
   const zoom = imageAspect > containerAspect ? fitByWidth : fitByHeight;
 
-  return Math.max(0.6, Math.min(1.4, zoom * 0.95));
+  return Math.max(0.05, zoom * 0.98);
 };
 
 const getCroppedImageFile = async (imageSrc, { frameSize, zoom, rotation, flipHorizontal, offsetX, offsetY }, fileName) => {
@@ -235,7 +235,9 @@ export default function ManageInventory({ filterCategory, registerAddItemHandler
   const [isApplyingCrop, setIsApplyingCrop] = useState(false);
   const [isDraggingImage, setIsDraggingImage] = useState(false);
   const [dragStart, setDragStart] = useState(null);
+  const [validationErrors, setValidationErrors] = useState([]);
   const cropEditorViewportRef = useRef(null);
+  const formRef = useRef(null);
 
   const activeItem = useMemo(
     () => items.find((item) => (item.uuid || item.id) === activeItemId),
@@ -467,10 +469,13 @@ export default function ManageInventory({ filterCategory, registerAddItemHandler
   }, []);
 
   const handleImageLoaded = useCallback((image) => {
+    const rect = cropEditorViewportRef.current?.getBoundingClientRect();
+    const frameSize = Math.max(240, Math.min(rect?.width || editorFrameSize || 320, rect?.height || editorFrameSize || 320));
     const zoom = getFitZoomForImage(image, {
-      width: editorFrameSize,
-      height: editorFrameSize,
+      width: frameSize,
+      height: frameSize,
     });
+    setEditorFrameSize(frameSize);
     setImageZoom(zoom);
     setCrop(getInitialCrop());
     setCompletedCrop(null);
@@ -482,10 +487,13 @@ export default function ManageInventory({ filterCategory, registerAddItemHandler
 
     try {
       const image = await createImage(imageEditorSource);
+      const rect = cropEditorViewportRef.current?.getBoundingClientRect();
+      const frameSize = Math.max(240, Math.min(rect?.width || editorFrameSize || 320, rect?.height || editorFrameSize || 320));
       const zoom = getFitZoomForImage(image, {
-        width: editorFrameSize,
-        height: editorFrameSize,
+        width: frameSize,
+        height: frameSize,
       });
+      setEditorFrameSize(frameSize);
       setImageZoom(zoom);
       setImageRotation(0);
       setImageFlipHorizontal(false);
@@ -607,6 +615,63 @@ export default function ManageInventory({ filterCategory, registerAddItemHandler
     return Number.isFinite(n) && n >= 0 ? n : 0;
   };
 
+  const getFormValidationState = useCallback(() => {
+    const grp = newItem.collection_group || selectedGroup;
+    const category = newItem.category;
+    const errors = [];
+
+    if (normalize(selectedDivision) === "all") {
+      errors.push("Please select a specific division before creating an item.");
+    }
+
+    if (!grp || !category) {
+      errors.push("Please choose a group and category.");
+    }
+
+    if (normalize(grp) === "kayam" && category !== "instrument") {
+      errors.push("Kayam items must be instruments.");
+    }
+
+    if (!newItem.name?.trim()) {
+      errors.push("Please enter an item name.");
+    }
+
+    const divisionLookupName = selectedDivision || grp;
+    const matchedDivision =
+      divisions.find((d) => normalize(d.name) === normalize(divisionLookupName)) ||
+      divisions.find((d) => String(d.id) === String(newItem.division_id)) ||
+      null;
+
+    if (!matchedDivision) {
+      errors.push("Unable to resolve the selected division for this item.");
+    }
+
+    if (category === "costume") {
+      if (!newItem.garment_type?.trim()) {
+        errors.push("Please select a garment type.");
+      }
+
+      if (newItem.garment_type?.toLowerCase() === "accessory") {
+        const q = parseQty(newItem.quantity);
+        if (q <= 0) {
+          errors.push("Please enter a quantity for the accessory.");
+        }
+      } else {
+        const totalQty = parseQty(newItem.qty_small) + parseQty(newItem.qty_medium) + parseQty(newItem.qty_large);
+        if (totalQty <= 0) {
+          errors.push("Please enter at least one size quantity.");
+        }
+      }
+    } else if (category === "instrument") {
+      const q = parseQty(newItem.quantity);
+      if (q <= 0) {
+        errors.push("Please enter a quantity for the instrument.");
+      }
+    }
+
+    return { errors, matchedDivision, grp, category };
+  }, [divisions, newItem, selectedDivision, selectedGroup]);
+
   const resetFormState = () => {
     setNewItem(buildEmptyItem(selectedGroup));
     setPreviewImage(null);
@@ -620,6 +685,7 @@ export default function ManageInventory({ filterCategory, registerAddItemHandler
     setEditingItem(null);
     setShowAdvanced(false);
     setFormPanelOpen(false);
+    setValidationErrors([]);
   };
 
   const costumeTotal = (ni) =>
@@ -627,40 +693,16 @@ export default function ManageInventory({ filterCategory, registerAddItemHandler
 
   const handleSave = async (e) => {
     e.preventDefault();
-    const grp = newItem.collection_group || selectedGroup;
-    const category = newItem.category;
 
-    if (normalize(selectedDivision) === "all") {
-      toast.error("Please select Dulimbay, Budjong, or Kayam before creating an item.");
+    const { errors, matchedDivision, grp, category } = getFormValidationState();
+    if (errors.length) {
+      setValidationErrors(errors);
+      setWizardStep(3);
+      toast.error("Please complete the required fields before adding the item.");
       return;
     }
 
-    if (!grp || !category) {
-      toast.error("Please choose group & category.");
-      return;
-    }
-
-    if (normalize(grp) === "kayam" && category !== "instrument") {
-      toast.error("Kayam items must be Instruments.");
-      return;
-    }
-
-    if (!newItem.name?.trim()) {
-      toast.error("Item name required.");
-      return;
-    }
-
-    const divisionLookupName = editingItem ? (newItem.division_name || newItem.collection_group || grp) : (selectedDivision || grp);
-    const matchedDivision =
-      divisions.find((d) => normalize(d.name) === normalize(divisionLookupName)) ||
-      divisions.find((d) => String(d.id) === String(newItem.division_id)) ||
-      divisions.find((d) => String(d.id) === String(editingItem?.division_id)) ||
-      null;
-
-    if (!matchedDivision) {
-      toast.error("Unable to resolve the selected division for this item.");
-      return;
-    }
+    setValidationErrors([]);
 
     let totalQty;
     // ✅ Build payload WITHOUT image_file (File objects can't be serialized to JSON)
@@ -897,6 +939,30 @@ export default function ManageInventory({ filterCategory, registerAddItemHandler
     }
   };
 
+
+  const handleWizardPrimaryAction = () => {
+    if (wizardStep === 3) {
+      const { errors } = getFormValidationState();
+      if (errors.length) {
+        setValidationErrors(errors);
+        setWizardStep(3);
+        toast.error("Please complete the required fields before adding the item.");
+        return;
+      }
+
+      setValidationErrors([]);
+      formRef.current?.requestSubmit();
+      return;
+    }
+
+    setValidationErrors([]);
+    setWizardStep((step) => Math.min(3, step + 1));
+  };
+
+  const handleWizardBack = () => {
+    setValidationErrors([]);
+    setWizardStep((step) => Math.max(1, step - 1));
+  };
 
   const handleDelete = async (uuid) => {
     if (!window.confirm("Are you sure you want to delete this item and ALL its units?")) return;
@@ -1223,7 +1289,7 @@ export default function ManageInventory({ filterCategory, registerAddItemHandler
                     {wizardStep > 1 ? (
                       <button
                         type="button"
-                        onClick={() => setWizardStep((step) => Math.max(1, step - 1))}
+                        onClick={handleWizardBack}
                         className="text-[10px] font-semibold uppercase tracking-[0.24em] text-on-surface-variant transition hover:text-primary dark:text-gray-400 dark:hover:text-blue-400"
                       >
                         Previous
@@ -1234,9 +1300,8 @@ export default function ManageInventory({ filterCategory, registerAddItemHandler
                     Add Item
                   </div>
                   <button
-                    type={wizardStep === 3 ? "submit" : "button"}
-                    form={wizardStep === 3 ? "inventory-add-item-form" : undefined}
-                    onClick={wizardStep < 3 ? () => setWizardStep((step) => Math.min(3, step + 1)) : undefined}
+                    type="button"
+                    onClick={handleWizardPrimaryAction}
                     className="min-w-[70px] text-right text-[10px] font-semibold uppercase tracking-[0.24em] text-primary transition hover:text-primary-container dark:text-blue-400 dark:hover:text-blue-300"
                   >
                     {wizardStep === 3 ? "Add Item" : "Next"}
@@ -1244,7 +1309,17 @@ export default function ManageInventory({ filterCategory, registerAddItemHandler
                 </div>
 
                 <div className="h-[calc(88vh-56px)] overflow-hidden px-3 py-3 sm:px-4 sm:py-4">
-                  <form id="inventory-add-item-form" onSubmit={handleSave} className="flex h-full flex-col gap-3">
+                  <form
+                    id="inventory-add-item-form"
+                    ref={formRef}
+                    onSubmit={handleSave}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        event.preventDefault();
+                      }
+                    }}
+                    className="flex h-full flex-col gap-3"
+                  >
                     {normalize(selectedDivision) === "all" && !editingItem && (
                       <div className="rounded-xl border border-primary/20 bg-primary/10 p-3 text-xs text-primary dark:border-blue-500/30 dark:bg-blue-500/10 dark:text-blue-300">
                         Select a specific division from the global filter before creating a new item.
@@ -1499,6 +1574,17 @@ export default function ManageInventory({ filterCategory, registerAddItemHandler
                       </div>
                     ) : (
                       <div className="flex-1 space-y-4">
+                        {validationErrors.length > 0 && (
+                          <div className="rounded-xl border border-red-400/30 bg-red-500/10 p-3 text-xs text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-300">
+                            <p className="font-semibold">Please complete the following before adding this item:</p>
+                            <ul className="mt-2 list-disc space-y-1 pl-4">
+                              {validationErrors.map((error) => (
+                                <li key={error}>{error}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+
                         <div className="rounded-3xl border border-outline-variant/20 bg-surface-container-high p-4 dark:border-gray-700 dark:bg-[#1f1f1f]">
                           <div className="mb-3">
                             <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-on-surface-variant dark:text-gray-400">Step 3 • Additional metadata</p>
