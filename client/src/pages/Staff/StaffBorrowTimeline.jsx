@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useContext } from "react"
+import { useState, useEffect, useContext, useCallback } from "react"
 import axios from "axios"
 import toast from "react-hot-toast"
 import { Search, ChevronRight, Package, Hand } from "lucide-react"
@@ -10,6 +10,7 @@ import timezone from "dayjs/plugin/timezone"
 import PageLayout from "../../components/layout/PageLayout"
 import { UserContext } from "../../../context/userContext"
 import { BorrowingContext } from "../../../context/borrowingContext"
+import { notificationService } from "../../services/notifications"
 import StaffReturnPhotoCaptureModal from "../../components/modals/StaffReturnPhotoCaptureModal"
 import { getInventoryDivisionInfo } from "../../utils/inventoryDivisionStorage"
 import { useSidebarStore } from "../../../context/sidebarStore"
@@ -122,7 +123,7 @@ export default function StaffBorrowTimeline() {
     }
   }
 
-  const fetchRequests = async () => {
+  const fetchRequests = useCallback(async () => {
     try {
       const res = await axios.get("/api/borrow/requests")
       const normalized = res.data.map((req) => ({
@@ -137,12 +138,24 @@ export default function StaffBorrowTimeline() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
 
   useEffect(() => {
     fetchRequests()
     fetchBorrowerProfiles()
-  }, [])
+
+    const handlePushRefresh = () => {
+      fetchRequests()
+    }
+
+    notificationService.setupMessageListener(handlePushRefresh)
+    window.addEventListener("focus", handlePushRefresh)
+
+    return () => {
+      notificationService.removeMessageListener()
+      window.removeEventListener("focus", handlePushRefresh)
+    }
+  }, [fetchRequests])
 
   // ========== FILTERING & GROUPING ==========
   useEffect(() => {
@@ -180,20 +193,26 @@ export default function StaffBorrowTimeline() {
 
   const groupAndSortRequests = (filtered) => {
     const columns = [
+      { key: "pending", title: "Pending", description: "Awaiting staff review", badgeClass: "bg-amber-500/15 text-amber-700 dark:text-amber-300", dotColor: "#f59e0b", requests: [] },
       { key: "approved", title: "In Use", description: "Currently borrowed", badgeClass: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300", dotColor: "#22c55e", requests: [] },
       { key: "pending_return", title: "Pending Return", description: "Awaiting return verification", badgeClass: "bg-amber-500/15 text-amber-700 dark:text-amber-300", dotColor: "#f59e0b", requests: [] },
       { key: "returned", title: "Returned", description: "Return completed", badgeClass: "bg-sky-500/15 text-sky-700 dark:text-sky-300", dotColor: "#3b82f6", requests: [] },
+      { key: "declined", title: "Declined", description: "Request was rejected", badgeClass: "bg-rose-500/15 text-rose-700 dark:text-rose-300", dotColor: "#dc2626", requests: [] },
     ]
 
     const columnMap = new Map(columns.map((column) => [column.key, column]))
 
     for (const req of filtered) {
-      if (req.status === "approved") {
+      if (req.status === "pending") {
+        columnMap.get("pending").requests.push(req)
+      } else if (req.status === "approved") {
         columnMap.get("approved").requests.push(req)
       } else if (req.status === "pending_return") {
         columnMap.get("pending_return").requests.push(req)
       } else if (req.status === "returned") {
         columnMap.get("returned").requests.push(req)
+      } else if (req.status === "declined") {
+        columnMap.get("declined").requests.push(req)
       }
     }
 
@@ -449,10 +468,12 @@ export default function StaffBorrowTimeline() {
                 >
                   <div className="px-3 py-2 space-y-1">
                     {[
-                      { value: "all", label: "All", count: requests.filter((r) => ["approved", "pending_return", "returned"].includes(r.status)).length },
+                      { value: "all", label: "All", count: requests.filter((r) => ["pending", "approved", "pending_return", "returned", "declined"].includes(r.status)).length },
+                      { value: "pending", label: "Pending", count: requests.filter((r) => r.status === "pending").length },
                       { value: "approved", label: "In Use", count: requests.filter((r) => r.status === "approved").length },
                       { value: "pending_return", label: "Pending Return", count: requests.filter((r) => r.status === "pending_return").length },
                       { value: "returned", label: "Returned", count: requests.filter((r) => r.status === "returned").length },
+                      { value: "declined", label: "Declined", count: requests.filter((r) => r.status === "declined").length },
                     ].map((option) => (
                       <label
                         key={option.value}
