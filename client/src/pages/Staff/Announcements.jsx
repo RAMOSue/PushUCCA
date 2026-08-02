@@ -5,7 +5,7 @@ import PageLayout from '../../components/layout/PageLayout';
 import { UserContext } from '../../../context/userContext';
 import { useSidebarStore } from '../../../context/sidebarStore';
 import { motion } from 'framer-motion';
-import { Plus, Edit2, Trash2, Image as ImgIcon, Pin, Search, MoreVertical, ChevronDown } from 'lucide-react';
+import { Plus, Edit2, Trash2, Image as ImgIcon, Pin, MoreVertical, X } from 'lucide-react';
 
 function Badge({ children, color = 'gray' }) {
   const bg = color === 'green' ? 'bg-green-100 text-green-800' : color === 'orange' ? 'bg-orange-100 text-orange-800' : 'bg-gray-100 text-gray-800';
@@ -14,16 +14,14 @@ function Badge({ children, color = 'gray' }) {
 
 export default function Announcements() {
   const { user } = useContext(UserContext);
-  const { selectedDivision, setSelectedDivision, globalSearchQuery, setGlobalSearchQuery } = useSidebarStore();
+  const { selectedDivision, globalSearchQuery } = useSidebarStore();
   const [loading, setLoading] = useState(false);
   const [items, setItems] = useState([]);
-  const [statusFilter, setStatusFilter] = useState('all');
   const [priorityFilter, setPriorityFilter] = useState('all');
   const activeDivision = selectedDivision || 'All';
   const [divisions, setDivisions] = useState([]);
   const [openMenuId, setOpenMenuId] = useState(null);
   const [processingId, setProcessingId] = useState(null);
-  const [isFilterOpen, setIsFilterOpen] = useState(false);
 
   // Composer state
   const [isComposerOpen, setIsComposerOpen] = useState(false);
@@ -35,8 +33,6 @@ export default function Announcements() {
   // Details modal state
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [selectedAnnouncement, setSelectedAnnouncement] = useState(null);
-
-  const divisionOptions = ['All', 'Dulimbay', 'Budjong', 'Kayam'];
 
   const formatLongDate = (value) => {
     if (!value) return '—';
@@ -85,9 +81,8 @@ export default function Announcements() {
 
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (!event.target.closest('[data-announcement-menu]') && !event.target.closest('[data-announcement-filter]')) {
+      if (!event.target.closest('[data-announcement-menu]')) {
         setOpenMenuId(null);
-        setIsFilterOpen(false);
       }
     };
 
@@ -110,13 +105,10 @@ export default function Announcements() {
         if (!isGlobal && !matchesDivision) return false;
       }
       if (globalSearchQuery && !(it.title||'').toLowerCase().includes(globalSearchQuery.toLowerCase()) && !(it.content||'').toLowerCase().includes(globalSearchQuery.toLowerCase())) return false;
-      if (statusFilter === 'published' && !it.is_published) return false;
-      if (statusFilter === 'scheduled' && !(it.published_at && !it.is_published)) return false;
-      if (statusFilter === 'draft' && (it.is_published || it.published_at)) return false;
       if (priorityFilter !== 'all' && it.priority !== priorityFilter) return false;
       return true;
     }).sort((a,b) => (b.pinned?1:0) - (a.pinned?1:0) || new Date(b.published_at || b.created_at) - new Date(a.published_at || a.created_at));
-  }, [items, globalSearchQuery, statusFilter, priorityFilter, activeDivision]);
+  }, [items, globalSearchQuery, priorityFilter, activeDivision]);
 
   function openCreate() {
     setEditing(null);
@@ -234,76 +226,20 @@ export default function Announcements() {
 
   return (
     <PageLayout title="Announcements">
-      <div className="mb-3 flex flex-col gap-3 rounded-xl border border-outline-variant/20 bg-surface-container-low p-3 shadow-sm dark:border-gray-700 dark:bg-[#222] md:flex-row md:items-center md:justify-between">
-        <div className="flex flex-1 items-center gap-2">
-          <div className="relative flex-1">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-on-surface-variant dark:text-gray-400" />
-            <input
-              type="text"
-              value={globalSearchQuery}
-              onChange={(e) => setGlobalSearchQuery(e.target.value)}
-              placeholder="Search announcements"
-              className="w-full rounded-lg border border-outline-variant/20 bg-surface-container-high py-2 pl-9 pr-3 text-sm text-on-surface shadow-sm outline-none transition focus:border-primary dark:border-gray-700 dark:bg-[#2a2a2a] dark:text-gray-100"
-            />
-          </div>
-
-          <div className="relative" data-announcement-filter>
-            <button
-              type="button"
-              onClick={() => setIsFilterOpen((prev) => !prev)}
-              className="flex items-center gap-2 rounded-lg border border-outline-variant/20 bg-surface-container-high px-3 py-2 text-sm font-semibold text-on-surface-variant transition hover:bg-surface-container-high/90 dark:border-gray-700 dark:bg-[#2a2a2a] dark:text-gray-200"
-            >
-              <span>{activeDivision === 'All' ? 'All divisions' : activeDivision}</span>
-              <ChevronDown className={`h-4 w-4 transition ${isFilterOpen ? 'rotate-180' : ''}`} />
-            </button>
-
-            {isFilterOpen && (
-              <div className="absolute right-0 top-full z-50 mt-2 w-44 overflow-hidden rounded-xl border border-outline-variant/20 bg-surface-container-low shadow-xl dark:border-gray-700 dark:bg-[#222]">
-                {divisionOptions.map((option) => {
-                  const isActive = activeDivision === option;
-                  return (
-                    <button
-                      key={option}
-                      type="button"
-                      onClick={() => {
-                        setSelectedDivision(option);
-                        setIsFilterOpen(false);
-                      }}
-                      className={`flex w-full items-center justify-between px-3 py-2.5 text-left text-sm transition ${isActive ? 'bg-primary/10 font-semibold text-primary dark:bg-blue-900/30 dark:text-blue-300' : 'text-on-surface-variant hover:bg-surface-container-high dark:text-gray-300 dark:hover:bg-[#2a2a2a]'}`}
-                    >
-                      <span>{option === 'All' ? 'All divisions' : option}</span>
-                      {isActive && <span className="h-2 w-2 rounded-full bg-primary dark:bg-blue-400" />}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </div>
+      <div className="mb-3 flex items-center justify-end gap-2 rounded-xl border border-outline-variant/20 bg-surface-container-low p-2.5 shadow-sm dark:border-gray-700 dark:bg-[#222]">
+        <select value={priorityFilter} onChange={(e) => setPriorityFilter(e.target.value)} className="select py-2 text-sm">
+          <option value="all">All priorities</option>
+          <option value="Normal">Normal</option>
+          <option value="Important">Important</option>
+          <option value="Urgent">Urgent</option>
+        </select>
 
         {user?.role === 'staff' && (
-          <button onClick={openCreate} className="btn btn-primary inline-flex items-center">
-            <Plus className="mr-2" />
+          <button onClick={openCreate} className="btn btn-primary inline-flex items-center py-2 text-sm">
+            <Plus className="mr-2 h-4 w-4" />
             Create Announcement
           </button>
         )}
-      </div>
-
-      <div className="mb-3 rounded-xl border border-outline-variant/20 bg-surface-container-low p-3 shadow-sm dark:border-gray-700 dark:bg-[#222]">
-        <div className="flex flex-wrap items-center justify-end gap-2">
-          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="select">
-            <option value="all">All</option>
-            <option value="published">Published</option>
-            <option value="scheduled">Scheduled</option>
-            <option value="draft">Draft</option>
-          </select>
-          <select value={priorityFilter} onChange={(e) => setPriorityFilter(e.target.value)} className="select">
-            <option value="all">All priorities</option>
-            <option value="Normal">Normal</option>
-            <option value="Important">Important</option>
-            <option value="Urgent">Urgent</option>
-          </select>
-        </div>
       </div>
 
       <div className="space-y-3">
@@ -350,25 +286,25 @@ export default function Announcements() {
                   openDetails(it);
                 }
               }}
-              className="group relative z-0 overflow-visible rounded-xl border border-outline-variant/10 bg-surface-container-low p-3 shadow-sm transition hover:border-primary/30 hover:shadow-md dark:border-gray-700 dark:bg-[#222] md:grid-cols-[1.4fr_110px_90px_92px_64px] md:grid"
+              className="group relative z-0 overflow-visible rounded-xl border border-outline-variant/10 bg-surface-container-low p-2.5 shadow-sm transition hover:border-primary/30 hover:shadow-md dark:border-gray-700 dark:bg-[#222] md:grid-cols-[1.4fr_110px_90px_64px] md:grid"
             >
-              <div className="flex items-start gap-3">
-                <div className="h-10 w-10 overflow-hidden rounded-lg bg-surface-container-high dark:bg-[#2a2a2a] flex-shrink-0">
+              <div className="flex items-start gap-2.5">
+                <div className="h-9 w-9 overflow-hidden rounded-lg bg-surface-container-high dark:bg-[#2a2a2a] flex-shrink-0">
                   {it.author?.profile_pic_url ? (
                     <img src={it.author.profile_pic_url} alt={it.author?.name} className="h-full w-full object-cover" />
                   ) : it.image_url ? (
                     <img src={it.image_url} alt={it.title} className="h-full w-full object-cover" />
                   ) : (
-                    <div className="flex h-full w-full items-center justify-center text-on-surface-variant"><ImgIcon className="w-4 h-4"/></div>
+                    <div className="flex h-full w-full items-center justify-center text-on-surface-variant"><ImgIcon className="w-3.5 h-3.5"/></div>
                   )}
                 </div>
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
                     <p className="truncate font-semibold text-on-surface">{it.title}</p>
-                    {it.pinned && <Pin className="h-3.5 w-3.5 text-amber-500" />}
+                    {it.pinned && <Pin className="h-3 w-3 text-amber-500" />}
                   </div>
-                  <p className="mt-1 text-sm text-on-surface-variant line-clamp-2">{getPreviewText(it.content)}</p>
-                  <div className="mt-1 text-xs text-on-surface-variant">
+                  <p className="mt-1 text-sm leading-5 text-on-surface-variant line-clamp-2">{getPreviewText(it.content)}</p>
+                  <div className="mt-1 text-[11px] text-on-surface-variant">
                     by {it.author?.name || 'Unknown'} • {formatLongDate(it.published_at || it.created_at)}
                   </div>
                 </div>
@@ -377,9 +313,6 @@ export default function Announcements() {
               <div className="mt-2 text-sm text-on-surface md:mt-0">{it.division_name || 'Unassigned'}</div>
               <div className="mt-2 md:mt-0">
                 {it.priority === 'Urgent' ? <Badge color="orange">Urgent</Badge> : it.priority === 'Important' ? <Badge color="orange">Important</Badge> : <Badge>{it.priority || 'Normal'}</Badge>}
-              </div>
-              <div className="mt-2 md:mt-0">
-                {it.is_published ? <Badge color="green">Published</Badge> : it.published_at ? <Badge color="orange">Scheduled</Badge> : <Badge>Draft</Badge>}
               </div>
               <div className="mt-2 flex items-center justify-end gap-2 md:mt-0">
                 <button
@@ -480,37 +413,34 @@ export default function Announcements() {
 
       {isDetailsOpen && selectedAnnouncement && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
-          <div className="w-[760px] max-w-full overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-[#222]">
-            <div className="border-b border-outline-variant/20 px-6 py-4 dark:border-gray-700">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <h3 className="text-xl font-semibold text-on-surface dark:text-white">{selectedAnnouncement.title}</h3>
-                  <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-on-surface-variant dark:text-gray-400">
-                    <span>{formatLongDate(selectedAnnouncement.published_at || selectedAnnouncement.created_at)}</span>
-                    <span>•</span>
-                    <span>Published by {selectedAnnouncement.author?.name || 'Unknown'}</span>
-                  </div>
-                </div>
-                <button type="button" onClick={() => setIsDetailsOpen(false)} className="rounded-lg px-3 py-2 text-sm text-on-surface-variant transition hover:bg-surface-container-high dark:hover:bg-[#2a2a2a]">Close</button>
+          <div className="relative flex h-[560px] w-[760px] max-w-full flex-col overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-[#222]">
+            <button
+              type="button"
+              onClick={() => setIsDetailsOpen(false)}
+              className="absolute right-4 top-4 z-10 rounded-full p-2 text-on-surface-variant transition hover:bg-surface-container-high dark:text-gray-300 dark:hover:bg-[#2a2a2a]"
+              aria-label="Close announcement"
+            >
+              <X className="h-5 w-5" />
+            </button>
+
+            <div className="px-6 py-6 text-center">
+              <h3 className="text-xl font-semibold text-on-surface dark:text-white">{selectedAnnouncement.title}</h3>
+              <div className="mt-2 text-sm text-on-surface-variant dark:text-gray-400">
+                <div>{formatLongDate(selectedAnnouncement.published_at || selectedAnnouncement.created_at)}</div>
+                <div className="mt-1">Published by {selectedAnnouncement.author?.name || 'Unknown'}</div>
               </div>
             </div>
 
-            <div className="max-h-[70vh] overflow-y-auto px-6 py-5">
-              <div className="flex flex-wrap items-center gap-2">
-                <Badge color="green">{selectedAnnouncement.is_published ? 'Published' : selectedAnnouncement.published_at ? 'Scheduled' : 'Draft'}</Badge>
-                <Badge>{selectedAnnouncement.priority || 'Normal'}</Badge>
-                {selectedAnnouncement.division_name && <Badge>{selectedAnnouncement.division_name}</Badge>}
-              </div>
-
-              <div className="mt-5 whitespace-pre-wrap text-sm leading-7 text-on-surface dark:text-gray-300">
-                {selectedAnnouncement.content || 'No description provided.'}
-              </div>
-
+            <div className="flex-1 overflow-y-auto px-6 pb-6">
               {selectedAnnouncement.image_url && (
-                <div className="mt-6 rounded-xl border border-outline-variant/20 p-3 dark:border-gray-700">
-                  <img src={selectedAnnouncement.image_url} alt={selectedAnnouncement.title} className="max-h-80 w-full rounded-lg object-contain" />
+                <div className="mb-5 flex justify-center rounded-xl border border-outline-variant/20 bg-surface-container-low p-3 dark:border-gray-700 dark:bg-[#2a2a2a]">
+                  <img src={selectedAnnouncement.image_url} alt={selectedAnnouncement.title} className="max-h-72 w-full max-w-[420px] rounded-lg object-contain" />
                 </div>
               )}
+
+              <div className="whitespace-pre-wrap text-sm leading-7 text-on-surface dark:text-gray-300">
+                {selectedAnnouncement.content || 'No description provided.'}
+              </div>
             </div>
           </div>
         </div>
