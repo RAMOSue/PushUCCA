@@ -828,6 +828,19 @@ export default function StaffSchedule() {
     return visiblePerformances.find((performance) => performance.id === currentSelection) || visiblePerformances[0];
   }, [visiblePerformances, selectedPerformanceIdByView, currentDivisionView]);
 
+  const getPerformanceStatus = (performance) => {
+    if (performance?.status) return performance.status;
+
+    const now = dayjs();
+    const start = dayjs(performance?.start_time);
+    const end = dayjs(performance?.end_time);
+
+    if (!start.isValid()) return 'Scheduled';
+    if (now.isAfter(end)) return 'Completed';
+    if (now.isBetween(start, end, 'minute', '[)')) return 'In Progress';
+    return 'Scheduled';
+  };
+
   return (
     <PageLayout>
       <div className="dark:bg-[#171717]">
@@ -872,54 +885,51 @@ export default function StaffSchedule() {
               )}
             </div>
 
-            <div className="space-y-4">
-              <div className="rounded-2xl border border-outline-variant/20 bg-surface-container-low p-3 shadow-sm dark:border-gray-700 dark:bg-[#222]">
-                <div className="flex items-center justify-between gap-3 px-1 py-2">
-                  <h2 className="text-[11px] font-semibold uppercase tracking-[0.24em] text-on-surface-variant dark:text-gray-400">Calendar</h2>
-                  <button
-                    type="button"
-                    onClick={() => setCalendarExpanded((prev) => !prev)}
-                    className={`flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm font-semibold transition-all ${calendarExpanded ? 'border-primary bg-primary/10 text-primary dark:border-blue-500 dark:bg-blue-900/30 dark:text-blue-300' : 'border-outline-variant/20 bg-surface-container-high text-on-surface-variant hover:bg-surface-container-high/80 dark:border-gray-700 dark:bg-[#2a2a2a] dark:text-gray-300'}`}
-                  >
-                    <CalendarIcon className="h-4 w-4" />
-                    {calendarExpanded ? 'Hide calendar' : 'Show calendar'}
-                  </button>
-                </div>
+            <div className="flex flex-col gap-3">
+              <div className="rounded-2xl border border-outline-variant/20 bg-surface-container-low p-2 shadow-sm dark:border-gray-700 dark:bg-[#222]">
+                <button
+                  type="button"
+                  onClick={() => setCalendarExpanded((prev) => !prev)}
+                  className="flex w-full items-center justify-center gap-2 rounded-full border border-outline-variant/20 bg-surface-container-high px-3 py-1.5 text-sm font-semibold text-on-surface-variant transition-all hover:bg-surface-container-high/80 dark:border-gray-700 dark:bg-[#2a2a2a] dark:text-gray-300"
+                >
+                  <span>Calendar</span>
+                  <ChevronDown className={`h-4 w-4 transition-transform ${calendarExpanded ? 'rotate-180' : ''}`} />
+                </button>
 
                 <motion.div
                   initial={false}
                   animate={{
                     opacity: calendarExpanded ? 1 : 0,
                     height: calendarExpanded ? 'auto' : 0,
-                    marginTop: calendarExpanded ? 12 : 0,
+                    marginTop: calendarExpanded ? 10 : 0,
                   }}
                   transition={{ duration: 0.24, ease: 'easeInOut' }}
                   className="overflow-hidden"
                 >
-                  <div className="rounded-2xl border border-outline-variant/10 bg-surface-container-high/70 p-4 dark:border-gray-700 dark:bg-[#2a2a2a]">
-                    <div className="flex items-center justify-between gap-3 mb-6 pb-4 border-b border-outline-variant/20 dark:border-gray-700">
+                  <div className="rounded-2xl border border-outline-variant/10 bg-surface-container-high/70 p-3 dark:border-gray-700 dark:bg-[#2a2a2a]">
+                    <div className="flex items-center justify-between gap-3 mb-4 pb-3 border-b border-outline-variant/20 dark:border-gray-700">
                       <button
                         onClick={previousMonth}
-                        className="flex h-10 w-10 items-center justify-center rounded-full hover:bg-surface-container-high dark:hover:bg-[#2a2a2a] transition text-on-surface-variant dark:text-gray-400"
+                        className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-surface-container-high dark:hover:bg-[#2a2a2a] transition text-on-surface-variant dark:text-gray-400"
                         title="Previous month"
                       >
-                        <ChevronLeft className="w-5 h-5" />
+                        <ChevronLeft className="w-4 h-4" />
                       </button>
-                      <h2 className="flex-1 text-center text-xl font-bold text-on-surface dark:text-white">
+                      <h2 className="flex-1 text-center text-base font-semibold text-on-surface dark:text-white">
                         {currentCalendarDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
                       </h2>
                       <button
                         onClick={nextMonth}
-                        className="flex h-10 w-10 items-center justify-center rounded-full hover:bg-surface-container-high dark:hover:bg-[#2a2a2a] transition text-on-surface-variant dark:text-gray-400"
+                        className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-surface-container-high dark:hover:bg-[#2a2a2a] transition text-on-surface-variant dark:text-gray-400"
                         title="Next month"
                       >
-                        <ChevronRight className="w-5 h-5" />
+                        <ChevronRight className="w-4 h-4" />
                       </button>
                     </div>
 
-                    <div className="grid grid-cols-7 gap-1 mb-3">
+                    <div className="grid grid-cols-7 gap-1 mb-2">
                       {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
-                        <div key={day} className="text-center text-xs font-bold text-on-surface-variant dark:text-gray-400 uppercase tracking-wider py-2">
+                        <div key={day} className="text-center text-[10px] font-bold text-on-surface-variant dark:text-gray-400 uppercase tracking-wider py-1">
                           {day}
                         </div>
                       ))}
@@ -950,7 +960,7 @@ export default function StaffSchedule() {
                                 openCreateFormWithDate(day);
                               }
                             }}
-                            className={`min-h-24 md:min-h-28 rounded-lg border-2 p-2 transition-all overflow-hidden ${
+                            className={`min-h-20 md:min-h-24 rounded-lg border-2 p-1.5 transition-all overflow-hidden ${
                               isCurrentDay
                                 ? 'border-primary dark:border-blue-500 bg-primary/5 dark:bg-blue-900/20'
                                 : 'border-outline-variant/10 dark:border-gray-700/30 bg-surface-container-lowest dark:bg-[#1a1a1a]/50 hover:border-primary/50 dark:hover:border-blue-600/50'
@@ -958,7 +968,7 @@ export default function StaffSchedule() {
                             title={dayPerformances.length === 0 ? 'Click to create performance' : ''}
                           >
                             <div className="mb-1 flex items-start justify-between gap-2">
-                              <div className={`text-xs font-bold ${isCurrentDay ? 'text-primary dark:text-blue-400' : 'text-on-surface-variant dark:text-gray-400'}`}>
+                              <div className={`text-[11px] font-semibold ${isCurrentDay ? 'text-primary dark:text-blue-400' : 'text-on-surface-variant dark:text-gray-400'}`}>
                                 {day}
                               </div>
                               {divisionIndicators.length > 0 && (
@@ -966,7 +976,7 @@ export default function StaffSchedule() {
                                   {divisionIndicators.slice(0, 3).map((indicator) => (
                                     <span
                                       key={`${day}-${indicator.name}`}
-                                      className={`h-2.5 w-2.5 rounded-full ${indicator.style.dot}`}
+                                      className={`h-2 w-2 rounded-full ${indicator.style.dot}`}
                                       title={indicator.name}
                                     />
                                   ))}
@@ -974,7 +984,7 @@ export default function StaffSchedule() {
                               )}
                             </div>
 
-                            <div className="space-y-0.5 max-h-16 overflow-y-auto">
+                            <div className="space-y-0.5 max-h-14 overflow-y-auto">
                               {dayPerformances.slice(0, 3).map((perf, idx) => {
                                 const colors = getPerformanceChipStyles(perf);
                                 return (
@@ -984,7 +994,7 @@ export default function StaffSchedule() {
                                       e.stopPropagation();
                                       openPerformanceDetail(perf);
                                     }}
-                                    className={`text-[10px] md:text-xs px-1.5 py-0.5 rounded border truncate ${colors.bg} ${colors.text} ${colors.border} border hover:shadow-md hover:scale-105 transition cursor-pointer font-medium`}
+                                    className={`text-[9px] md:text-[10px] px-1.5 py-0.5 rounded border truncate ${colors.bg} ${colors.text} ${colors.border} border hover:shadow-md hover:scale-105 transition cursor-pointer font-medium`}
                                     title={`${perf.title} (${dayjs(perf.start_time).format('h:mm A')} - ${dayjs(perf.end_time).format('h:mm A')})${perf.location ? ` @ ${perf.location}` : ''}`}
                                   >
                                     {perf.title} {dayjs(perf.start_time).format('h:mm A')}
@@ -1009,13 +1019,15 @@ export default function StaffSchedule() {
                 </motion.div>
               </div>
 
-              {calendarExpanded && selectedPerformance ? (
-                <div className="rounded-2xl border border-outline-variant/20 bg-surface-container-low p-5 shadow-sm dark:border-gray-700 dark:bg-[#222]">
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-on-surface-variant dark:text-gray-400">Selected schedule</p>
-                      <h3 className="mt-2 text-xl font-semibold text-on-surface dark:text-white">{selectedPerformance.title}</h3>
-                    </div>
+              <div className="rounded-2xl border border-outline-variant/20 bg-surface-container-low p-4 shadow-sm dark:border-gray-700 dark:bg-[#222]">
+                <div className="flex items-start justify-between gap-3 pb-3 border-b border-outline-variant/20 dark:border-gray-700">
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-on-surface-variant dark:text-gray-400">Schedule Details</p>
+                    <h3 className="mt-1 text-lg font-semibold text-on-surface dark:text-white">
+                      {selectedPerformance?.title || 'No schedule selected'}
+                    </h3>
+                  </div>
+                  {selectedPerformance && (
                     <button
                       type="button"
                       onClick={() => openEditForm(selectedPerformance)}
@@ -1024,41 +1036,101 @@ export default function StaffSchedule() {
                     >
                       <Edit className="h-4 w-4" />
                     </button>
-                  </div>
+                  )}
+                </div>
 
-                  <div className="mt-4 grid gap-3 md:grid-cols-2">
-                    <div className="rounded-lg bg-surface-container-high/70 p-4 dark:bg-[#2a2a2a]">
-                      <p className="text-[11px] font-semibold uppercase tracking-wide text-on-surface-variant dark:text-gray-400">Date</p>
-                      <p className="mt-1 text-sm font-medium text-on-surface dark:text-white">{dayjs(selectedPerformance.start_time).format('MMMM D, YYYY')}</p>
-                    </div>
-                    <div className="rounded-lg bg-surface-container-high/70 p-4 dark:bg-[#2a2a2a]">
-                      <p className="text-[11px] font-semibold uppercase tracking-wide text-on-surface-variant dark:text-gray-400">Time</p>
-                      <p className="mt-1 text-sm font-medium text-on-surface dark:text-white">{dayjs(selectedPerformance.start_time).format('h:mm A')} - {dayjs(selectedPerformance.end_time).format('h:mm A')}</p>
-                    </div>
-                    <div className="rounded-lg bg-surface-container-high/70 p-4 dark:bg-[#2a2a2a]">
-                      <p className="text-[11px] font-semibold uppercase tracking-wide text-on-surface-variant dark:text-gray-400">Location</p>
-                      <p className="mt-1 text-sm font-medium text-on-surface dark:text-white">{selectedPerformance.location || 'Not specified'}</p>
-                    </div>
-                    <div className="rounded-lg bg-surface-container-high/70 p-4 dark:bg-[#2a2a2a]">
-                      <p className="text-[11px] font-semibold uppercase tracking-wide text-on-surface-variant dark:text-gray-400">Division</p>
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        {getPerformanceDivisionLabels(selectedPerformance).map((divisionName) => (
-                          <span key={`${selectedPerformance.id}-${divisionName}`} className={`rounded-full px-2 py-1 text-[11px] font-semibold ${getDivisionBadgeStyles(divisionName)}`}>
-                            {divisionName}
-                          </span>
-                        ))}
+                <div className="mt-4 max-h-[320px] overflow-y-auto pr-1">
+                  {selectedPerformance ? (
+                    <div className="space-y-3">
+                      <div className="grid gap-3 md:grid-cols-2">
+                        <div className="rounded-lg bg-surface-container-high/70 p-3 dark:bg-[#2a2a2a]">
+                          <p className="text-[11px] font-semibold uppercase tracking-wide text-on-surface-variant dark:text-gray-400">Date</p>
+                          <p className="mt-1 text-sm font-medium text-on-surface dark:text-white">{dayjs(selectedPerformance.start_time).format('MMMM D, YYYY')}</p>
+                        </div>
+                        <div className="rounded-lg bg-surface-container-high/70 p-3 dark:bg-[#2a2a2a]">
+                          <p className="text-[11px] font-semibold uppercase tracking-wide text-on-surface-variant dark:text-gray-400">Time</p>
+                          <p className="mt-1 text-sm font-medium text-on-surface dark:text-white">{dayjs(selectedPerformance.start_time).format('h:mm A')} - {dayjs(selectedPerformance.end_time).format('h:mm A')}</p>
+                        </div>
+                        <div className="rounded-lg bg-surface-container-high/70 p-3 dark:bg-[#2a2a2a]">
+                          <p className="text-[11px] font-semibold uppercase tracking-wide text-on-surface-variant dark:text-gray-400">Location</p>
+                          <p className="mt-1 text-sm font-medium text-on-surface dark:text-white">{selectedPerformance.location || 'Not specified'}</p>
+                        </div>
+                        <div className="rounded-lg bg-surface-container-high/70 p-3 dark:bg-[#2a2a2a]">
+                          <p className="text-[11px] font-semibold uppercase tracking-wide text-on-surface-variant dark:text-gray-400">Division</p>
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            {getPerformanceDivisionLabels(selectedPerformance).map((divisionName) => (
+                              <span key={`${selectedPerformance.id}-${divisionName}`} className={`rounded-full px-2 py-1 text-[11px] font-semibold ${getDivisionBadgeStyles(divisionName)}`}>
+                                {divisionName}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="rounded-lg border border-outline-variant/20 p-3 dark:border-gray-700">
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-on-surface-variant dark:text-gray-400">Assigned performers</p>
+                        {selectedPerformance.performance_borrowers?.length ? (
+                          <div className="mt-2 space-y-2">
+                            {selectedPerformance.performance_borrowers.map((borrower, index) => (
+                              <div key={borrower.borrower_user_id || index} className="flex items-center gap-2 rounded-lg bg-surface-container-high/70 px-3 py-2 dark:bg-[#2a2a2a]">
+                                <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/15 text-xs font-semibold text-primary dark:bg-blue-900/40 dark:text-blue-300">
+                                  {borrower?.name?.charAt(0)?.toUpperCase() || '•'}
+                                </div>
+                                <div className="min-w-0">
+                                  <p className="text-sm font-medium text-on-surface dark:text-white">{borrower?.name || 'Unknown performer'}</p>
+                                  {borrower?.department_name && (
+                                    <p className="text-xs text-on-surface-variant dark:text-gray-400">{borrower.department_name}</p>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="mt-2 text-sm text-on-surface-variant dark:text-gray-400">No performers assigned.</p>
+                        )}
+                      </div>
+
+                      <div className="rounded-lg border border-outline-variant/20 p-3 dark:border-gray-700">
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-on-surface-variant dark:text-gray-400">Assigned costumes / items</p>
+                        {selectedPerformance.performance_items?.length ? (
+                          <div className="mt-2 space-y-2">
+                            {groupItemsByType(selectedPerformance.performance_items).map((group) => (
+                              <div key={group.inventory_item_id} className="rounded-lg bg-surface-container-high/70 px-3 py-2 dark:bg-[#2a2a2a]">
+                                <p className="text-sm font-medium text-on-surface dark:text-white">{group.name || 'Unnamed item'}</p>
+                                <p className="text-xs text-on-surface-variant dark:text-gray-400">{group.units.length} item{group.units.length !== 1 ? 's' : ''} suggested</p>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="mt-2 text-sm text-on-surface-variant dark:text-gray-400">No costumes or items assigned.</p>
+                        )}
+                      </div>
+
+                      {selectedPerformance.description && (
+                        <div className="rounded-lg border border-outline-variant/20 p-3 dark:border-gray-700">
+                          <p className="text-[11px] font-semibold uppercase tracking-wide text-on-surface-variant dark:text-gray-400">Description</p>
+                          <p className="mt-2 text-sm leading-6 text-on-surface dark:text-gray-300">{selectedPerformance.description}</p>
+                        </div>
+                      )}
+
+                      <div className="grid gap-3 md:grid-cols-2">
+                        <div className="rounded-lg bg-surface-container-high/70 p-3 dark:bg-[#2a2a2a]">
+                          <p className="text-[11px] font-semibold uppercase tracking-wide text-on-surface-variant dark:text-gray-400">Status</p>
+                          <p className="mt-1 text-sm font-medium text-on-surface dark:text-white">{getPerformanceStatus(selectedPerformance)}</p>
+                        </div>
+                        <div className="rounded-lg bg-surface-container-high/70 p-3 dark:bg-[#2a2a2a]">
+                          <p className="text-[11px] font-semibold uppercase tracking-wide text-on-surface-variant dark:text-gray-400">Performance ID</p>
+                          <p className="mt-1 text-sm font-medium text-on-surface dark:text-white">{selectedPerformance.id}</p>
+                        </div>
                       </div>
                     </div>
-                  </div>
-
-                  {selectedPerformance.description && (
-                    <div className="mt-4 rounded-lg border border-outline-variant/20 p-4 dark:border-gray-700">
-                      <p className="text-[11px] font-semibold uppercase tracking-wide text-on-surface-variant dark:text-gray-400">Description</p>
-                      <p className="mt-2 text-sm leading-6 text-on-surface dark:text-gray-300">{selectedPerformance.description}</p>
+                  ) : (
+                    <div className="rounded-lg border border-dashed border-outline-variant/30 p-6 text-center text-sm text-on-surface-variant dark:border-gray-700 dark:text-gray-400">
+                      Select a schedule from the left to view its details.
                     </div>
                   )}
                 </div>
-              ) : null}
+              </div>
             </div>
           </div>
         </div>
