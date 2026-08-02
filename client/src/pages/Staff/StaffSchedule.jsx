@@ -18,8 +18,6 @@ import {
   CheckCircle,
   AlertCircle,
   Plus,
-  Filter,
-  Search,
   X,
   Trash2,
   ShoppingCart,
@@ -27,6 +25,7 @@ import {
   ChevronDown,
   Edit,
   ChevronLeft,
+  Search,
 } from 'lucide-react';
 
 dayjs.extend(utc);
@@ -77,10 +76,9 @@ export default function StaffSchedule() {
   const [inventoryRefreshCount, setInventoryRefreshCount] = useState(0);
   const [itemUnitCounter, setItemUnitCounter] = useState({}); // Track unit numbers per item type
   const [expandedItemGroups, setExpandedItemGroups] = useState({}); // Track expanded item groups {itemId: bool}
-  const { globalSearchQuery } = useSidebarStore();
+  const { selectedDivision, globalSearchQuery } = useSidebarStore();
   const [filterDropdownOpen, setFilterDropdownOpen] = useState(false);
   const [selectedPerformerDivision, setSelectedPerformerDivision] = useState('All'); // ✅ NEW: Division filter for performers
-  const [selectedPerformanceView, setSelectedPerformanceView] = useState('All');
   const [transitionDirection, setTransitionDirection] = useState('left');
   const [calendarExpanded, setCalendarExpanded] = useState(false);
   const [divisions, setDivisions] = useState([]);
@@ -148,15 +146,16 @@ export default function StaffSchedule() {
     }
   };
 
-  const currentCalendarDate = calendarViewState[selectedPerformanceView] || new Date();
-  const selectedCalendarDay = selectedCalendarDayByView[selectedPerformanceView] ?? null;
+  const currentDivisionView = selectedDivision || 'All';
+  const currentCalendarDate = calendarViewState[currentDivisionView] || new Date();
+  const selectedCalendarDay = selectedCalendarDayByView[currentDivisionView] ?? null;
 
   const getViewPerformances = () => {
-    if (selectedPerformanceView === 'All') {
+    if (currentDivisionView === 'All') {
       return performances;
     }
 
-    const selectedDivisionName = selectedPerformanceView.toLowerCase();
+    const selectedDivisionName = currentDivisionView.toLowerCase();
     return performances.filter((performance) => {
       const assignedDivisions = Array.isArray(performance.performance_divisions)
         ? performance.performance_divisions.map((division) => (division?.name || '').toLowerCase())
@@ -165,7 +164,7 @@ export default function StaffSchedule() {
     });
   };
 
-  const currentDayFilter = selectedDayFilterByView[selectedPerformanceView] ?? null;
+  const currentDayFilter = selectedDayFilterByView[currentDivisionView] ?? null;
 
   const visiblePerformances = useMemo(() => {
     let filtered = getViewPerformances();
@@ -184,29 +183,40 @@ export default function StaffSchedule() {
 
     if (globalSearchQuery.trim()) {
       const searchLower = globalSearchQuery.toLowerCase();
-      filtered = filtered.filter((p) =>
-        (p.title || '').toLowerCase().includes(searchLower) ||
-        (p.description || '').toLowerCase().includes(searchLower) ||
-        (p.location || '').toLowerCase().includes(searchLower)
-      );
+      filtered = filtered.filter((p) => {
+        const searchableText = [
+          p.title,
+          p.description,
+          p.location,
+          p.event_name,
+          p.performers?.map((person) => person?.name || person)?.join(' '),
+          p.performance_borrowers?.map((borrower) => borrower?.borrower_name || borrower?.name || '').join(' '),
+          p.performance_divisions?.map((division) => division?.name || '').join(' '),
+        ]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase();
+
+        return searchableText.includes(searchLower);
+      });
     }
 
     return filtered.sort((a, b) => new Date(a.start_time) - new Date(b.start_time));
-  }, [performances, globalSearchQuery, currentCalendarDate, currentDayFilter, selectedPerformanceView]);
+  }, [performances, globalSearchQuery, currentCalendarDate, currentDayFilter, currentDivisionView]);
 
   useEffect(() => {
     if (!visiblePerformances.length) {
-      setSelectedPerformanceIdByView((prev) => ({ ...prev, [selectedPerformanceView]: null }));
+      setSelectedPerformanceIdByView((prev) => ({ ...prev, [currentDivisionView]: null }));
       return;
     }
 
-    const currentSelection = selectedPerformanceIdByView[selectedPerformanceView];
+    const currentSelection = selectedPerformanceIdByView[currentDivisionView];
     const isSelectionVisible = currentSelection && visiblePerformances.some((performance) => performance.id === currentSelection);
 
     if (!isSelectionVisible) {
-      setSelectedPerformanceIdByView((prev) => ({ ...prev, [selectedPerformanceView]: visiblePerformances[0].id }));
+      setSelectedPerformanceIdByView((prev) => ({ ...prev, [currentDivisionView]: visiblePerformances[0].id }));
     }
-  }, [selectedPerformanceView, visiblePerformances]);
+  }, [currentDivisionView, visiblePerformances]);
 
   async function fetchPerformances() {
     try {
@@ -331,9 +341,9 @@ export default function StaffSchedule() {
   const openNewForm = () => {
     setEditing(null);
     setFormStep(0);
-    const defaultDivisionIds = selectedPerformanceView === 'All'
+    const defaultDivisionIds = currentDivisionView === 'All'
       ? []
-      : divisions.filter((division) => division.name === selectedPerformanceView).map((division) => division.id);
+      : divisions.filter((division) => division.name === currentDivisionView).map((division) => division.id);
 
     setForm({
       title: '',
@@ -702,8 +712,8 @@ export default function StaffSchedule() {
       return fromPerformance;
     }
 
-    if (selectedPerformanceView !== 'All') {
-      return [selectedPerformanceView];
+    if (currentDivisionView !== 'All') {
+      return [currentDivisionView];
     }
 
     return [];
@@ -737,21 +747,21 @@ export default function StaffSchedule() {
   const previousMonth = () => {
     setCalendarViewState((prev) => ({
       ...prev,
-      [selectedPerformanceView]: new Date(currentCalendarDate.getFullYear(), currentCalendarDate.getMonth() - 1),
+      [currentDivisionView]: new Date(currentCalendarDate.getFullYear(), currentCalendarDate.getMonth() - 1),
     }));
   };
 
   const nextMonth = () => {
     setCalendarViewState((prev) => ({
       ...prev,
-      [selectedPerformanceView]: new Date(currentCalendarDate.getFullYear(), currentCalendarDate.getMonth() + 1),
+      [currentDivisionView]: new Date(currentCalendarDate.getFullYear(), currentCalendarDate.getMonth() + 1),
     }));
   };
 
   const goToToday = () => {
     setCalendarViewState((prev) => ({
       ...prev,
-      [selectedPerformanceView]: new Date(),
+      [currentDivisionView]: new Date(),
     }));
   };
 
@@ -771,9 +781,9 @@ export default function StaffSchedule() {
   // ✅ NEW: Open create form with pre-filled date from calendar
   const openCreateFormWithDate = (day) => {
     const selectedDate = new Date(currentCalendarDate.getFullYear(), currentCalendarDate.getMonth(), day);
-    const defaultDivisionIds = selectedPerformanceView === 'All'
+    const defaultDivisionIds = currentDivisionView === 'All'
       ? []
-      : divisions.filter((division) => division.name === selectedPerformanceView).map((division) => division.id);
+      : divisions.filter((division) => division.name === currentDivisionView).map((division) => division.id);
     setEditing(null);
     setFormStep(0);
     setForm({
@@ -802,21 +812,6 @@ export default function StaffSchedule() {
   const todaySchedules = performances.filter((p) => new Date(p.start_time).toDateString() === new Date().toDateString()).length;
   const pastSchedules = performances.filter((p) => new Date(p.start_time) < new Date()).length;
 
-  const divisionTabs = useMemo(() => [
-    { label: 'All', value: 'All' },
-    { label: 'Dulimbay', value: 'Dulimbay' },
-    { label: 'Budjong', value: 'Budjong' },
-    { label: 'Kayam', value: 'Kayam' },
-  ], []);
-
-  const handleDivisionTabChange = (nextView) => {
-    const currentIndex = divisionTabs.findIndex((tab) => tab.value === selectedPerformanceView);
-    const nextIndex = divisionTabs.findIndex((tab) => tab.value === nextView);
-    const nextDirection = currentIndex === -1 || nextIndex === -1 || currentIndex < nextIndex ? 'right' : 'left';
-    setTransitionDirection(nextDirection);
-    setSelectedPerformanceView(nextView);
-  };
-
   const getDivisionBadgeStyles = (divisionName) => {
     return getDivisionTheme(divisionName).badge;
   };
@@ -829,336 +824,265 @@ export default function StaffSchedule() {
   const filteredPerformanceCount = visiblePerformances.length;
   const selectedPerformance = useMemo(() => {
     if (!visiblePerformances.length) return null;
-    const currentSelection = selectedPerformanceIdByView[selectedPerformanceView];
+    const currentSelection = selectedPerformanceIdByView[currentDivisionView];
     return visiblePerformances.find((performance) => performance.id === currentSelection) || visiblePerformances[0];
-  }, [visiblePerformances, selectedPerformanceIdByView, selectedPerformanceView]);
+  }, [visiblePerformances, selectedPerformanceIdByView, currentDivisionView]);
 
   return (
     <PageLayout>
       <div className="dark:bg-[#171717]">
-        <div className="px-6 md:px-8 lg:px-12 pt-6 pb-6 dark:bg-[#171717]">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex flex-wrap items-center gap-2 rounded-full border border-outline-variant/20 bg-surface-container-low dark:border-gray-700 dark:bg-[#222] p-1 shadow-sm">
-              {divisionTabs.map((tab) => {
-                const isActive = selectedPerformanceView === tab.value;
-                return (
-                  <button
-                    key={tab.value}
-                    type="button"
-                    onClick={() => handleDivisionTabChange(tab.value)}
-                    className={`relative rounded-full px-4 py-2 text-sm font-semibold transition-all duration-300 ${isActive ? 'bg-primary text-white shadow-sm dark:bg-blue-600' : 'text-on-surface-variant hover:bg-surface-container-high dark:text-gray-300 dark:hover:bg-[#2a2a2a]'}`}
-                  >
-                    {tab.label}
-                  </button>
-                );
-              })}
+        <div className="px-6 md:px-8 lg:px-12 pt-6 pb-4 dark:bg-[#171717]">
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-outline-variant/20 bg-surface-container-low px-4 py-3 shadow-sm dark:border-gray-700 dark:bg-[#222]">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-on-surface-variant dark:text-gray-400">Performance schedules</p>
+              <p className="mt-1 text-sm text-on-surface dark:text-white">Filtered by the global division and search controls above.</p>
             </div>
-
             <button
               type="button"
               onClick={() => setCalendarExpanded((prev) => !prev)}
-              className={`flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold transition-all ${calendarExpanded ? 'border-primary bg-primary/10 text-primary dark:border-blue-500 dark:bg-blue-900/30 dark:text-blue-300' : 'border-outline-variant/20 bg-surface-container-low text-on-surface-variant hover:bg-surface-container-high dark:border-gray-700 dark:bg-[#222] dark:text-gray-300 dark:hover:bg-[#2a2a2a]'}`}
+              className={`flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold transition-all ${calendarExpanded ? 'border-primary bg-primary/10 text-primary dark:border-blue-500 dark:bg-blue-900/30 dark:text-blue-300' : 'border-outline-variant/20 bg-surface-container-high text-on-surface-variant hover:bg-surface-container-high/80 dark:border-gray-700 dark:bg-[#2a2a2a] dark:text-gray-300'}`}
             >
               <CalendarIcon className="h-4 w-4" />
-              Calendar
+              {calendarExpanded ? 'Hide calendar' : 'Show calendar'}
             </button>
           </div>
         </div>
 
-        <div className="px-6 md:px-8 lg:px-12 space-y-4 dark:bg-[#171717]">
-          <motion.div
-            key={`${selectedPerformanceView}-${currentCalendarDate.getMonth()}-${currentCalendarDate.getFullYear()}`}
-            initial={{ opacity: 0, x: transitionDirection === 'right' ? 24 : -24 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.28, ease: 'easeOut' }}
-            className="space-y-4"
-          >
-            <motion.div
-              initial={false}
-              animate={{
-                opacity: calendarExpanded ? 1 : 0,
-                maxHeight: calendarExpanded ? 900 : 0,
-              }}
-              transition={{ duration: 0.24, ease: 'easeInOut' }}
-              className="overflow-hidden"
-            >
-              <div className="bg-surface-container-low dark:bg-[#222] rounded-lg border border-outline-variant/10 dark:border-gray-700 p-4 md:p-6 shadow-sm dark:shadow-black/20">
-                <div className="flex items-center justify-between gap-3 mb-6 pb-4 border-b border-outline-variant/20 dark:border-gray-700">
-                  <button
-                    onClick={previousMonth}
-                    className="flex h-10 w-10 items-center justify-center rounded-full hover:bg-surface-container-high dark:hover:bg-[#2a2a2a] transition text-on-surface-variant dark:text-gray-400"
-                    title="Previous month"
-                  >
-                    <ChevronLeft className="w-5 h-5" />
-                  </button>
-                  <h2 className="flex-1 text-center text-xl font-bold text-on-surface dark:text-white">
-                    {currentCalendarDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
-                  </h2>
-                  <button
-                    onClick={nextMonth}
-                    className="flex h-10 w-10 items-center justify-center rounded-full hover:bg-surface-container-high dark:hover:bg-[#2a2a2a] transition text-on-surface-variant dark:text-gray-400"
-                    title="Next month"
-                  >
-                    <ChevronRight className="w-5 h-5" />
-                  </button>
+        <div className="px-6 md:px-8 lg:px-12 pb-6 dark:bg-[#171717]">
+          <div className="grid gap-4 xl:grid-cols-[minmax(0,0.42fr)_minmax(0,0.58fr)]">
+            <div className="rounded-2xl border border-outline-variant/20 bg-surface-container-low p-3 shadow-sm dark:border-gray-700 dark:bg-[#222]">
+              {loading ? (
+                <div className="flex items-center justify-center py-16">
+                  <div className="text-on-surface-variant dark:text-gray-400">Loading performances...</div>
                 </div>
-
-               
-                <div className="grid grid-cols-7 gap-1 mb-3">
-                {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
-                  <div key={day} className="text-center text-xs font-bold text-on-surface-variant dark:text-gray-400 uppercase tracking-wider py-2">
-                    {day}
-                  </div>
-                ))}
-              </div>
-
-              <div className="grid grid-cols-7 gap-1 auto-rows-max">
-                {Array.from({ length: getFirstDayOfMonth(currentCalendarDate) }).map((_, i) => (
-                  <div
-                    key={`empty-${i}`}
-                    className="aspect-square bg-surface-container-lowest dark:bg-[#1a1a1a]/50 rounded-lg border border-outline-variant/10 dark:border-gray-700/30"
-                  />
-                ))}
-
-                {Array.from({ length: getDaysInMonth(currentCalendarDate) }).map((_, i) => {
-                  const day = i + 1;
-                  const dayPerformances = getPerformancesForDay(day);
-                  const isCurrentDay = isToday(day);
-                  const divisionIndicators = getDivisionIndicatorsForDay(dayPerformances);
-
-                  return (
-                    <div
-                      key={day}
-                      onClick={() => {
-                        setSelectedCalendarDayByView((prev) => ({ ...prev, [selectedPerformanceView]: day }));
-                        setSelectedDayFilterByView((prev) => ({ ...prev, [selectedPerformanceView]: day }));
-                        setSelectedPerformanceIdByView((prev) => ({ ...prev, [selectedPerformanceView]: null }));
-                        if (dayPerformances.length === 0) {
-                          openCreateFormWithDate(day);
-                        }
-                      }}
-                      className={`min-h-24 md:min-h-28 rounded-lg border-2 p-2 transition-all overflow-hidden ${
-                        isCurrentDay
-                          ? 'border-primary dark:border-blue-500 bg-primary/5 dark:bg-blue-900/20'
-                          : 'border-outline-variant/10 dark:border-gray-700/30 bg-surface-container-lowest dark:bg-[#1a1a1a]/50 hover:border-primary/50 dark:hover:border-blue-600/50'
-                      } ${dayPerformances.length === 0 ? 'cursor-pointer hover:bg-primary/10 dark:hover:bg-blue-900/30' : ''}`}
-                      title={dayPerformances.length === 0 ? 'Click to create performance' : ''}
-                    >
-                      <div className="mb-1 flex items-start justify-between gap-2">
-                        <div className={`text-xs font-bold ${isCurrentDay ? 'text-primary dark:text-blue-400' : 'text-on-surface-variant dark:text-gray-400'}`}>
-                          {day}
+              ) : visiblePerformances.length === 0 ? (
+                <div className="py-16 text-center">
+                  <CalendarIcon className="w-12 h-12 text-on-surface-variant/30 dark:text-gray-600 mx-auto mb-4" />
+                  <p className="text-on-surface-variant dark:text-gray-400 text-sm">No performances scheduled</p>
+                  <p className="text-on-surface-variant dark:text-gray-500 text-xs mt-2">Create one to get started</p>
+                </div>
+              ) : (
+                <div className="max-h-[560px] overflow-y-auto space-y-2 pr-1">
+                  {visiblePerformances.map((perf) => {
+                    const isSelected = selectedPerformance?.id === perf.id;
+                    return (
+                      <button
+                        key={perf.id}
+                        type="button"
+                        onClick={() => setSelectedPerformanceIdByView((prev) => ({ ...prev, [currentDivisionView]: perf.id }))}
+                        className={`w-full rounded-xl border px-3 py-3 text-left transition-all ${isSelected ? 'border-primary bg-primary/10 shadow-sm dark:border-blue-500 dark:bg-blue-900/20' : 'border-outline-variant/20 hover:border-primary/40 hover:bg-surface-container-high dark:border-gray-700 dark:hover:bg-[#2a2a2a]'}`}
+                      >
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="text-[11px] font-semibold uppercase tracking-wide text-on-surface-variant dark:text-gray-400">
+                              {dayjs(perf.start_time).format('MMM DD')}
+                            </p>
+                            <p className="mt-1 text-sm font-semibold text-on-surface dark:text-white">{perf.title}</p>
+                            <p className="text-xs text-on-surface-variant dark:text-gray-400">{dayjs(perf.start_time).format('h:mm A')}</p>
+                          </div>
+                          <ChevronRight className="h-4 w-4 text-on-surface-variant dark:text-gray-400" />
                         </div>
-                        {divisionIndicators.length > 0 && (
-                          <div className="flex items-center gap-1">
-                            {divisionIndicators.slice(0, 3).map((indicator) => (
-                              <span
-                                key={`${day}-${indicator.name}`}
-                                className={`h-2.5 w-2.5 rounded-full ${indicator.style.dot}`}
-                                title={indicator.name}
-                              />
-                            ))}
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="space-y-0.5 max-h-16 overflow-y-auto">
-                        {dayPerformances.slice(0, 3).map((perf, idx) => {
-                          const colors = getPerformanceChipStyles(perf);
-                          return (
-                            <div
-                              key={perf.id || idx}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                openPerformanceDetail(perf);
-                              }}
-                              className={`text-[10px] md:text-xs px-1.5 py-0.5 rounded border truncate ${colors.bg} ${colors.text} ${colors.border} border hover:shadow-md hover:scale-105 transition cursor-pointer font-medium`}
-                              title={`${perf.title} (${dayjs(perf.start_time).format('h:mm A')} - ${dayjs(perf.end_time).format('h:mm A')})${perf.location ? ` @ ${perf.location}` : ''}`}
-                            >
-                              {perf.title} {dayjs(perf.start_time).format('h:mm A')}
-                            </div>
-                          );
-                        })}
-
-                        {dayPerformances.length > 3 && (
-                          <div
-                            className="text-[9px] text-on-surface-variant dark:text-gray-500 px-1.5 py-0.5 font-medium cursor-help"
-                            title={`${dayPerformances.length - 3} more performance(s) not shown`}
-                          >
-                            +{dayPerformances.length - 3} more
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              
-            </div>
-            </motion.div>
-
-            <div className="rounded-lg border border-outline-variant/20 bg-surface-container-low p-4 shadow-sm dark:border-gray-700 dark:bg-[#222]">
-              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                <div className="flex items-center gap-3 flex-1">
-                  <Search className="w-5 text-on-surface-variant dark:text-gray-400 flex-shrink-0" />
-                  <input
-                    type="text"
-                    placeholder="Search by title, location, or description..."
-                    value={globalSearchQuery}
-                    readOnly
-                    className="flex-1 bg-transparent focus:outline-none text-sm text-on-surface dark:text-white dark:placeholder-gray-500"
-                  />
+                      </button>
+                    );
+                  })}
                 </div>
-                <div className="flex items-center gap-2">
+              )}
+            </div>
+
+            <div className="space-y-4">
+              <div className="rounded-2xl border border-outline-variant/20 bg-surface-container-low p-4 shadow-sm dark:border-gray-700 dark:bg-[#222]">
+                <div className="flex flex-wrap items-center justify-between gap-3 pb-3">
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-on-surface-variant dark:text-gray-400">Calendar</p>
+                    <p className="mt-1 text-sm text-on-surface dark:text-white">{filteredPerformanceCount} schedule{filteredPerformanceCount === 1 ? '' : 's'} shown</p>
+                  </div>
                   <button
                     type="button"
                     onClick={() => {
-                      setSelectedDayFilterByView((prev) => ({ ...prev, [selectedPerformanceView]: null }));
-                      setSelectedPerformanceIdByView((prev) => ({ ...prev, [selectedPerformanceView]: null }));
+                      setSelectedDayFilterByView((prev) => ({ ...prev, [currentDivisionView]: null }));
+                      setSelectedPerformanceIdByView((prev) => ({ ...prev, [currentDivisionView]: null }));
                     }}
                     className="rounded-lg border border-outline-variant/20 px-3 py-2 text-sm font-medium text-on-surface-variant transition hover:bg-surface-container-high dark:border-gray-700 dark:text-gray-300"
                   >
                     Show All
                   </button>
-                  <div className="text-xs font-semibold text-on-surface-variant dark:text-gray-400">
-                    {filteredPerformanceCount} shown
-                  </div>
                 </div>
-              </div>
-            </div>
 
-            <div className="grid gap-4 lg:grid-cols-[minmax(0,0.38fr)_minmax(0,0.62fr)]">
-              <div className="rounded-lg border border-outline-variant/20 bg-surface-container-low p-3 shadow-sm dark:border-gray-700 dark:bg-[#222]">
-                {loading ? (
-                  <div className="flex items-center justify-center py-16">
-                    <div className="text-on-surface-variant dark:text-gray-400">Loading performances...</div>
-                  </div>
-                ) : visiblePerformances.length === 0 ? (
-                  <div className="py-16 text-center">
-                    <CalendarIcon className="w-12 h-12 text-on-surface-variant/30 dark:text-gray-600 mx-auto mb-4" />
-                    <p className="text-on-surface-variant dark:text-gray-400 text-sm">No performances scheduled</p>
-                    <p className="text-on-surface-variant dark:text-gray-500 text-xs mt-2">Create one to get started</p>
-                  </div>
-                ) : (
-                  <div className="max-h-[560px] overflow-y-auto space-y-2 pr-1">
-                    {visiblePerformances.map((perf) => {
-                      const isSelected = selectedPerformance?.id === perf.id;
-                      return (
-                        <button
-                          key={perf.id}
-                          type="button"
-                          onClick={() => setSelectedPerformanceIdByView((prev) => ({ ...prev, [selectedPerformanceView]: perf.id }))}
-                          className={`w-full rounded-lg border px-3 py-3 text-left transition-all ${isSelected ? 'border-primary bg-primary/10 shadow-sm dark:border-blue-500 dark:bg-blue-900/20' : 'border-outline-variant/20 hover:border-primary/40 hover:bg-surface-container-high dark:border-gray-700 dark:hover:bg-[#2a2a2a]'}`}
-                        >
-                          <div className="flex items-center justify-between gap-3">
-                            <div className="min-w-0">
-                              <p className="text-[11px] font-semibold uppercase tracking-wide text-on-surface-variant dark:text-gray-400">
-                                {dayjs(perf.start_time).format('MMM DD')}
-                              </p>
-                              <p className="mt-1 text-sm font-semibold text-on-surface dark:text-white">{perf.title}</p>
-                              <p className="text-xs text-on-surface-variant dark:text-gray-400">{dayjs(perf.start_time).format('h:mm A')}</p>
-                            </div>
-                            <ChevronRight className="h-4 w-4 text-on-surface-variant dark:text-gray-400" />
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-
-              <div className="rounded-lg border border-outline-variant/20 bg-surface-container-low p-5 shadow-sm dark:border-gray-700 dark:bg-[#222]">
-                {selectedPerformance ? (
-                  <div className="space-y-5">
-                    <div className="flex items-start justify-between gap-4">
-                      <div>
-                        <p className="text-xs font-semibold uppercase tracking-wide text-on-surface-variant dark:text-gray-400">Selected schedule</p>
-                        <h3 className="mt-2 text-xl font-semibold text-on-surface dark:text-white">{selectedPerformance.title}</h3>
-                      </div>
+                <motion.div
+                  initial={false}
+                  animate={{
+                    opacity: calendarExpanded ? 1 : 0,
+                    height: calendarExpanded ? 'auto' : 0,
+                    marginTop: calendarExpanded ? 12 : 0,
+                  }}
+                  transition={{ duration: 0.24, ease: 'easeInOut' }}
+                  className="overflow-hidden"
+                >
+                  <div className="rounded-2xl border border-outline-variant/10 bg-surface-container-high/70 p-4 dark:border-gray-700 dark:bg-[#2a2a2a]">
+                    <div className="flex items-center justify-between gap-3 mb-6 pb-4 border-b border-outline-variant/20 dark:border-gray-700">
                       <button
-                        type="button"
-                        onClick={() => openEditForm(selectedPerformance)}
-                        className="rounded-lg border border-outline-variant/20 p-2 text-on-surface-variant transition hover:bg-surface-container-high dark:border-gray-700 dark:text-gray-300"
-                        title="Edit"
+                        onClick={previousMonth}
+                        className="flex h-10 w-10 items-center justify-center rounded-full hover:bg-surface-container-high dark:hover:bg-[#2a2a2a] transition text-on-surface-variant dark:text-gray-400"
+                        title="Previous month"
                       >
-                        <Edit className="h-4 w-4" />
+                        <ChevronLeft className="w-5 h-5" />
+                      </button>
+                      <h2 className="flex-1 text-center text-xl font-bold text-on-surface dark:text-white">
+                        {currentCalendarDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+                      </h2>
+                      <button
+                        onClick={nextMonth}
+                        className="flex h-10 w-10 items-center justify-center rounded-full hover:bg-surface-container-high dark:hover:bg-[#2a2a2a] transition text-on-surface-variant dark:text-gray-400"
+                        title="Next month"
+                      >
+                        <ChevronRight className="w-5 h-5" />
                       </button>
                     </div>
 
-                    <div className="grid gap-3 md:grid-cols-2">
-                      <div className="rounded-lg bg-surface-container-high/70 p-4 dark:bg-[#2a2a2a]">
-                        <p className="text-[11px] font-semibold uppercase tracking-wide text-on-surface-variant dark:text-gray-400">Date</p>
-                        <p className="mt-1 text-sm font-medium text-on-surface dark:text-white">{dayjs(selectedPerformance.start_time).format('MMMM D, YYYY')}</p>
-                      </div>
-                      <div className="rounded-lg bg-surface-container-high/70 p-4 dark:bg-[#2a2a2a]">
-                        <p className="text-[11px] font-semibold uppercase tracking-wide text-on-surface-variant dark:text-gray-400">Time</p>
-                        <p className="mt-1 text-sm font-medium text-on-surface dark:text-white">{dayjs(selectedPerformance.start_time).format('h:mm A')} - {dayjs(selectedPerformance.end_time).format('h:mm A')}</p>
-                      </div>
-                      <div className="rounded-lg bg-surface-container-high/70 p-4 dark:bg-[#2a2a2a]">
-                        <p className="text-[11px] font-semibold uppercase tracking-wide text-on-surface-variant dark:text-gray-400">Location</p>
-                        <p className="mt-1 text-sm font-medium text-on-surface dark:text-white">{selectedPerformance.location || 'Not specified'}</p>
-                      </div>
-                      <div className="rounded-lg bg-surface-container-high/70 p-4 dark:bg-[#2a2a2a]">
-                        <p className="text-[11px] font-semibold uppercase tracking-wide text-on-surface-variant dark:text-gray-400">Division</p>
-                        <div className="mt-2 flex flex-wrap gap-2">
-                          {getPerformanceDivisionLabels(selectedPerformance).map((divisionName) => (
-                            <span key={`${selectedPerformance.id}-${divisionName}`} className={`rounded-full px-2 py-1 text-[11px] font-semibold ${getDivisionBadgeStyles(divisionName)}`}>
-                              {divisionName}
-                            </span>
-                          ))}
+                    <div className="grid grid-cols-7 gap-1 mb-3">
+                      {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
+                        <div key={day} className="text-center text-xs font-bold text-on-surface-variant dark:text-gray-400 uppercase tracking-wider py-2">
+                          {day}
                         </div>
-                      </div>
+                      ))}
                     </div>
 
-                    {selectedPerformance.description && (
-                      <div className="rounded-lg border border-outline-variant/20 p-4 dark:border-gray-700">
-                        <p className="text-[11px] font-semibold uppercase tracking-wide text-on-surface-variant dark:text-gray-400">Description</p>
-                        <p className="mt-2 text-sm leading-6 text-on-surface dark:text-gray-300">{selectedPerformance.description}</p>
-                      </div>
-                    )}
+                    <div className="grid grid-cols-7 gap-1 auto-rows-max">
+                      {Array.from({ length: getFirstDayOfMonth(currentCalendarDate) }).map((_, i) => (
+                        <div
+                          key={`empty-${i}`}
+                          className="aspect-square bg-surface-container-lowest dark:bg-[#1a1a1a]/50 rounded-lg border border-outline-variant/10 dark:border-gray-700/30"
+                        />
+                      ))}
 
-                    <div className="grid gap-4 lg:grid-cols-2">
-                      <div className="rounded-lg border border-outline-variant/20 p-4 dark:border-gray-700">
-                        <p className="text-[11px] font-semibold uppercase tracking-wide text-on-surface-variant dark:text-gray-400">Assigned performers</p>
-                        {selectedPerformance.performance_borrowers?.length ? (
-                          <div className="mt-3 space-y-2">
-                            {selectedPerformance.performance_borrowers.map((borrower, index) => (
-                              <div key={borrower.borrower_user_id || index} className="rounded-lg bg-surface-container-high/70 px-3 py-2 text-sm dark:bg-[#2a2a2a]">
-                                <p className="font-medium text-on-surface dark:text-white">{borrower.name || 'Unknown performer'}</p>
-                                {borrower.department_name && <p className="text-xs text-on-surface-variant dark:text-gray-400">{borrower.department_name}</p>}
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <p className="mt-3 text-sm text-on-surface-variant dark:text-gray-400">No performers assigned</p>
-                        )}
-                      </div>
+                      {Array.from({ length: getDaysInMonth(currentCalendarDate) }).map((_, i) => {
+                        const day = i + 1;
+                        const dayPerformances = getPerformancesForDay(day);
+                        const isCurrentDay = isToday(day);
+                        const divisionIndicators = getDivisionIndicatorsForDay(dayPerformances);
 
-                      <div className="rounded-lg border border-outline-variant/20 p-4 dark:border-gray-700">
-                        <p className="text-[11px] font-semibold uppercase tracking-wide text-on-surface-variant dark:text-gray-400">Assigned items</p>
-                        {selectedPerformance.performance_items?.length ? (
-                          <div className="mt-3 space-y-2">
-                            {groupItemsByType(selectedPerformance.performance_items).map((group) => (
-                              <div key={group.inventory_item_id} className="rounded-lg bg-surface-container-high/70 px-3 py-2 text-sm dark:bg-[#2a2a2a]">
-                                <p className="font-medium text-on-surface dark:text-white">{group.name}</p>
-                                <p className="text-xs text-on-surface-variant dark:text-gray-400">{group.units.length} unit{group.units.length !== 1 ? 's' : ''}</p>
+                        return (
+                          <div
+                            key={day}
+                            onClick={() => {
+                              setSelectedCalendarDayByView((prev) => ({ ...prev, [currentDivisionView]: day }));
+                              setSelectedDayFilterByView((prev) => ({ ...prev, [currentDivisionView]: day }));
+                              setSelectedPerformanceIdByView((prev) => ({ ...prev, [currentDivisionView]: null }));
+                              if (dayPerformances.length === 0) {
+                                openCreateFormWithDate(day);
+                              }
+                            }}
+                            className={`min-h-24 md:min-h-28 rounded-lg border-2 p-2 transition-all overflow-hidden ${
+                              isCurrentDay
+                                ? 'border-primary dark:border-blue-500 bg-primary/5 dark:bg-blue-900/20'
+                                : 'border-outline-variant/10 dark:border-gray-700/30 bg-surface-container-lowest dark:bg-[#1a1a1a]/50 hover:border-primary/50 dark:hover:border-blue-600/50'
+                            } ${dayPerformances.length === 0 ? 'cursor-pointer hover:bg-primary/10 dark:hover:bg-blue-900/30' : ''}`}
+                            title={dayPerformances.length === 0 ? 'Click to create performance' : ''}
+                          >
+                            <div className="mb-1 flex items-start justify-between gap-2">
+                              <div className={`text-xs font-bold ${isCurrentDay ? 'text-primary dark:text-blue-400' : 'text-on-surface-variant dark:text-gray-400'}`}>
+                                {day}
                               </div>
-                            ))}
+                              {divisionIndicators.length > 0 && (
+                                <div className="flex items-center gap-1">
+                                  {divisionIndicators.slice(0, 3).map((indicator) => (
+                                    <span
+                                      key={`${day}-${indicator.name}`}
+                                      className={`h-2.5 w-2.5 rounded-full ${indicator.style.dot}`}
+                                      title={indicator.name}
+                                    />
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+
+                            <div className="space-y-0.5 max-h-16 overflow-y-auto">
+                              {dayPerformances.slice(0, 3).map((perf, idx) => {
+                                const colors = getPerformanceChipStyles(perf);
+                                return (
+                                  <div
+                                    key={perf.id || idx}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      openPerformanceDetail(perf);
+                                    }}
+                                    className={`text-[10px] md:text-xs px-1.5 py-0.5 rounded border truncate ${colors.bg} ${colors.text} ${colors.border} border hover:shadow-md hover:scale-105 transition cursor-pointer font-medium`}
+                                    title={`${perf.title} (${dayjs(perf.start_time).format('h:mm A')} - ${dayjs(perf.end_time).format('h:mm A')})${perf.location ? ` @ ${perf.location}` : ''}`}
+                                  >
+                                    {perf.title} {dayjs(perf.start_time).format('h:mm A')}
+                                  </div>
+                                );
+                              })}
+
+                              {dayPerformances.length > 3 && (
+                                <div
+                                  className="text-[9px] text-on-surface-variant dark:text-gray-500 px-1.5 py-0.5 font-medium cursor-help"
+                                  title={`${dayPerformances.length - 3} more performance(s) not shown`}
+                                >
+                                  +{dayPerformances.length - 3} more
+                                </div>
+                              )}
+                            </div>
                           </div>
-                        ) : (
-                          <p className="mt-3 text-sm text-on-surface-variant dark:text-gray-400">No items assigned</p>
-                        )}
-                      </div>
+                        );
+                      })}
                     </div>
                   </div>
-                ) : (
-                  <div className="flex h-full min-h-[260px] items-center justify-center rounded-lg border border-dashed border-outline-variant/20 p-6 text-center text-sm text-on-surface-variant dark:border-gray-700 dark:text-gray-400">
-                    Select a performance from the list to view its full details.
-                  </div>
-                )}
+                </motion.div>
               </div>
+
+              {calendarExpanded && selectedPerformance ? (
+                <div className="rounded-2xl border border-outline-variant/20 bg-surface-container-low p-5 shadow-sm dark:border-gray-700 dark:bg-[#222]">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-on-surface-variant dark:text-gray-400">Selected schedule</p>
+                      <h3 className="mt-2 text-xl font-semibold text-on-surface dark:text-white">{selectedPerformance.title}</h3>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => openEditForm(selectedPerformance)}
+                      className="rounded-lg border border-outline-variant/20 p-2 text-on-surface-variant transition hover:bg-surface-container-high dark:border-gray-700 dark:text-gray-300"
+                      title="Edit"
+                    >
+                      <Edit className="h-4 w-4" />
+                    </button>
+                  </div>
+
+                  <div className="mt-4 grid gap-3 md:grid-cols-2">
+                    <div className="rounded-lg bg-surface-container-high/70 p-4 dark:bg-[#2a2a2a]">
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-on-surface-variant dark:text-gray-400">Date</p>
+                      <p className="mt-1 text-sm font-medium text-on-surface dark:text-white">{dayjs(selectedPerformance.start_time).format('MMMM D, YYYY')}</p>
+                    </div>
+                    <div className="rounded-lg bg-surface-container-high/70 p-4 dark:bg-[#2a2a2a]">
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-on-surface-variant dark:text-gray-400">Time</p>
+                      <p className="mt-1 text-sm font-medium text-on-surface dark:text-white">{dayjs(selectedPerformance.start_time).format('h:mm A')} - {dayjs(selectedPerformance.end_time).format('h:mm A')}</p>
+                    </div>
+                    <div className="rounded-lg bg-surface-container-high/70 p-4 dark:bg-[#2a2a2a]">
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-on-surface-variant dark:text-gray-400">Location</p>
+                      <p className="mt-1 text-sm font-medium text-on-surface dark:text-white">{selectedPerformance.location || 'Not specified'}</p>
+                    </div>
+                    <div className="rounded-lg bg-surface-container-high/70 p-4 dark:bg-[#2a2a2a]">
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-on-surface-variant dark:text-gray-400">Division</p>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {getPerformanceDivisionLabels(selectedPerformance).map((divisionName) => (
+                          <span key={`${selectedPerformance.id}-${divisionName}`} className={`rounded-full px-2 py-1 text-[11px] font-semibold ${getDivisionBadgeStyles(divisionName)}`}>
+                            {divisionName}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {selectedPerformance.description && (
+                    <div className="mt-4 rounded-lg border border-outline-variant/20 p-4 dark:border-gray-700">
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-on-surface-variant dark:text-gray-400">Description</p>
+                      <p className="mt-2 text-sm leading-6 text-on-surface dark:text-gray-300">{selectedPerformance.description}</p>
+                    </div>
+                  )}
+                </div>
+              ) : null}
             </div>
-          </motion.div>
+          </div>
         </div>
       </div>
 
