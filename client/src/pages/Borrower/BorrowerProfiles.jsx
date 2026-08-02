@@ -7,12 +7,12 @@ import {
   User,
   Download,
   Printer,
-  Search,
   Building,
   Mail,
   BadgeCheck,
   Camera,
   FileText,
+  ChevronRight,
 } from "lucide-react";
 import { UserContext } from "../../../context/userContext";
 import PageLayout from "../../components/layout/PageLayout";
@@ -47,7 +47,7 @@ function isOfficerPosition(positionName) {
 
 export default function BorrowerProfiles() {
   const { user } = useContext(UserContext);
-  const { selectedDivision, setSelectedDivision, globalSearchQuery } = useSidebarStore();
+  const { selectedDivision, globalSearchQuery } = useSidebarStore();
   const [profiles, setProfiles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedStatus, setSelectedStatus] = useState("ALL");
@@ -55,7 +55,7 @@ export default function BorrowerProfiles() {
   const [positions, setPositions] = useState([]);
   const [positionsLoading, setPositionsLoading] = useState(true);
   const [positionsError, setPositionsError] = useState(null);
-  const [positionFilters, setPositionFilters] = useState({});
+  
 
   useEffect(() => {
     const fetchProfiles = async () => {
@@ -93,21 +93,7 @@ export default function BorrowerProfiles() {
     fetchPositions();
   }, []);
 
-  const divisions = useMemo(() => {
-    return [...new Set(profiles.filter((p) => p.role !== "admin" && p.department_name).map((p) => p.department_name))].sort();
-  }, [profiles]);
-
-  useEffect(() => {
-    if (!divisions.length) {
-      setSelectedDivision("");
-      setSelectedBorrowerId(null);
-      return;
-    }
-
-    if (!selectedDivision || !divisions.includes(selectedDivision)) {
-      setSelectedDivision(divisions[0]);
-    }
-  }, [divisions, selectedDivision]);
+  // Use global `selectedDivision` from the navbar store. No local divisions list.
 
   const getCompletionStatus = (profile) => {
     const hasPhoto = !!profile.profile_pic_url;
@@ -126,7 +112,8 @@ export default function BorrowerProfiles() {
 
     return profiles.filter((profile) => {
       if (profile.role === "admin") return false;
-      if (selectedDivision && profile.department_name !== selectedDivision) return false;
+      // Treat the global filter value "All" (or falsy) as no-op
+      if (selectedDivision && selectedDivision !== "All" && profile.department_name !== selectedDivision) return false;
 
       const matchesSearch =
         !lowerQuery ||
@@ -257,12 +244,13 @@ export default function BorrowerProfiles() {
   return (
     <PageLayout>
       <div className="bg-[#f8fafc] dark:bg-[#171717] min-h-screen">
-        <div className="px-4 md:px-8 lg:px-12 pt-4">
+        <div className="px-2 md:px-4 lg:px-6 pt-4">
           <div className="max-w-7xl mx-auto">
 
-            <div className="mt-4 flex flex-col gap-4">
+            <div className="mt-4 flex items-center justify-between gap-4">
+              <div />
               <div className="flex items-center gap-3">
-                <label className="text-xs text-on-surface-variant dark:text-gray-400">Status</label>
+                <label className="text-xs text-on-surface-variant dark:text-gray-400 mr-2">Status</label>
                 <select
                   value={selectedStatus}
                   onChange={(e) => setSelectedStatus(e.target.value)}
@@ -275,35 +263,14 @@ export default function BorrowerProfiles() {
                   <option value="NO_PHOTO">⚪ No Photo ({statusCounts.NO_PHOTO})</option>
                 </select>
               </div>
-
-              {divisions.length > 0 && (
-                <div className="flex gap-5 overflow-x-auto pb-1 border-b border-outline-variant/20 dark:border-gray-700">
-                  {divisions.map((division) => (
-                    <button
-                      key={division}
-                      onClick={() => setSelectedDivision(division)}
-                      className={`text-sm whitespace-nowrap py-2 px-1 transition-colors ${
-                        selectedDivision === division
-                          ? "text-primary dark:text-blue-400 font-semibold border-b-2 border-primary/70 pb-[9px]"
-                          : "text-on-surface-variant dark:text-gray-400 hover:text-on-surface dark:hover:text-white"
-                      }`}
-                    >
-                      {division}
-                    </button>
-                  ))}
-                </div>
-              )}
             </div>
 
-            {!selectedDivision ? (
+            {filteredProfiles.length === 0 ? (
               <div className="py-20 text-center text-on-surface-variant dark:text-gray-400">
                 <Users className="w-12 h-12 mx-auto mb-3 opacity-60" />
-                <p>No division assigned yet.</p>
-              </div>
-            ) : filteredProfiles.length === 0 ? (
-              <div className="py-20 text-center text-on-surface-variant dark:text-gray-400">
-                <Users className="w-12 h-12 mx-auto mb-3 opacity-60" />
-                <p>No matching borrowers in {selectedDivision}.</p>
+                <p>
+                  No matching borrowers{selectedDivision && selectedDivision !== "All" ? ` in ${selectedDivision}.` : "."}
+                </p>
               </div>
             ) : (
               <div className="mt-6 grid grid-cols-1 xl:grid-cols-[420px_minmax(0,1fr)] gap-5">
@@ -317,11 +284,11 @@ export default function BorrowerProfiles() {
 
                       return (
                         <div key={key} className="space-y-2">
-                          <div className="flex items-center justify-between px-2 py-1.5">
-                            <h3 className="text-xs font-semibold uppercase tracking-[0.15em] text-on-surface-variant dark:text-gray-400">
+                          <div className="relative px-2 py-1.5">
+                            <h3 className="absolute inset-0 flex items-center justify-center text-xs font-semibold uppercase tracking-[0.15em] text-on-surface-variant dark:text-gray-400">
                               {label}
                             </h3>
-                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 dark:bg-blue-500/10 text-primary dark:text-blue-400">
+                            <span className="relative z-10 float-right text-[10px] px-2 py-0.5 rounded-full bg-primary/10 dark:bg-blue-500/10 text-primary dark:text-blue-400">
                               {items.length}
                             </span>
                           </div>
@@ -338,13 +305,13 @@ export default function BorrowerProfiles() {
                                 <button
                                   key={borrower.id}
                                   onClick={() => setSelectedBorrowerId(borrower.id)}
-                                  className={`w-full text-left rounded-xl border px-3 py-3 transition-all duration-200 ${
+                                  className={`w-full text-left rounded-xl border px-3 py-3 transition-all duration-200 flex items-center justify-between ${
                                     isSelected
                                       ? "border-primary/60 bg-primary/5 dark:bg-blue-500/10 shadow-sm"
                                       : "border-outline-variant/20 dark:border-gray-700 bg-surface-container-low dark:bg-[#222] hover:border-primary/30 hover:bg-surface-container-high dark:hover:bg-[#2a2a2a]"
                                   }`}
                                 >
-                                  <div className="flex items-center gap-3">
+                                  <div className="flex items-center gap-3 min-w-0 flex-1">
                                     <div className="w-10 h-10 rounded-full overflow-hidden border border-primary/20 dark:border-blue-500/30 bg-surface-container-high dark:bg-[#1f1f1f] flex-shrink-0">
                                       {borrower.profile_pic_url ? (
                                         <img src={borrower.profile_pic_url} alt={borrower.name} className="w-full h-full object-cover" />
@@ -361,6 +328,10 @@ export default function BorrowerProfiles() {
                                         {borrower.position_name || (key === "officers" ? "Officer" : "Member")}
                                       </p>
                                     </div>
+                                  </div>
+
+                                  <div className="ml-3 flex-shrink-0 text-on-surface-variant dark:text-gray-400">
+                                    <ChevronRight className="w-4 h-4" />
                                   </div>
                                 </button>
                               );
@@ -438,35 +409,23 @@ export default function BorrowerProfiles() {
                         ) : positionsError ? (
                           <p className="text-sm text-red-500">Failed to load positions</p>
                         ) : (
-                          <div className="flex flex-col md:flex-row md:items-center gap-3">
-                            <input
-                              type="text"
-                              placeholder="Filter positions..."
-                              value={positionFilters[selectedBorrower.id] || ""}
-                              onChange={(e) => setPositionFilters({ ...positionFilters, [selectedBorrower.id]: e.target.value })}
-                              className="text-sm px-3 py-2 rounded-lg bg-white dark:bg-[#1a1a1a] border border-outline-variant/20 dark:border-gray-700 w-full md:w-52"
-                            />
+                          <div className="flex items-center gap-3">
                             <select
                               value={selectedBorrower.position_id || ""}
                               onChange={(e) => handlePositionChange(selectedBorrower.id, e.target.value)}
-                              className="text-sm px-3 py-2 rounded-lg bg-white dark:bg-[#1a1a1a] border border-outline-variant/20 dark:border-gray-700 w-full md:flex-1"
+                              className="text-sm px-3 py-2 rounded-lg bg-white dark:bg-[#1a1a1a] border border-outline-variant/20 dark:border-gray-700 w-full"
                             >
-                              <option value="">(None)</option>
-                              {positions
-                                .filter((position) => {
-                                  const filterValue = (positionFilters[selectedBorrower.id] || "").trim().toLowerCase();
-                                  return !filterValue || position.name.toLowerCase().includes(filterValue);
-                                })
-                                .map((position) => (
-                                  <option key={position.id} value={position.id}>{position.name}</option>
-                                ))}
+                              <option value="">Assign this member</option>
+                              {positions.map((position) => (
+                                <option key={position.id} value={position.id}>{position.name}</option>
+                              ))}
                             </select>
                           </div>
                         )}
                       </div>
 
                       <div className="rounded-xl border border-outline-variant/20 dark:border-gray-700 bg-surface-container-low dark:bg-[#202020] p-4">
-                        <p className="text-sm font-semibold text-on-surface dark:text-white mb-4">Documents</p>
+                        <p className="text-sm font-semibold text-on-surface dark:text-white mb-4 text-center">Documents</p>
                         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
                           {renderDocumentCard("Profile Picture", selectedBorrower.profile_pic_url, handleDownload, handlePrint, selectedBorrower.name)}
                           {renderDocumentCard("Class Schedule", selectedBorrower.class_schedule_url, handleDownload, handlePrint, selectedBorrower.name, "Class-Schedule")}
@@ -517,17 +476,19 @@ function renderDocumentCard(title, url, onDownload, onPrint, borrowerName, docTy
           <div className="flex gap-2">
             <button
               onClick={() => onDownload(url, borrowerName, docType)}
-              className="flex-1 inline-flex items-center justify-center gap-1 rounded-lg bg-primary/10 dark:bg-blue-500/10 text-primary dark:text-blue-400 py-2 text-xs font-medium hover:bg-primary/20 dark:hover:bg-blue-500/20 transition"
+              title="Download"
+              aria-label={`Download ${title}`}
+              className="inline-flex items-center justify-center p-2 rounded-lg bg-primary/10 dark:bg-blue-500/10 text-primary dark:text-blue-400 hover:bg-primary/20 dark:hover:bg-blue-500/20 transition"
             >
-              <Download className="w-3.5 h-3.5" />
-              Download
+              <Download className="w-4 h-4" />
             </button>
             <button
               onClick={() => onPrint(url)}
-              className="flex-1 inline-flex items-center justify-center gap-1 rounded-lg bg-surface-container-high dark:bg-[#2b2b2b] text-on-surface dark:text-white py-2 text-xs font-medium hover:bg-surface-container-high/80 dark:hover:bg-[#303030] transition"
+              title="Print"
+              aria-label={`Print ${title}`}
+              className="inline-flex items-center justify-center p-2 rounded-lg bg-surface-container-high dark:bg-[#2b2b2b] text-on-surface dark:text-white hover:bg-surface-container-high/80 dark:hover:bg-[#303030] transition"
             >
-              <Printer className="w-3.5 h-3.5" />
-              Print
+              <Printer className="w-4 h-4" />
             </button>
           </div>
         </>
