@@ -235,7 +235,10 @@ export default function Announcements() {
         </select>
 
         {user?.role === 'staff' && (
-          <button onClick={openCreate} className="btn btn-primary inline-flex items-center py-2 text-sm">
+          <button
+            onClick={openCreate}
+            className="inline-flex items-center rounded-lg bg-primary px-3.5 py-2 text-sm font-semibold text-on-primary shadow-sm transition hover:bg-primary/90 active:translate-y-px dark:bg-blue-600 dark:hover:bg-blue-700"
+          >
             <Plus className="mr-2 h-4 w-4" />
             Create Announcement
           </button>
@@ -286,7 +289,7 @@ export default function Announcements() {
                   openDetails(it);
                 }
               }}
-              className="group relative z-0 overflow-visible rounded-xl border border-outline-variant/10 bg-surface-container-low p-2.5 shadow-sm transition hover:border-primary/30 hover:shadow-md dark:border-gray-700 dark:bg-[#222] md:grid-cols-[1.4fr_110px_90px_64px] md:grid"
+              className="group relative isolate z-0 overflow-visible rounded-xl border border-outline-variant/10 bg-surface-container-low p-2.5 shadow-sm transition hover:border-primary/30 hover:shadow-md dark:border-gray-700 dark:bg-[#222] md:grid-cols-[1.4fr_110px_90px_64px] md:grid"
             >
               <div className="flex items-start gap-2.5">
                 <div className="h-9 w-9 overflow-hidden rounded-lg bg-surface-container-high dark:bg-[#2a2a2a] flex-shrink-0">
@@ -327,7 +330,7 @@ export default function Announcements() {
                 >
                   {it.is_published ? 'Unpublish' : 'Publish'}
                 </button>
-                <div className="relative z-20" data-announcement-menu>
+                <div className="relative z-[70]" data-announcement-menu>
                   <button
                     type="button"
                     onClick={(event) => {
@@ -340,7 +343,7 @@ export default function Announcements() {
                     <MoreVertical className="h-4 w-4" />
                   </button>
                   {openMenuId === it.id && (
-                    <div className="absolute right-0 top-full z-50 mt-2 w-44 overflow-visible rounded-lg border border-outline-variant/20 bg-surface-container-low p-2 shadow-xl dark:border-gray-700 dark:bg-[#222]">
+                    <div className="absolute right-0 top-full z-[80] mt-2 w-44 overflow-visible rounded-lg border border-outline-variant/20 bg-surface-container-low p-2 shadow-xl dark:border-gray-700 dark:bg-[#222]">
                       <button
                         type="button"
                         onClick={(event) => { event.stopPropagation(); openEdit(it); setOpenMenuId(null); }}
@@ -423,23 +426,30 @@ export default function Announcements() {
               <X className="h-5 w-5" />
             </button>
 
-            <div className="px-6 py-6 text-center">
-              <h3 className="text-xl font-semibold text-on-surface dark:text-white">{selectedAnnouncement.title}</h3>
-              <div className="mt-2 text-sm text-on-surface-variant dark:text-gray-400">
+            <div className="px-5 pb-3 pt-5 text-center">
+              <h3 className="text-lg font-semibold text-on-surface dark:text-white">{selectedAnnouncement.title}</h3>
+              <div className="mt-1 text-sm text-on-surface-variant dark:text-gray-400">
                 <div>{formatLongDate(selectedAnnouncement.published_at || selectedAnnouncement.created_at)}</div>
-                <div className="mt-1">Published by {selectedAnnouncement.author?.name || 'Unknown'}</div>
+                <div className="mt-0.5">Published by {selectedAnnouncement.author?.name || 'Unknown'}</div>
               </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto px-6 pb-6">
-              {selectedAnnouncement.image_url && (
-                <div className="mb-5 flex justify-center rounded-xl border border-outline-variant/20 bg-surface-container-low p-3 dark:border-gray-700 dark:bg-[#2a2a2a]">
-                  <img src={selectedAnnouncement.image_url} alt={selectedAnnouncement.title} className="max-h-72 w-full max-w-[420px] rounded-lg object-contain" />
+            <div className="flex-1 overflow-y-auto px-6 pb-6 pt-2">
+              <div className="mx-auto max-w-2xl space-y-4">
+                <div className="rounded-xl border border-outline-variant/20 bg-surface-container-low p-4 dark:border-gray-700 dark:bg-[#2a2a2a]">
+                  <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-on-surface-variant dark:text-gray-400">
+                    Announcement Details
+                  </div>
+                  <div className="mt-3 whitespace-pre-wrap text-sm leading-7 text-on-surface dark:text-gray-300">
+                    {selectedAnnouncement.content || 'No description provided.'}
+                  </div>
                 </div>
-              )}
 
-              <div className="whitespace-pre-wrap text-sm leading-7 text-on-surface dark:text-gray-300">
-                {selectedAnnouncement.content || 'No description provided.'}
+                {selectedAnnouncement.image_url && (
+                  <div className="flex justify-center rounded-xl border border-outline-variant/20 bg-surface-container-low p-3 dark:border-gray-700 dark:bg-[#2a2a2a]">
+                    <img src={selectedAnnouncement.image_url} alt={selectedAnnouncement.title} className="max-h-72 w-full max-w-[420px] rounded-lg object-contain" />
+                  </div>
+                )}
               </div>
             </div>
           </div>
