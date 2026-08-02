@@ -306,50 +306,65 @@ export default function Announcements() {
                   </div>
                 </div>
 
-                <div className="relative shrink-0" data-announcement-menu>
+                <div className="flex items-center gap-2 shrink-0" data-announcement-menu>
                   <button
                     type="button"
                     onClick={(event) => {
                       event.stopPropagation();
-                      const rect = event.currentTarget.getBoundingClientRect();
-                      const left = Math.min(rect.right - 176, window.innerWidth - 192);
-                      setOpenMenuId(openMenuId === it.id ? null : it.id);
-                      setMenuPosition(openMenuId === it.id ? null : { top: rect.bottom + 8, left: Math.max(12, left) });
+                      togglePublish(it);
                     }}
-                    className="rounded-full p-2 text-on-surface-variant transition hover:bg-surface-container-high dark:text-gray-300 dark:hover:bg-[#2a2a2a]"
-                    title="More actions"
-                    data-announcement-menu-trigger
+                    disabled={processingId === it.id}
+                    className={`rounded-md px-2.5 py-1.5 text-xs font-semibold transition ${it.is_published ? 'bg-slate-200 text-slate-700 hover:bg-slate-300 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600' : 'bg-primary text-on-primary hover:bg-primary/90 dark:bg-blue-600 dark:hover:bg-blue-700'} ${processingId === it.id ? 'cursor-not-allowed opacity-70' : ''}`}
+                    title={it.is_published ? 'Unpublish announcement' : 'Publish announcement'}
                   >
-                    <MoreVertical className="h-4 w-4" />
+                    {it.is_published ? 'Unpublish' : 'Publish'}
                   </button>
-                  {openMenuId === it.id && menuPosition && (
-                    <div className="fixed z-[120] w-44 overflow-visible rounded-lg border border-outline-variant/20 bg-surface-container-low p-2 shadow-xl dark:border-gray-700 dark:bg-[#222]" style={{ top: `${menuPosition.top}px`, left: `${menuPosition.left}px` }}>
-                      <button
-                        type="button"
-                        onClick={(event) => { event.stopPropagation(); openEdit(it); setOpenMenuId(null); setMenuPosition(null); }}
-                        className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-on-surface-variant transition hover:bg-surface-container-high dark:hover:bg-[#2a2a2a]"
-                      >
-                        <Edit2 className="h-4 w-4" />
-                        Edit
-                      </button>
-                      <button
-                        type="button"
-                        onClick={(event) => { event.stopPropagation(); togglePin(it); setOpenMenuId(null); setMenuPosition(null); }}
-                        className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-on-surface-variant transition hover:bg-surface-container-high dark:hover:bg-[#2a2a2a]"
-                      >
-                        <Pin className="h-4 w-4" />
-                        {it.pinned ? 'Unpin' : 'Pin'}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={(event) => { event.stopPropagation(); removeItem(it.id); setOpenMenuId(null); setMenuPosition(null); }}
-                        className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-red-600 transition hover:bg-red-50 dark:hover:bg-[#3b1717]"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                        Delete
-                      </button>
-                    </div>
-                  )}
+
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        const rect = event.currentTarget.getBoundingClientRect();
+                        const left = Math.min(rect.right - 176, window.innerWidth - 192);
+                        const nextOpen = openMenuId === it.id ? null : it.id;
+                        setOpenMenuId(nextOpen);
+                        setMenuPosition(nextOpen ? { top: rect.bottom + 8, left: Math.max(12, left) } : null);
+                      }}
+                      className="rounded-full p-2 text-on-surface-variant transition hover:bg-surface-container-high dark:text-gray-300 dark:hover:bg-[#2a2a2a]"
+                      title="More actions"
+                    >
+                      <MoreVertical className="h-4 w-4" />
+                    </button>
+                    {openMenuId === it.id && menuPosition && (
+                      <div className="fixed z-[9999] w-44 overflow-visible rounded-lg border border-outline-variant/20 bg-surface-container-low p-2 shadow-xl dark:border-gray-700 dark:bg-[#222]" style={{ top: `${menuPosition.top}px`, left: `${menuPosition.left}px` }}>
+                        <button
+                          type="button"
+                          onClick={(event) => { event.stopPropagation(); openEdit(it); setOpenMenuId(null); setMenuPosition(null); }}
+                          className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-on-surface-variant transition hover:bg-surface-container-high dark:hover:bg-[#2a2a2a]"
+                        >
+                          <Edit2 className="h-4 w-4" />
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(event) => { event.stopPropagation(); togglePin(it); setOpenMenuId(null); setMenuPosition(null); }}
+                          className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-on-surface-variant transition hover:bg-surface-container-high dark:hover:bg-[#2a2a2a]"
+                        >
+                          <Pin className="h-4 w-4" />
+                          {it.pinned ? 'Unpin' : 'Pin'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(event) => { event.stopPropagation(); removeItem(it.id); setOpenMenuId(null); setMenuPosition(null); }}
+                          className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-red-600 transition hover:bg-red-50 dark:hover:bg-[#3b1717]"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          Delete
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             </motion.div>
