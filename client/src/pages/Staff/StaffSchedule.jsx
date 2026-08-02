@@ -831,24 +831,7 @@ export default function StaffSchedule() {
   return (
     <PageLayout>
       <div className="dark:bg-[#171717]">
-        <div className="px-6 md:px-8 lg:px-12 pt-6 pb-4 dark:bg-[#171717]">
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-outline-variant/20 bg-surface-container-low px-4 py-3 shadow-sm dark:border-gray-700 dark:bg-[#222]">
-            <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-on-surface-variant dark:text-gray-400">Performance schedules</p>
-              <p className="mt-1 text-sm text-on-surface dark:text-white">Filtered by the global division and search controls above.</p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setCalendarExpanded((prev) => !prev)}
-              className={`flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold transition-all ${calendarExpanded ? 'border-primary bg-primary/10 text-primary dark:border-blue-500 dark:bg-blue-900/30 dark:text-blue-300' : 'border-outline-variant/20 bg-surface-container-high text-on-surface-variant hover:bg-surface-container-high/80 dark:border-gray-700 dark:bg-[#2a2a2a] dark:text-gray-300'}`}
-            >
-              <CalendarIcon className="h-4 w-4" />
-              {calendarExpanded ? 'Hide calendar' : 'Show calendar'}
-            </button>
-          </div>
-        </div>
-
-        <div className="px-6 md:px-8 lg:px-12 pb-6 dark:bg-[#171717]">
+        <div className="px-6 md:px-8 lg:px-12 pb-6 pt-6 dark:bg-[#171717]">
           <div className="grid gap-4 xl:grid-cols-[minmax(0,0.42fr)_minmax(0,0.58fr)]">
             <div className="rounded-2xl border border-outline-variant/20 bg-surface-container-low p-3 shadow-sm dark:border-gray-700 dark:bg-[#222]">
               {loading ? (
@@ -890,21 +873,16 @@ export default function StaffSchedule() {
             </div>
 
             <div className="space-y-4">
-              <div className="rounded-2xl border border-outline-variant/20 bg-surface-container-low p-4 shadow-sm dark:border-gray-700 dark:bg-[#222]">
-                <div className="flex flex-wrap items-center justify-between gap-3 pb-3">
-                  <div>
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-on-surface-variant dark:text-gray-400">Calendar</p>
-                    <p className="mt-1 text-sm text-on-surface dark:text-white">{filteredPerformanceCount} schedule{filteredPerformanceCount === 1 ? '' : 's'} shown</p>
-                  </div>
+              <div className="rounded-2xl border border-outline-variant/20 bg-surface-container-low p-3 shadow-sm dark:border-gray-700 dark:bg-[#222]">
+                <div className="flex items-center justify-between gap-3 px-1 py-2">
+                  <h2 className="text-[11px] font-semibold uppercase tracking-[0.24em] text-on-surface-variant dark:text-gray-400">Calendar</h2>
                   <button
                     type="button"
-                    onClick={() => {
-                      setSelectedDayFilterByView((prev) => ({ ...prev, [currentDivisionView]: null }));
-                      setSelectedPerformanceIdByView((prev) => ({ ...prev, [currentDivisionView]: null }));
-                    }}
-                    className="rounded-lg border border-outline-variant/20 px-3 py-2 text-sm font-medium text-on-surface-variant transition hover:bg-surface-container-high dark:border-gray-700 dark:text-gray-300"
+                    onClick={() => setCalendarExpanded((prev) => !prev)}
+                    className={`flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm font-semibold transition-all ${calendarExpanded ? 'border-primary bg-primary/10 text-primary dark:border-blue-500 dark:bg-blue-900/30 dark:text-blue-300' : 'border-outline-variant/20 bg-surface-container-high text-on-surface-variant hover:bg-surface-container-high/80 dark:border-gray-700 dark:bg-[#2a2a2a] dark:text-gray-300'}`}
                   >
-                    Show All
+                    <CalendarIcon className="h-4 w-4" />
+                    {calendarExpanded ? 'Hide calendar' : 'Show calendar'}
                   </button>
                 </div>
 
