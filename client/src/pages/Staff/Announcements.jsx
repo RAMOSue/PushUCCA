@@ -7,20 +7,15 @@ import { useSidebarStore } from '../../../context/sidebarStore';
 import { motion } from 'framer-motion';
 import { Plus, Edit2, Trash2, Image as ImgIcon, Pin, MoreVertical, X } from 'lucide-react';
 
-function Badge({ children, color = 'gray' }) {
-  const bg = color === 'green' ? 'bg-green-100 text-green-800' : color === 'orange' ? 'bg-orange-100 text-orange-800' : 'bg-gray-100 text-gray-800';
-  return <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${bg}`}>{children}</span>;
-}
-
 export default function Announcements() {
   const { user } = useContext(UserContext);
   const { selectedDivision, globalSearchQuery } = useSidebarStore();
   const [loading, setLoading] = useState(false);
   const [items, setItems] = useState([]);
-  const [priorityFilter, setPriorityFilter] = useState('all');
   const activeDivision = selectedDivision || 'All';
   const [divisions, setDivisions] = useState([]);
   const [openMenuId, setOpenMenuId] = useState(null);
+  const [menuPosition, setMenuPosition] = useState(null);
   const [processingId, setProcessingId] = useState(null);
 
   // Composer state
@@ -83,11 +78,23 @@ export default function Announcements() {
     const handleClickOutside = (event) => {
       if (!event.target.closest('[data-announcement-menu]')) {
         setOpenMenuId(null);
+        setMenuPosition(null);
+      }
+    };
+
+    const handleEscape = (event) => {
+      if (event.key === 'Escape') {
+        setOpenMenuId(null);
+        setMenuPosition(null);
       }
     };
 
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleEscape);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleEscape);
+    };
   }, []);
 
   const activeDivisionId = useMemo(() => {
@@ -105,10 +112,9 @@ export default function Announcements() {
         if (!isGlobal && !matchesDivision) return false;
       }
       if (globalSearchQuery && !(it.title||'').toLowerCase().includes(globalSearchQuery.toLowerCase()) && !(it.content||'').toLowerCase().includes(globalSearchQuery.toLowerCase())) return false;
-      if (priorityFilter !== 'all' && it.priority !== priorityFilter) return false;
       return true;
     }).sort((a,b) => (b.pinned?1:0) - (a.pinned?1:0) || new Date(b.published_at || b.created_at) - new Date(a.published_at || a.created_at));
-  }, [items, globalSearchQuery, priorityFilter, activeDivision]);
+  }, [items, globalSearchQuery, activeDivision]);
 
   function openCreate() {
     setEditing(null);
@@ -226,14 +232,7 @@ export default function Announcements() {
 
   return (
     <PageLayout title="Announcements">
-      <div className="mb-3 flex items-center justify-end gap-2 rounded-xl border border-outline-variant/20 bg-surface-container-low p-2.5 shadow-sm dark:border-gray-700 dark:bg-[#222]">
-        <select value={priorityFilter} onChange={(e) => setPriorityFilter(e.target.value)} className="select py-2 text-sm">
-          <option value="all">All priorities</option>
-          <option value="Normal">Normal</option>
-          <option value="Important">Important</option>
-          <option value="Urgent">Urgent</option>
-        </select>
-
+      <div className="mb-3 flex items-center justify-end rounded-xl border border-outline-variant/20 bg-surface-container-low p-2.5 shadow-sm dark:border-gray-700 dark:bg-[#222]">
         {user?.role === 'staff' && (
           <button
             onClick={openCreate}
@@ -246,13 +245,6 @@ export default function Announcements() {
       </div>
 
       <div className="space-y-3">
-        <div className="hidden grid-cols-[1.8fr_120px_100px_100px_160px] gap-4 rounded-t-lg border border-outline-variant/20 bg-surface-container-low px-4 py-3 text-xs uppercase tracking-[0.12em] text-on-surface-variant md:grid">
-          <div>Announcement</div>
-          <div>Division</div>
-          <div>Priority</div>
-          <div>Status</div>
-          <div className="text-right">Actions</div>
-        </div>
 
         {loading && (
           <div className="space-y-3">
@@ -289,64 +281,52 @@ export default function Announcements() {
                   openDetails(it);
                 }
               }}
-              className="group relative isolate z-0 overflow-visible rounded-xl border border-outline-variant/10 bg-surface-container-low p-2.5 shadow-sm transition hover:border-primary/30 hover:shadow-md dark:border-gray-700 dark:bg-[#222] md:grid-cols-[1.4fr_110px_90px_64px] md:grid"
+              className="group relative isolate z-0 overflow-visible rounded-xl border border-outline-variant/10 bg-surface-container-low p-2.5 shadow-sm transition hover:border-primary/30 hover:shadow-md dark:border-gray-700 dark:bg-[#222]"
             >
-              <div className="flex items-start gap-2.5">
-                <div className="h-9 w-9 overflow-hidden rounded-lg bg-surface-container-high dark:bg-[#2a2a2a] flex-shrink-0">
-                  {it.author?.profile_pic_url ? (
-                    <img src={it.author.profile_pic_url} alt={it.author?.name} className="h-full w-full object-cover" />
-                  ) : it.image_url ? (
-                    <img src={it.image_url} alt={it.title} className="h-full w-full object-cover" />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center text-on-surface-variant"><ImgIcon className="w-3.5 h-3.5"/></div>
-                  )}
-                </div>
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <p className="truncate font-semibold text-on-surface">{it.title}</p>
-                    {it.pinned && <Pin className="h-3 w-3 text-amber-500" />}
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex min-w-0 items-start gap-2.5">
+                  <div className="h-9 w-9 overflow-hidden rounded-lg bg-surface-container-high dark:bg-[#2a2a2a] flex-shrink-0">
+                    {it.author?.profile_pic_url ? (
+                      <img src={it.author.profile_pic_url} alt={it.author?.name} className="h-full w-full object-cover" />
+                    ) : it.image_url ? (
+                      <img src={it.image_url} alt={it.title} className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center text-on-surface-variant"><ImgIcon className="w-3.5 h-3.5"/></div>
+                    )}
                   </div>
-                  <p className="mt-1 text-sm leading-5 text-on-surface-variant line-clamp-2">{getPreviewText(it.content)}</p>
-                  <div className="mt-1 text-[11px] text-on-surface-variant">
-                    by {it.author?.name || 'Unknown'} • {formatLongDate(it.published_at || it.created_at)}
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="truncate font-semibold text-on-surface">{it.title}</p>
+                      {it.pinned && <Pin className="h-3 w-3 text-amber-500" />}
+                    </div>
+                    <p className="mt-1 text-sm leading-5 text-on-surface-variant line-clamp-2">{getPreviewText(it.content)}</p>
+                    <div className="mt-1 text-[11px] text-on-surface-variant">
+                      {formatLongDate(it.published_at || it.created_at)} • by {it.author?.name || 'Unknown'}
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              <div className="mt-2 text-sm text-on-surface md:mt-0">{it.division_name || 'Unassigned'}</div>
-              <div className="mt-2 md:mt-0">
-                {it.priority === 'Urgent' ? <Badge color="orange">Urgent</Badge> : it.priority === 'Important' ? <Badge color="orange">Important</Badge> : <Badge>{it.priority || 'Normal'}</Badge>}
-              </div>
-              <div className="mt-2 flex items-center justify-end gap-2 md:mt-0">
-                <button
-                  type="button"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    togglePublish(it);
-                  }}
-                  disabled={processingId === it.id}
-                  className={`btn btn-sm ${it.is_published ? 'btn-secondary' : 'btn-primary'} ${processingId === it.id ? 'opacity-70 cursor-not-allowed' : ''}`}
-                  title={it.is_published ? 'Unpublish announcement' : 'Publish announcement'}
-                >
-                  {it.is_published ? 'Unpublish' : 'Publish'}
-                </button>
-                <div className="relative z-[70]" data-announcement-menu>
+                <div className="relative shrink-0" data-announcement-menu>
                   <button
                     type="button"
                     onClick={(event) => {
                       event.stopPropagation();
+                      const rect = event.currentTarget.getBoundingClientRect();
+                      const left = Math.min(rect.right - 176, window.innerWidth - 192);
                       setOpenMenuId(openMenuId === it.id ? null : it.id);
+                      setMenuPosition(openMenuId === it.id ? null : { top: rect.bottom + 8, left: Math.max(12, left) });
                     }}
-                    className="btn btn-ghost btn-sm p-2"
+                    className="rounded-full p-2 text-on-surface-variant transition hover:bg-surface-container-high dark:text-gray-300 dark:hover:bg-[#2a2a2a]"
                     title="More actions"
+                    data-announcement-menu-trigger
                   >
                     <MoreVertical className="h-4 w-4" />
                   </button>
-                  {openMenuId === it.id && (
-                    <div className="absolute right-0 top-full z-[80] mt-2 w-44 overflow-visible rounded-lg border border-outline-variant/20 bg-surface-container-low p-2 shadow-xl dark:border-gray-700 dark:bg-[#222]">
+                  {openMenuId === it.id && menuPosition && (
+                    <div className="fixed z-[120] w-44 overflow-visible rounded-lg border border-outline-variant/20 bg-surface-container-low p-2 shadow-xl dark:border-gray-700 dark:bg-[#222]" style={{ top: `${menuPosition.top}px`, left: `${menuPosition.left}px` }}>
                       <button
                         type="button"
-                        onClick={(event) => { event.stopPropagation(); openEdit(it); setOpenMenuId(null); }}
+                        onClick={(event) => { event.stopPropagation(); openEdit(it); setOpenMenuId(null); setMenuPosition(null); }}
                         className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-on-surface-variant transition hover:bg-surface-container-high dark:hover:bg-[#2a2a2a]"
                       >
                         <Edit2 className="h-4 w-4" />
@@ -354,7 +334,7 @@ export default function Announcements() {
                       </button>
                       <button
                         type="button"
-                        onClick={(event) => { event.stopPropagation(); togglePin(it); setOpenMenuId(null); }}
+                        onClick={(event) => { event.stopPropagation(); togglePin(it); setOpenMenuId(null); setMenuPosition(null); }}
                         className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-on-surface-variant transition hover:bg-surface-container-high dark:hover:bg-[#2a2a2a]"
                       >
                         <Pin className="h-4 w-4" />
@@ -362,7 +342,7 @@ export default function Announcements() {
                       </button>
                       <button
                         type="button"
-                        onClick={(event) => { event.stopPropagation(); removeItem(it.id); setOpenMenuId(null); }}
+                        onClick={(event) => { event.stopPropagation(); removeItem(it.id); setOpenMenuId(null); setMenuPosition(null); }}
                         className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-red-600 transition hover:bg-red-50 dark:hover:bg-[#3b1717]"
                       >
                         <Trash2 className="h-4 w-4" />
