@@ -70,25 +70,25 @@ export default function StaffBorrowTimeline() {
         dotColor: "#f59e0b",
       },
       approved: {
-        label: "Approved",
-        title: "Approved",
-        description: "Ready for handoff",
-        badgeClass: "bg-sky-500/15 text-sky-700 dark:text-sky-300",
-        dotColor: "#3b82f6",
+        label: "In Use",
+        title: "In Use",
+        description: "Currently borrowed",
+        badgeClass: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300",
+        dotColor: "#22c55e",
       },
       pending_return: {
         label: "Pending Return",
         title: "Pending Return",
-        description: "Awaiting return confirmation",
-        badgeClass: "bg-violet-500/15 text-violet-700 dark:text-violet-300",
-        dotColor: "#8b5cf6",
+        description: "Awaiting return verification",
+        badgeClass: "bg-amber-500/15 text-amber-700 dark:text-amber-300",
+        dotColor: "#f59e0b",
       },
       returned: {
-        label: "Completed",
+        label: "Returned",
         title: "Returned",
         description: "Return completed",
-        badgeClass: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300",
-        dotColor: "#22c55e",
+        badgeClass: "bg-sky-500/15 text-sky-700 dark:text-sky-300",
+        dotColor: "#3b82f6",
       },
       declined: {
         label: "Declined",
@@ -180,30 +180,20 @@ export default function StaffBorrowTimeline() {
 
   const groupAndSortRequests = (filtered) => {
     const columns = [
-      { key: "pending", title: "Pending", description: "Awaiting approval", badgeClass: "bg-amber-500/15 text-amber-700 dark:text-amber-300", dotColor: "#f59e0b", requests: [] },
-      { key: "approved", title: "Approved", description: "Ready for release", badgeClass: "bg-sky-500/15 text-sky-700 dark:text-sky-300", dotColor: "#3b82f6", requests: [] },
-      { key: "pending_return", title: "Pending Return", description: "Awaiting confirmation", badgeClass: "bg-violet-500/15 text-violet-700 dark:text-violet-300", dotColor: "#8b5cf6", requests: [] },
-      { key: "returned", title: "Returned", description: "Completed borrows", badgeClass: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300", dotColor: "#22c55e", requests: [] },
-      { key: "declined", title: "Declined", description: "Rejected requests", badgeClass: "bg-rose-500/15 text-rose-700 dark:text-rose-300", dotColor: "#dc2626", requests: [] },
+      { key: "approved", title: "In Use", description: "Currently borrowed", badgeClass: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300", dotColor: "#22c55e", requests: [] },
+      { key: "pending_return", title: "Pending Return", description: "Awaiting return verification", badgeClass: "bg-amber-500/15 text-amber-700 dark:text-amber-300", dotColor: "#f59e0b", requests: [] },
+      { key: "returned", title: "Returned", description: "Return completed", badgeClass: "bg-sky-500/15 text-sky-700 dark:text-sky-300", dotColor: "#3b82f6", requests: [] },
     ]
 
     const columnMap = new Map(columns.map((column) => [column.key, column]))
 
     for (const req of filtered) {
-      const isDeclinedReq = isDeclined(req)
-
-      if (req.status === "declined" || isDeclinedReq) {
-        columnMap.get("declined").requests.push(req)
-      } else if (req.status === "pending") {
-        columnMap.get("pending").requests.push(req)
-      } else if (req.status === "approved") {
+      if (req.status === "approved") {
         columnMap.get("approved").requests.push(req)
       } else if (req.status === "pending_return") {
         columnMap.get("pending_return").requests.push(req)
       } else if (req.status === "returned") {
         columnMap.get("returned").requests.push(req)
-      } else {
-        columnMap.get("pending").requests.push(req)
       }
     }
 
@@ -459,12 +449,10 @@ export default function StaffBorrowTimeline() {
                 >
                   <div className="px-3 py-2 space-y-1">
                     {[
-                      { value: "all", label: "All", count: requests.length },
-                      { value: "pending", label: "Pending", count: requests.filter((r) => r.status === "pending").length },
-                      { value: "approved", label: "Approved", count: requests.filter((r) => r.status === "approved").length },
-                      { value: "pending_return", label: "Pending Review", count: requests.filter((r) => r.status === "pending_return").length },
+                      { value: "all", label: "All", count: requests.filter((r) => ["approved", "pending_return", "returned"].includes(r.status)).length },
+                      { value: "approved", label: "In Use", count: requests.filter((r) => r.status === "approved").length },
+                      { value: "pending_return", label: "Pending Return", count: requests.filter((r) => r.status === "pending_return").length },
                       { value: "returned", label: "Returned", count: requests.filter((r) => r.status === "returned").length },
-                      { value: "declined", label: "Declined", count: requests.filter((r) => r.status === "declined").length },
                     ].map((option) => (
                       <label
                         key={option.value}

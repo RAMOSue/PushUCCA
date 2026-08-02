@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Camera, X, Check, RotateCcw, Loader, AlertCircle, Plus, Trash2, RefreshCw } from "lucide-react";
+import { Camera, X, Check, RotateCcw, Loader, AlertCircle, Plus, Trash2 } from "lucide-react";
 import axios from "axios";
 import toast from "react-hot-toast";
 
@@ -25,20 +25,17 @@ export default function StaffReturnPhotoCaptureModal({
   const [photos, setPhotos] = useState([]);
   const [cameraActive, setCameraActive] = useState(true);
   const [error, setError] = useState("");
-  const [cameraDevices, setCameraDevices] = useState([]);
   const [activeCameraId, setActiveCameraId] = useState(null);
   const [isFlipped, setIsFlipped] = useState(false);
   const [isInitializing, setIsInitializing] = useState(false);
 
-  // Get available cameras
+  // Choose the best default camera and mirror preview automatically for front-facing cameras
   useEffect(() => {
     const getCameras = async () => {
       try {
         const devices = await navigator.mediaDevices.enumerateDevices();
         const videoDevices = devices.filter((d) => d.kind === "videoinput");
-        setCameraDevices(videoDevices);
-        
-        // Prefer back camera first
+
         let preferredCamera = videoDevices.find((d) => /back|rear|environment/i.test(d.label));
         if (!preferredCamera) {
           preferredCamera = videoDevices.find((d) => /front|user|facing/i.test(d.label));
@@ -46,9 +43,10 @@ export default function StaffReturnPhotoCaptureModal({
         if (!preferredCamera && videoDevices.length > 0) {
           preferredCamera = videoDevices[0];
         }
-        
+
         if (preferredCamera) {
           setActiveCameraId(preferredCamera.deviceId);
+          setIsFlipped(/front|user|facing/i.test(preferredCamera.label));
         }
       } catch (err) {
         console.error("Error enumerating cameras:", err);
@@ -148,19 +146,6 @@ export default function StaffReturnPhotoCaptureModal({
     };
   }, [isOpen, cameraActive, activeCameraId]);
 
-  const switchCamera = async () => {
-    if (cameraDevices.length <= 1) return;
-
-    const currentIndex = cameraDevices.findIndex(
-      (d) => d.deviceId === activeCameraId
-    );
-    const nextIndex = (currentIndex + 1) % cameraDevices.length;
-    const nextDeviceId = cameraDevices[nextIndex].deviceId;
-
-    setActiveCameraId(nextDeviceId);
-    setIsFlipped(false); // Reset flip when switching
-    toast.success(`📷 Switched to: ${cameraDevices[nextIndex].label}`);
-  };
 
   const capturePhoto = () => {
     if (!videoRef.current || !canvasRef.current || !isCameraReady) return;
@@ -261,24 +246,8 @@ export default function StaffReturnPhotoCaptureModal({
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg max-w-2xl w-full max-h-screen overflow-y-auto shadow-2xl">
-        {/* Header */}
-        <div className="sticky top-0 bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-4 flex items-center justify-between">
-          <div>
-            <h2 className="text-xl font-bold">Capture Return Photos</h2>
-            <p className="text-sm text-blue-100 mt-1">
-              📸 {borrowerName} • {itemCount} item(s) • {photos.length} photo(s)
-            </p>
-          </div>
-          <button
-            onClick={onClose}
-            disabled={isSubmitting}
-            className="p-1 hover:bg-white/20 rounded-full transition disabled:opacity-50"
-          >
-            <X size={24} />
-          </button>
-        </div>
-
-        {/* Main Content */}
+        <div className="p-0">
+          {/* Main Content */}
         <div className="p-6 space-y-4">
           {/* Camera or Preview */}
           {cameraActive && !capturedPhoto ? (
@@ -316,36 +285,15 @@ export default function StaffReturnPhotoCaptureModal({
                 </div>
               )}
 
-              {/* Camera Controls */}
-              <div className="flex gap-2">
-                {cameraDevices.length > 1 && (
-                  <button
-                    onClick={switchCamera}
-                    disabled={!isCameraReady || isInitializing}
-                    className="flex-1 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 text-white py-2 rounded-lg font-medium transition flex items-center justify-center gap-2"
-                  >
-                    <RefreshCw size={18} />
-                    Switch Camera
-                  </button>
-                )}
-                
-                <button
-                  onClick={() => setIsFlipped(!isFlipped)}
-                  disabled={!isCameraReady || isInitializing}
-                  className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white py-2 rounded-lg font-medium transition flex items-center justify-center gap-2"
-                >
-                  <RefreshCw size={18} />
-                  Mirror
-                </button>
-              </div>
-
               <button
                 onClick={capturePhoto}
                 disabled={!isCameraReady || isInitializing}
-                className="w-full bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white py-3 rounded-lg font-medium transition flex items-center justify-center gap-2"
+                className="mx-auto mt-4 w-16 h-16 rounded-full bg-white/95 border-4 border-white shadow-xl flex items-center justify-center transition hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+                aria-label="Capture photo"
               >
-                <Camera size={20} />
-                Capture Photo
+                <span className="w-10 h-10 rounded-full bg-red-600 flex items-center justify-center text-white">
+                  <Camera className="w-5 h-5" />
+                </span>
               </button>
             </div>
           ) : capturedPhoto ? (
