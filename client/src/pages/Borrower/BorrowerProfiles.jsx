@@ -244,26 +244,8 @@ export default function BorrowerProfiles() {
   return (
     <PageLayout>
       <div className="bg-[#f8fafc] dark:bg-[#171717] min-h-screen">
-        <div className="px-2 md:px-4 lg:px-6 pt-4">
+        <div className="px-2 md:px-4 lg:px-6 pt-2">
           <div className="w-full">
-
-            <div className="mt-4 flex items-center justify-between gap-4">
-              <div />
-              <div className="flex items-center gap-3">
-                <label className="text-xs text-on-surface-variant dark:text-gray-400 mr-2">Status</label>
-                <select
-                  value={selectedStatus}
-                  onChange={(e) => setSelectedStatus(e.target.value)}
-                  className="text-sm px-3 py-1.5 rounded-lg bg-surface-container-low dark:bg-[#222] border border-outline-variant/20 dark:border-gray-700 text-on-surface dark:text-white"
-                >
-                  <option value="ALL">All</option>
-                  <option value="COMPLETE">✅ Complete ({statusCounts.COMPLETE})</option>
-                  <option value="MISSING_DOCS">🟡 Missing Documents ({statusCounts.MISSING_DOCS})</option>
-                  <option value="PARTIAL">🟠 Partial ({statusCounts.PARTIAL})</option>
-                  <option value="NO_PHOTO">⚪ No Photo ({statusCounts.NO_PHOTO})</option>
-                </select>
-              </div>
-            </div>
 
             {filteredProfiles.length === 0 ? (
               <div className="py-20 text-center text-on-surface-variant dark:text-gray-400">
@@ -275,7 +257,27 @@ export default function BorrowerProfiles() {
             ) : (
               <div className="mt-6 grid grid-cols-1 xl:grid-cols-[420px_minmax(0,1fr)] gap-5">
                 <aside className="bg-white dark:bg-[#1b1b1b] rounded-2xl border border-outline-variant/20 dark:border-gray-700 shadow-sm overflow-hidden">
-                  <div className="max-h-[75vh] overflow-y-auto p-3 space-y-5">
+                  <div className="max-h-[75vh] overflow-y-auto p-3">
+                    <div className="flex items-center justify-between px-2 pb-3">
+                      <div className="text-xs font-semibold text-on-surface-variant dark:text-gray-400">
+                        {filteredProfiles.length} Members
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <label className="sr-only">Status</label>
+                        <select
+                          value={selectedStatus}
+                          onChange={(e) => setSelectedStatus(e.target.value)}
+                          className="text-sm px-3 py-1.5 rounded-lg bg-surface-container-low dark:bg-[#222] border border-outline-variant/20 dark:border-gray-700 text-on-surface dark:text-white"
+                        >
+                          <option value="ALL">All</option>
+                          <option value="COMPLETE">✅ Complete ({statusCounts.COMPLETE})</option>
+                          <option value="MISSING_DOCS">🟡 Missing Documents ({statusCounts.MISSING_DOCS})</option>
+                          <option value="PARTIAL">🟠 Partial ({statusCounts.PARTIAL})</option>
+                          <option value="NO_PHOTO">⚪ No Photo ({statusCounts.NO_PHOTO})</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div className="space-y-5">
                     {[
                       { key: "officers", label: "Officers" },
                       { key: "members", label: "Members" },
@@ -340,6 +342,7 @@ export default function BorrowerProfiles() {
                         </div>
                       );
                     })}
+                  </div>
                   </div>
                 </aside>
 
