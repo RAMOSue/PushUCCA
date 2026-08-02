@@ -918,10 +918,10 @@ export default function ScanQR() {
       `}</style>
 
       {/* Mobile-First Layout: Vertical Stack on Mobile, Horizontal on Desktop */}
-      <div className="min-h-screen flex flex-col lg:flex-row bg-white gap-0 lg:gap-4 p-0 lg:p-4">
+      <div className="h-screen flex flex-col lg:flex-row bg-white gap-0 lg:gap-4 p-0 lg:p-4 overflow-hidden">
         
         {/* SCANNER SECTION - Full width on mobile, 2/3 on desktop */}
-        <div className="w-full lg:w-2/3 flex flex-col gap-0 lg:gap-4 h-screen lg:h-auto p-0 lg:p-0" style={{ maxHeight: "100vh" }}>
+        <div className="w-full lg:w-2/3 flex flex-col gap-0 lg:gap-4 flex-1 p-0 lg:p-0 overflow-hidden">
           
           {/* Mobile Header - Black and White, Compact */}
           <div className="lg:hidden flex items-center justify-between bg-black rounded-none px-3 py-2 flex-shrink-0">
@@ -940,7 +940,7 @@ export default function ScanQR() {
           </div>
 
           {/* Camera Container - Maintains square aspect ratio */}
-          <div className="bg-black rounded-none lg:rounded-lg flex-1 relative overflow-hidden shadow-lg min-h-64 lg:min-h-0" style={{ aspectRatio: "1", minHeight: "min(100vw, 500px)" }}>
+          <div className="bg-black rounded-none lg:rounded-lg flex-1 relative overflow-hidden shadow-lg">
             
             {/* QR Scanner */}
             <div
@@ -969,41 +969,7 @@ export default function ScanQR() {
               <span>Align QR</span>
             </div>
 
-            {/* Camera Controls - Black and White, Minimal Icons */}
-            <div className="absolute bottom-2 lg:bottom-4 left-1/2 transform -translate-x-1/2 flex gap-1 lg:gap-2 bg-black/70 backdrop-blur-sm rounded-lg px-2 lg:px-3 py-1.5 lg:py-2">
-              <button
-                onClick={() => {
-                  setIsFlipped(!isFlipped);
-                  toast.success(!isFlipped ? "Flipped" : "Normal");
-                }}
-                className="bg-black border border-white text-white p-1.5 lg:p-2 rounded transition hover:bg-gray-800"
-                title="Flip"
-              >
-                <RefreshCw size={14} />
-              </button>
-
-              {cameraDevices.length > 1 && (
-                <button
-                  onClick={handleSwitchCamera}
-                  className="bg-black border border-white text-white p-1.5 lg:p-2 rounded transition hover:bg-gray-800"
-                  title="Switch"
-                >
-                  <Camera size={14} />
-                </button>
-              )}
-
-              <button
-                onClick={() => setAiAssistEnabled(!aiAssistEnabled)}
-                className={`text-white p-1.5 lg:p-2 rounded transition text-xs font-bold border ${
-                  aiAssistEnabled
-                    ? "bg-black border-white text-white hover:bg-gray-800"
-                    : "bg-gray-700 border-gray-600 text-gray-300 hover:bg-gray-600"
-                }`}
-                title="AI"
-              >
-                ⚡
-              </button>
-            </div>
+            {/* Camera controls removed (Flip, Switch Camera, AI) to simplify UI. */}
 
             {/* Scan Flash Effect */}
             {scanFlash && (
