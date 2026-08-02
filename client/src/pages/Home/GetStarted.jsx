@@ -1,11 +1,11 @@
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useContext, useEffect, useState } from "react";
 import { UserContext } from "../../../context/userContext";
 import { LoginModalContext } from "../../../context/LoginModalContext";
 import { motion, AnimatePresence } from "framer-motion";
 import axios from "axios";
 import { toast } from "react-hot-toast";
-import { Eye, EyeOff, AlertCircle, ChevronLeft, ChevronRight, Menu, X as XIcon } from "lucide-react";
+import { Eye, EyeOff, AlertCircle, X as XIcon } from "lucide-react";
 
 // Material Symbols Icon Component
 const MaterialIcon = ({ icon, className = "" }) => (
@@ -98,9 +98,7 @@ export default function GetStarted() {
 	const [slideImages, setSlideImages] = useState([]);
 	const [currentSlide, setCurrentSlide] = useState(0);
 	const [slideshowLoading, setSlideshowLoading] = useState(true);
-	const [showDropdown, setShowDropdown] = useState(false);
-	
-	// ✅ SEARCH & FILTERS
+
 	const [searchTerm, setSearchTerm] = useState("");
 	const [selectedFilters, setSelectedFilters] = useState({
 		culture: "all",
@@ -315,21 +313,12 @@ export default function GetStarted() {
 		if (slideImages.length === 0) return;
 		const interval = setInterval(() => {
 			setCurrentSlide((prev) => (prev + 1) % slideImages.length);
-		}, 8000);
+		}, 10000);
 		return () => clearInterval(interval);
 	}, [slideImages]);
 
-	// ✅ SLIDESHOW: Navigation handlers
-	const goToSlide = (index) => {
-		setCurrentSlide(index % slideImages.length);
-	};
-
-	const nextSlide = () => {
-		goToSlide(currentSlide + 1);
-	};
-
-	const prevSlide = () => {
-		goToSlide(currentSlide - 1 >= 0 ? currentSlide - 1 : slideImages.length - 1);
+	const scrollToSection = (sectionId) => {
+		document.getElementById(sectionId)?.scrollIntoView({ behavior: "smooth", block: "start" });
 	};
 
 	// ✅ SECURITY: Rate limiting for login
@@ -577,40 +566,29 @@ export default function GetStarted() {
 			<FullScreenWipe isActive={isWiping} duration={wipeDuration} />
 
 	{/* ✅ NAVIGATION BAR */}
-			<nav className="bg-white shadow-2xl z-30 sticky top-0 w-full border-b-2 border-[#004d1a]/10">
-				<div className="w-full px-4 md:px-12 py-3 md:py-4 flex items-center justify-between">
-					<div className="flex items-center gap-2 md:gap-3 cursor-pointer" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
-						<MaterialIcon icon="music_note" className="text-[#003300] text-xl md:text-2xl" />
-						<span className="font-headline font-bold text-[#003300] text-sm md:text-lg">UCCA</span>
-						<span className="hidden sm:inline font-headline font-bold text-[#003300] text-sm md:text-lg ml-1">Heritage Center</span>
-					</div>
+<nav className="sticky top-0 z-40 w-full bg-[#001800] backdrop-blur-xl bg-opacity-95 border-b-4 border-[#FBBC38] shadow-[0_20px_50px_rgba(0,24,0,0.25)]">
+		<div className="max-w-7xl mx-auto px-4 md:px-6 py-3 md:py-4 flex items-center justify-between gap-4">
+			<div className="flex items-center gap-3 cursor-pointer" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
+				<MaterialIcon icon="music_note" className="text-[#92D6A2] text-2xl md:text-3xl" />
+				<div>
+					<p className="text-xs sm:text-sm md:text-base uppercase tracking-[0.35em] font-black text-[#C8EDBA]">CSU Heritage</p>
+					<p className="text-[10px] sm:text-[11px] md:text-[12px] uppercase tracking-[0.35em] text-[#92D6A2]/80">Heritage Center</p>
+				</div>
+			</div>
 
-					<div className="flex-1" />
+			<div className="hidden md:flex items-center gap-6 text-sm text-[#C8EDBA]/90">
+				<button onClick={() => scrollToSection('about')} className="hover:text-white transition">About</button>
+				<button onClick={() => scrollToSection('collections')} className="hover:text-white transition">Collections</button>
+				<button onClick={() => scrollToSection('how')} className="hover:text-white transition">How It Works</button>
+				<button onClick={() => scrollToSection('mission')} className="hover:text-white transition">Mission</button>
+			</div>
 
-					<div className="relative group">
-						<button
-							onMouseEnter={() => setShowDropdown(true)}
-							onMouseLeave={() => setShowDropdown(false)}
-							className="px-3 md:px-6 py-2 text-[#003300] font-semibold hover:text-[#004d1a] transition-colors flex items-center gap-1 md:gap-2 text-sm md:text-base"
-						>
-							About Us
-							<MaterialIcon icon={showDropdown ? "expand_less" : "expand_more"} className="text-base md:text-lg" />
-						</button>
-						{showDropdown && (
-							<motion.div
-								initial={{ opacity: 0, y: -10 }}
-								animate={{ opacity: 1, y: 0 }}
-								exit={{ opacity: 0, y: -10 }}
-								onMouseEnter={() => setShowDropdown(true)}
-								onMouseLeave={() => setShowDropdown(false)}
-								className="absolute right-0 mt-2 w-48 bg-white shadow-xl rounded-lg overflow-hidden"
-							>
-								<button className="block w-full text-left px-4 py-3 text-[#003300] hover:bg-[#003300]/5 transition">About Our Center</button>
-								<button className="block w-full text-left px-4 py-3 text-[#003300] hover:bg-[#003300]/5 transition">Our Mission</button>
-								<button className="block w-full text-left px-4 py-3 text-[#003300] hover:bg-[#003300]/5 transition">Contact Us</button>
-							</motion.div>
-						)}
-					</div>
+			<button
+				onClick={() => setShowLoginModal(true)}
+				className="px-4 py-2 rounded-lg border border-[#FBBC38] text-[#FBBC38] hover:bg-[#FBBC38]/15 transition"
+			>
+				Log In
+			</button>
 				</div>
 			</nav>
 
@@ -618,125 +596,53 @@ export default function GetStarted() {
 			{/* SECTION 1: ENHANCED HERO - CULTURAL NARRATIVES */}
 			{/* ============================================ */}
 			{slideImages.length > 0 ? (
-				<Section className="relative w-full h-[300px] sm:h-[400px] md:h-[500px] lg:h-[600px] overflow-hidden bg-[#003300]">
-					{/* Slides Container */}
+				<Section className="relative w-full h-[320px] sm:h-[460px] md:h-[560px] lg:h-[660px] overflow-hidden bg-[#001800]">
+					<AnimatePresence mode="wait">
+						<motion.img
+							key={slideImages[currentSlide]?.id ?? currentSlide}
+							src={slideImages[currentSlide]?.imageUrl}
+							alt={slideImages[currentSlide]?.title || "Heritage slideshow"}
+							className="absolute inset-0 h-full w-full object-cover"
+							initial={{ opacity: 0, x: 30 }}
+							animate={{ opacity: 1, x: 0 }}
+							exit={{ opacity: 0, x: -30 }}
+							transition={{ duration: 1.4, ease: "easeInOut" }}
+						/>
+					</AnimatePresence>
+
+					<div className="absolute inset-0 bg-black/45" />
+
 					<motion.div
-						className="flex h-full"
-						animate={{ x: "-100%" }}
-						initial={{ x: 0 }}
-						transition={{ duration: 0.8, ease: "easeInOut" }}
-						key={`slide-${currentSlide}`}
-					>
-						{/* Previous Slide */}
-						<div className="w-full h-full flex-shrink-0 overflow-hidden">
-							<img
-								src={slideImages[(currentSlide - 1 + slideImages.length) % slideImages.length]?.imageUrl}
-								alt="Previous"
-								className="w-full h-full object-cover"
-							/>
-						</div>
-
-						{/* Current Slide */}
-						<div className="w-full h-full flex-shrink-0 overflow-hidden relative">
-							<img
-								src={slideImages[currentSlide]?.imageUrl}
-								alt="Current"
-								className="w-full h-full object-cover"
-							/>
-							{/* Dark overlay for text contrast */}
-							<div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/30 to-transparent" />
-						</div>
-
-						{/* Next Slide */}
-						<div className="w-full h-full flex-shrink-0 overflow-hidden">
-							<img
-								src={slideImages[(currentSlide + 1) % slideImages.length]?.imageUrl}
-								alt="Next"
-								className="w-full h-full object-cover"
-							/>
-						</div>
-					</motion.div>
-
-					{/* Text Overlay - Centered */}
-					<motion.div
-						className="absolute inset-0 flex flex-col items-center justify-center z-20 px-4"
+						className="absolute inset-0 flex flex-col justify-center items-start px-6 sm:px-10 md:px-14 lg:px-20 z-20"
 						initial={{ opacity: 0, y: 20 }}
-						whileInView={{ opacity: 1, y: 0 }}
-						transition={{ duration: 0.8 }}
-						viewport={{ once: false }}
+						animate={{ opacity: 1, y: 0 }}
+						transition={{ duration: 0.9, ease: "easeOut" }}
 					>
-						<motion.h1
-							className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-headline font-bold text-white text-center mb-2 md:mb-4"
-							variants={itemVariants}
-						>
-							Preserve. Explore. Borrow.
-						</motion.h1>
-						<motion.p
-							className="text-sm sm:text-base md:text-lg lg:text-xl text-white/90 text-center mb-6 md:mb-8 max-w-2xl"
-							variants={itemVariants}
-						>
-							Cultural Costumes, Instruments, and Heritage Collections
-						</motion.p>
-						<motion.div
-							className="flex flex-col sm:flex-row gap-3 md:gap-4"
-							variants={containerVariants}
-						>
-							<motion.button
+						<p className="uppercase tracking-[0.35em] text-[#92D6A2] text-xs sm:text-sm font-semibold mb-4">
+							Caraga State University Heritage Center
+						</p>
+						<h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-headline font-bold text-white leading-tight max-w-3xl mb-6">
+							Preserve and borrow Filipino heritage with confidence.
+						</h1>
+						<p className="max-w-2xl text-sm sm:text-base md:text-lg text-white/85 mb-8">
+							Reserve authentic cultural attire, instruments, and artifacts for university performances, research, and community celebrations.
+						</p>
+						<div className="flex flex-col sm:flex-row gap-4">
+							<button
 								onClick={() => setShowLoginModal(true)}
-								whileHover={{ scale: 1.05 }}
-								whileTap={{ scale: 0.95 }}
-								className="px-6 sm:px-8 py-2 sm:py-3 bg-[#92D6A2] hover:bg-[#ADF2BC] text-[#003300] font-bold text-sm sm:text-base rounded-lg transition-all"
-								variants={itemVariants}
+								className="inline-flex items-center justify-center px-6 py-3 rounded-full bg-[#FBBC38] text-[#001800] font-semibold shadow-lg shadow-[#001800]/20 hover:bg-[#f9d86f] transition"
 							>
-								Explore Collection
-							</motion.button>
-							<motion.button
-								onClick={() => {
-									const aboutSection = document.querySelector('[data-section="about"]');
-									aboutSection?.scrollIntoView({ behavior: 'smooth' });
-								}}
-								whileHover={{ scale: 1.05 }}
-								whileTap={{ scale: 0.95 }}
-								className="px-6 sm:px-8 py-2 sm:py-3 border-2 border-white hover:bg-white/10 text-white font-bold text-sm sm:text-base rounded-lg transition-all"
-								variants={itemVariants}
+								Explore Collections
+							</button>
+							<button
+								onClick={() => scrollToSection("how")}
+								className="inline-flex items-center justify-center px-6 py-3 rounded-full border border-white/30 text-white hover:border-white hover:bg-white/10 transition"
 							>
-								Learn More
-							</motion.button>
-						</motion.div>
+								How It Works
+							</button>
+						</div>
 					</motion.div>
 
-					{/* Navigation Buttons */}
-					<motion.button
-						whileHover={{ scale: 1.1 }}
-						whileTap={{ scale: 0.95 }}
-						onClick={prevSlide}
-						className="absolute left-3 md:left-6 top-1/2 transform -translate-y-1/2 bg-white/30 hover:bg-white/50 text-white p-2 md:p-3 rounded-full z-10"
-					>
-						<ChevronLeft className="w-4 h-4 md:w-6 md:h-6" />
-					</motion.button>
-
-					<motion.button
-						whileHover={{ scale: 1.1 }}
-						whileTap={{ scale: 0.95 }}
-						onClick={nextSlide}
-						className="absolute right-3 md:right-6 top-1/2 transform -translate-y-1/2 bg-white/30 hover:bg-white/50 text-white p-2 md:p-3 rounded-full z-10"
-					>
-						<ChevronRight className="w-4 h-4 md:w-6 md:h-6" />
-					</motion.button>
-
-					{/* Slide Indicators */}
-					<div className="absolute bottom-3 md:bottom-6 left-1/2 transform -translate-x-1/2 flex gap-2 md:gap-3 z-10">
-						{slideImages.map((_, index) => (
-							<motion.button
-								key={index}
-								onClick={() => goToSlide(index)}
-								whileHover={{ scale: 1.2 }}
-								className={`h-2 rounded-full transition-all ${
-									index === currentSlide ? "bg-white w-6 md:w-8" : "bg-white/50 w-2"
-								}`}
-							/>
-						))}
-					</div>
 				</Section>
 			) : (
 				<div className="relative w-full h-[300px] sm:h-[400px] md:h-[500px] lg:h-[600px] bg-gradient-to-b from-[#013300] to-[#003300] flex items-center justify-center">
@@ -750,7 +656,7 @@ export default function GetStarted() {
 			{/* ============================================ */}
 			{/* SECTION 2: ABOUT UCCA */}
 			{/* ============================================ */}
-			<Section className="py-12 md:py-20 px-3 sm:px-4 md:px-6 bg-white" data-section="about">
+			<Section id="about" className="py-12 md:py-20 px-3 sm:px-4 md:px-6 bg-white" data-section="about">
 				<div className="max-w-4xl mx-auto">
 					<motion.div
 						className="text-center mb-6 md:mb-10"
@@ -1056,7 +962,7 @@ export default function GetStarted() {
 			{/* ============================================ */}
 			{/* SECTION 4: EXPLORE CULTURE CARDS */}
 			{/* ============================================ */}
-			<Section className="py-12 md:py-24 px-3 sm:px-4 md:px-6 bg-white">
+			<Section id="collections" className="py-12 md:py-24 px-3 sm:px-4 md:px-6 bg-white">
 				<div className="max-w-6xl mx-auto">
 					<motion.div
 						className="text-center mb-3 md:mb-4"
@@ -1109,7 +1015,7 @@ export default function GetStarted() {
 			{/* ============================================ */}
 			{/* SECTION 5: HOW IT WORKS */}
 			{/* ============================================ */}
-			<Section className="py-12 md:py-24 px-3 sm:px-4 md:px-6 bg-gradient-to-b from-white to-[#003300]/5">
+			<Section id="how" className="py-12 md:py-24 px-3 sm:px-4 md:px-6 bg-gradient-to-b from-white to-[#003300]/5">
 				<div className="max-w-6xl mx-auto">
 					<motion.div
 						className="text-center mb-3 md:mb-4"
@@ -1174,7 +1080,7 @@ export default function GetStarted() {
 			{/* ============================================ */}
 			{/* SECTION 10: WHY IT MATTERS (CTA) */}
 			{/* ============================================ */}
-			<Section className="py-12 md:py-32 px-3 sm:px-4 md:px-6 bg-gradient-to-r from-[#004d1a] via-[#003300] to-[#002108] text-white">
+			<Section id="mission" className="py-12 md:py-32 px-3 sm:px-4 md:px-6 bg-gradient-to-r from-[#004d1a] via-[#003300] to-[#002108] text-white">
 				<div className="max-w-4xl mx-auto text-center">
 					<motion.span
 						className="text-[#92D6A2] font-bold uppercase tracking-widest text-xs md:text-sm"
