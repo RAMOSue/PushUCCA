@@ -245,7 +245,7 @@ export default function BorrowerProfiles() {
     <PageLayout>
       <div className="bg-[#f8fafc] dark:bg-[#171717] min-h-screen">
         <div className="px-2 md:px-4 lg:px-6 pt-4">
-          <div className="max-w-7xl mx-auto">
+          <div className="w-full">
 
             <div className="mt-4 flex items-center justify-between gap-4">
               <div />
@@ -415,7 +415,7 @@ export default function BorrowerProfiles() {
                               onChange={(e) => handlePositionChange(selectedBorrower.id, e.target.value)}
                               className="text-sm px-3 py-2 rounded-lg bg-white dark:bg-[#1a1a1a] border border-outline-variant/20 dark:border-gray-700 w-full"
                             >
-                              <option value="">Assign this member</option>
+                              <option value="">Assign Member</option>
                               {positions.map((position) => (
                                 <option key={position.id} value={position.id}>{position.name}</option>
                               ))}
