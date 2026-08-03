@@ -999,7 +999,7 @@ export default function GetStarted() {
 					<div className="max-w-md ml-0 md:ml-[180px] mx-auto md:mx-0">
 						<div className="bg-white rounded-2xl p-6 sm:p-8 border border-gray-200">
 							<div className="text-center mb-6 sm:mb-8">
-							<h1 className="text-xl sm:text-2xl md:text-4xl font-bold text-gray-900 mb-2">Welcome Back</h1>
+							<h1 className="text-xl sm:text-2xl md:text-4xl font-bold text-gray-900 mb-2">Madiyaw!</h1>
 							</div>
 
 							{isLoginLocked && (
