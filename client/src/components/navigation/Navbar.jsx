@@ -17,6 +17,14 @@ const MaterialIcon = ({ icon, className = "" }) => (
   <span className={`material-symbols-outlined ${className}`} data-icon={icon}>{icon}</span>
 );
 
+const PublicBrand = () => (
+  <div className="flex items-center leading-none text-[20px] font-black tracking-[-0.08em] sm:text-[22px]">
+    <span className="text-[#004aad]">Du</span>
+    <span className="text-[#ffbd59]">Bud</span>
+    <span className="text-[#ff3131]">Ka</span>
+  </div>
+);
+
 function GlobalSearchBar({ value, onChange, onClear, placeholder = "Search" }) {
   return (
     <div className="relative flex items-center h-full min-w-0 flex-1 max-w-xs">
@@ -167,19 +175,14 @@ export default function Navbar() {
   // Show loading navbar while checking authentication
   if (loading) {
     return (
-      <header className="w-full bg-[#001800] dark:bg-[#171717] backdrop-blur-xl bg-opacity-95 dark:bg-opacity-95 z-50 border-b-4 border-[#FBBC38] dark:border-[#2a2a2a] shadow-[0_20px_50px_rgba(0,24,0,0.3)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.5)] h-16 transition-colors duration-300">
-        <div className="flex items-center justify-between px-6 py-0 w-full h-full max-w-full">
-          <div className="flex items-center gap-6">
-            <button className="text-[#92D6A2] dark:text-gray-300 hover:scale-95 duration-150 transition-all">
-              <MaterialIcon icon="menu" className="text-2xl" />
-            </button>
-            <div className="text-xl font-black tracking-tighter text-[#C8EDBA] dark:text-white font-headline uppercase">
-              Golden Padlers
-            </div>
+      <header className="sticky top-0 z-40 border-b border-slate-200 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.04)] transition-all duration-300 ease-in-out h-14 sm:h-16">
+        <div className="flex h-full w-full items-center justify-between gap-3 px-3 py-3 sm:px-4 sm:py-4 md:px-6">
+          <div className="flex min-w-0 items-center gap-3">
+            <PublicBrand />
           </div>
           <div className="flex items-center gap-2">
-            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-[#92D6A2] dark:border-blue-400"></div>
-            <span className="text-[#C8EDBA] dark:text-gray-400 opacity-60 text-sm">Loading...</span>
+            <div className="h-4 w-4 animate-spin rounded-full border-b-2 border-[#004aad]"></div>
+            <span className="text-sm text-slate-500">Loading...</span>
           </div>
         </div>
       </header>
@@ -189,22 +192,15 @@ export default function Navbar() {
   // Professional header for unauthenticated users (GetStarted page)
   if (!user) {
     return (
-      <header className="sticky top-0 bg-[#001800] dark:bg-[#171717] backdrop-blur-xl bg-opacity-95 dark:bg-opacity-95 z-40 border-b-4 border-[#FBBC38] dark:border-[#2a2a2a] shadow-[0_20px_50px_rgba(0,24,0,0.3)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.5)] h-14 sm:h-16 transition-colors duration-300">
-        <div className="flex items-center justify-between px-3 sm:px-4 md:px-6 lg:px-8 py-0 w-full h-full max-w-full gap-2 sm:gap-4 md:gap-6">
-          {/* Leading: Logo */}
-          <div className="flex items-center gap-2 sm:gap-3 md:gap-6">
-            <button className="text-[#92D6A2] dark:text-gray-300 hover:scale-95 duration-150 transition-all">
-              <MaterialIcon icon="menu" className="text-xl sm:text-2xl md:text-2xl" />
-            </button>
-            <div className="text-xs sm:text-sm md:text-xl lg:text-xl font-black tracking-tighter text-[#C8EDBA] dark:text-white font-headline uppercase truncate">
-              Golden Padlers
-            </div>
+      <header className="sticky top-0 z-40 border-b border-slate-200 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.04)] transition-all duration-300 ease-in-out h-14 sm:h-16">
+        <div className="flex h-full w-full items-center justify-between gap-3 px-3 py-3 sm:px-4 sm:py-4 md:px-6">
+          <div className="flex min-w-0 items-center">
+            <PublicBrand />
           </div>
 
-          {/* Log In Button - Right aligned */}
           <button
             onClick={openLoginModal}
-            className="text-[#FBBC38] dark:text-blue-400 font-headline font-bold uppercase text-xs sm:text-sm md:text-sm lg:text-sm tracking-widest hover:text-[#92D6A2] dark:hover:text-blue-300 transition-all duration-300 whitespace-nowrap"
+            className="inline-flex h-10 items-center justify-center rounded-full border border-slate-200 bg-[#004aad] px-4 text-sm font-semibold text-white shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:bg-[#003c92] hover:shadow-md sm:h-11 sm:px-5"
           >
             Log In
           </button>
