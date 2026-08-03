@@ -550,7 +550,7 @@ export default function GetStarted() {
 						transition={{ duration: 0.9, ease: "easeOut" }}
 					>
 						<p className="uppercase tracking-[0.35em] text-[#92D6A2] text-xs sm:text-sm font-semibold mb-4">
-							University Center for Culture and the Arts
+							Sa Sining Nagapadayon ang Tingog sa Kaliwatan.
 						</p>
 						<h1 className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl xl:text-[6rem] font-black leading-[0.9] tracking-[-0.04em] text-white mb-6 max-w-3xl font-headline">
 							<span className="text-[#004aad]">Du</span>
@@ -558,7 +558,7 @@ export default function GetStarted() {
 							<span className="text-[#ff3131]">Ka</span>
 						</h1>
 						<p className="max-w-2xl text-sm sm:text-base md:text-lg text-white/85 mb-8">
-							Sa Sining Nagapadayon ang Tingog sa Kaliwatan.
+							Through Art, Culture continues across Generations.
 						</p>
 						<div className="flex flex-col sm:flex-row gap-4">
 							<button
@@ -571,7 +571,7 @@ export default function GetStarted() {
 								onClick={() => scrollToSection("about")}
 								className="inline-flex items-center justify-center px-6 py-3 rounded-full border border-white/30 text-white hover:border-white hover:bg-white/10 transition"
 							>
-								Ilhon Ta
+								Ilahon Ta
 							</button>
 						</div>
 					</motion.div>
@@ -599,7 +599,7 @@ export default function GetStarted() {
 						viewport={{ once: true }}
 					>
 						<h2 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-headline font-bold text-[#003300] mb-3">
-							Ilhon Ta
+							About Us
 						</h2>
 						<p className="text-sm sm:text-base md:text-lg text-stone-600">
 							University Center of Culture and the Arts
@@ -999,7 +999,7 @@ export default function GetStarted() {
 					<div className="max-w-md ml-0 md:ml-[180px] mx-auto md:mx-0">
 						<div className="bg-white rounded-2xl p-6 sm:p-8 border border-gray-200">
 							<div className="text-center mb-6 sm:mb-8">
-							<h1 className="text-xl sm:text-2xl md:text-4xl font-bold text-gray-900 mb-2">Welcome Back</h1>
+							<h1 className="text-xl sm:text-2xl md:text-4xl font-bold text-gray-900 mb-2">Madiyaw!</h1>
 							</div>
 
 							{isLoginLocked && (

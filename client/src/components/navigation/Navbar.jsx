@@ -22,7 +22,7 @@ const PublicBrand = () => (
   <div className="flex items-center gap-3">
     <img src={Logo} alt="CSU Logo" className="h-12 w-auto object-contain" />
     <div className="leading-tight">
-      <p className="text-base sm:text-lg font-thin text-black">Caraga State University</p>
+      <p className="text-base sm:text-lg font-thick text-black">Caraga State University</p>
       <p className="text-xs sm:text-sm font-thin text-black">University Center for Culture and the Arts</p>
     </div>
   </div>
