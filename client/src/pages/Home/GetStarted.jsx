@@ -549,16 +549,16 @@ export default function GetStarted() {
 						animate={{ opacity: 1, y: 0 }}
 						transition={{ duration: 0.9, ease: "easeOut" }}
 					>
-						<p className="uppercase tracking-[0.35em] text-[#92D6A2] text-xs sm:text-sm font-semibold mb-4">
-							Sa Sining Nagapadayon ang Tingog sa Kaliwatan.
-						</p>
 						<h1 className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl xl:text-[6rem] font-black leading-[0.9] tracking-[-0.04em] text-white mb-6 max-w-3xl font-headline">
 							<span className="text-[#004aad]">Du</span>
 							<span className="text-[#ffbd59]">Bud</span>
 							<span className="text-[#ff3131]">Ka</span>
 						</h1>
+						<p className="uppercase tracking-[0.35em] text-[#92D6A2] text-xs sm:text-sm font-semibold mb-4">
+							Sa Sining Nagapadayon ang Tingog sa Kaliwatan.
+						</p>
 						<p className="max-w-2xl text-sm sm:text-base md:text-lg text-white/85 mb-8">
-							Through Art, Culture continues across Generations.
+							Through Art, Culture Continues Across Generations.
 						</p>
 						<div className="flex flex-col sm:flex-row gap-4">
 							<button
@@ -664,14 +664,14 @@ export default function GetStarted() {
 						whileInView="visible"
 						viewport={{ once: true }}
 					>
-						<p className="text-[#004d1a] font-bold text-xs uppercase tracking-wider mb-1 md:mb-2">Cultural Excellence</p>
+						
 						<h2 className="text-xl sm:text-2xl md:text-4xl lg:text-5xl font-headline font-bold text-[#003300]">
-							Our Cultural Departments
+							UCCA Departments
 						</h2>
 					</motion.div>
 
 					<p className="text-center text-stone-600 mb-8 md:mb-16 text-xs sm:text-sm md:text-base lg:text-lg max-w-2xl mx-auto px-2">
-						Discover our cultural divisions working to preserve traditions and celebrate identity.
+						Every department is a living expression of art, preserving traditions and revealing the beauty of our culture.
 					</p>
 
 					<div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-8">
