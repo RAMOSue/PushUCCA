@@ -550,26 +550,28 @@ export default function GetStarted() {
 						transition={{ duration: 0.9, ease: "easeOut" }}
 					>
 						<p className="uppercase tracking-[0.35em] text-[#92D6A2] text-xs sm:text-sm font-semibold mb-4">
-							Caraga State University Heritage Center
+							University Center for Culture and the Arts
 						</p>
-						<h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-headline font-bold text-white leading-tight max-w-3xl mb-6">
-							Preserve and borrow Filipino heritage with confidence.
+						<h1 className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl xl:text-[6rem] font-black leading-[0.9] tracking-[-0.04em] text-white mb-6 max-w-3xl font-headline">
+							<span className="text-[#004aad]">Du</span>
+							<span className="text-[#ffbd59]">Bud</span>
+							<span className="text-[#ff3131]">Ka</span>
 						</h1>
 						<p className="max-w-2xl text-sm sm:text-base md:text-lg text-white/85 mb-8">
-							Reserve authentic cultural attire, instruments, and artifacts for university performances, research, and community celebrations.
+							Sa Sining Nagapadayon ang Tingog sa Kaliwatan.
 						</p>
 						<div className="flex flex-col sm:flex-row gap-4">
 							<button
 								onClick={() => setShowLoginModal(true)}
 								className="inline-flex items-center justify-center px-6 py-3 rounded-full bg-[#FBBC38] text-[#001800] font-semibold shadow-lg shadow-[#001800]/20 hover:bg-[#f9d86f] transition"
 							>
-								Explore Collections
+								Sugdan Ta
 							</button>
 							<button
 								onClick={() => scrollToSection("about")}
 								className="inline-flex items-center justify-center px-6 py-3 rounded-full border border-white/30 text-white hover:border-white hover:bg-white/10 transition"
 							>
-								About UCCA
+								Ilhon Ta
 							</button>
 						</div>
 					</motion.div>
@@ -597,7 +599,7 @@ export default function GetStarted() {
 						viewport={{ once: true }}
 					>
 						<h2 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-headline font-bold text-[#003300] mb-3">
-							About UCCA
+							Ilhon Ta
 						</h2>
 						<p className="text-sm sm:text-base md:text-lg text-stone-600">
 							University Center of Culture and the Arts
@@ -1121,7 +1123,7 @@ export default function GetStarted() {
 									onClick={switchToRegister}
 									className="text-[#004d1a] font-semibold hover:text-[#003d15] transition"
 								>
-									Create one here
+									Create Account
 								</button>
 							</p>
 						</div>
