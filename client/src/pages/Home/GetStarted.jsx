@@ -230,27 +230,6 @@ export default function GetStarted() {
 		},
 	];
 
-	const exploreCultureCards = [
-		{
-			icon: "checkroom",
-			title: "Costumes",
-			description: "Browse traditional cultural attire",
-			gradient: "from-purple-500 to-pink-500"
-		},
-		{
-			icon: "library_music",
-			title: "Instruments",
-			description: "Discover indigenous musical instruments",
-			gradient: "from-blue-500 to-cyan-500"
-		},
-		{
-			icon: "auto_stories",
-			title: "Cultural Stories",
-			description: "Learn the history behind cultural traditions",
-			gradient: "from-green-500 to-emerald-500"
-		}
-	];
-
 	const testimonials = [
 		{
 			text: "Using the kulintang made our performance authentic and meaningful.",
@@ -266,27 +245,6 @@ export default function GetStarted() {
 			text: "The costumes brought our cultural celebration to life.",
 			author: "Rosa Garcia",
 			role: "Event Organizer"
-		}
-	];
-
-	const howItWorks = [
-		{
-			step: 1,
-			icon: "explore",
-			title: "Explore Culture",
-			description: "Discover cultural artifacts and their stories"
-		},
-		{
-			step: 2,
-			icon: "auto_stories",
-			title: "Learn the Story",
-			description: "Understand the heritage and traditions behind each item"
-		},
-		{
-			step: 3,
-			icon: "card_giftcard",
-			title: "Borrow & Experience",
-			description: "Use authentic items in your cultural events"
 		}
 	];
 
@@ -565,33 +523,6 @@ export default function GetStarted() {
 			{/* ============================================ */}
 			<FullScreenWipe isActive={isWiping} duration={wipeDuration} />
 
-	{/* ✅ NAVIGATION BAR */}
-<nav className="sticky top-0 z-40 w-full bg-[#001800] backdrop-blur-xl bg-opacity-95 border-b-4 border-[#FBBC38] shadow-[0_20px_50px_rgba(0,24,0,0.25)]">
-		<div className="max-w-7xl mx-auto px-4 md:px-6 py-3 md:py-4 flex items-center justify-between gap-4">
-			<div className="flex items-center gap-3 cursor-pointer" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
-				<MaterialIcon icon="music_note" className="text-[#92D6A2] text-2xl md:text-3xl" />
-				<div>
-					<p className="text-xs sm:text-sm md:text-base uppercase tracking-[0.35em] font-black text-[#C8EDBA]">CSU Heritage</p>
-					<p className="text-[10px] sm:text-[11px] md:text-[12px] uppercase tracking-[0.35em] text-[#92D6A2]/80">Heritage Center</p>
-				</div>
-			</div>
-
-			<div className="hidden md:flex items-center gap-6 text-sm text-[#C8EDBA]/90">
-				<button onClick={() => scrollToSection('about')} className="hover:text-white transition">About</button>
-				<button onClick={() => scrollToSection('collections')} className="hover:text-white transition">Collections</button>
-				<button onClick={() => scrollToSection('how')} className="hover:text-white transition">How It Works</button>
-				<button onClick={() => scrollToSection('mission')} className="hover:text-white transition">Mission</button>
-			</div>
-
-			<button
-				onClick={() => setShowLoginModal(true)}
-				className="px-4 py-2 rounded-lg border border-[#FBBC38] text-[#FBBC38] hover:bg-[#FBBC38]/15 transition"
-			>
-				Log In
-			</button>
-				</div>
-			</nav>
-
 			{/* ============================================ */}
 			{/* SECTION 1: ENHANCED HERO - CULTURAL NARRATIVES */}
 			{/* ============================================ */}
@@ -635,10 +566,10 @@ export default function GetStarted() {
 								Explore Collections
 							</button>
 							<button
-								onClick={() => scrollToSection("how")}
+								onClick={() => scrollToSection("about")}
 								className="inline-flex items-center justify-center px-6 py-3 rounded-full border border-white/30 text-white hover:border-white hover:bg-white/10 transition"
 							>
-								How It Works
+								About UCCA
 							</button>
 						</div>
 					</motion.div>
@@ -956,124 +887,6 @@ export default function GetStarted() {
 							</motion.div>
 						)}
 					</AnimatePresence>
-				</div>
-			</Section>
-
-			{/* ============================================ */}
-			{/* SECTION 4: EXPLORE CULTURE CARDS */}
-			{/* ============================================ */}
-			<Section id="collections" className="py-12 md:py-24 px-3 sm:px-4 md:px-6 bg-white">
-				<div className="max-w-6xl mx-auto">
-					<motion.div
-						className="text-center mb-3 md:mb-4"
-						variants={slideInVariants}
-						initial="hidden"
-						whileInView="visible"
-						viewport={{ once: true }}
-					>
-						<p className="text-[#004d1a] font-bold text-xs uppercase tracking-wider mb-1 md:mb-2">Start Your Journey</p>
-						<h2 className="text-xl sm:text-2xl md:text-4xl lg:text-5xl font-headline font-bold text-[#003300] mb-3 md:mb-6">
-							Explore Our Collections
-						</h2>
-					</motion.div>
-
-					<motion.p
-						className="text-center text-stone-600 mb-8 md:mb-16 text-xs sm:text-sm md:text-lg lg:text-xl max-w-2xl mx-auto px-2"
-						variants={slideInVariants}
-						initial="hidden"
-						whileInView="visible"
-						viewport={{ once: true }}
-					>
-						Discover the richness of Filipino heritage and traditions
-					</motion.p>
-
-					<motion.div
-						className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-8"
-						variants={containerVariants}
-						initial="hidden"
-						whileInView="visible"
-						viewport={{ once: true }}
-					>
-						{exploreCultureCards.map((card, idx) => (
-							<motion.div
-								key={idx}
-								variants={itemVariants}
-								whileHover={{ y: -10, boxShadow: "0 20px 40px rgba(0,51,0,0.15)" }}
-								className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg sm:rounded-xl p-4 sm:p-6 md:p-6 cursor-pointer overflow-hidden group border border-gray-200"
-							>
-								<div className={`bg-gradient-to-br ${card.gradient} rounded-lg p-3 md:p-4 mb-3 md:mb-4 w-fit group-hover:scale-110 transition-transform duration-300`}>
-									<MaterialIcon icon={card.icon} className="text-white text-lg sm:text-2xl md:text-3xl" />
-								</div>
-								<h3 className="text-base sm:text-lg md:text-xl font-bold text-[#003300] mb-1 md:mb-2">{card.title}</h3>
-								<p className="text-stone-600 text-xs sm:text-sm md:text-sm">{card.description}</p>
-							</motion.div>
-						))}
-					</motion.div>
-				</div>
-			</Section>
-
-			{/* ============================================ */}
-			{/* SECTION 5: HOW IT WORKS */}
-			{/* ============================================ */}
-			<Section id="how" className="py-12 md:py-24 px-3 sm:px-4 md:px-6 bg-gradient-to-b from-white to-[#003300]/5">
-				<div className="max-w-6xl mx-auto">
-					<motion.div
-						className="text-center mb-3 md:mb-4"
-						variants={slideInVariants}
-						initial="hidden"
-						whileInView="visible"
-						viewport={{ once: true }}
-					>
-						<p className="text-[#004d1a] font-bold text-xs uppercase tracking-wider mb-1 md:mb-2">Getting Started</p>
-						<h2 className="text-xl sm:text-2xl md:text-4xl lg:text-5xl font-headline font-bold text-[#003300]">
-							How It Works
-						</h2>
-					</motion.div>
-
-					<motion.p
-						className="text-center text-stone-600 mb-8 md:mb-16 text-xs sm:text-sm md:text-lg lg:text-xl max-w-2xl mx-auto px-2"
-						variants={slideInVariants}
-						initial="hidden"
-						whileInView="visible"
-						viewport={{ once: true }}
-					>
-						Simple steps to explore and engage with our heritage
-					</motion.p>
-
-					<motion.div
-						className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-8"
-						variants={containerVariants}
-						initial="hidden"
-						whileInView="visible"
-						viewport={{ once: true }}
-					>
-						{howItWorks.map((step) => (
-							<motion.div
-								key={step.step}
-								variants={itemVariants}
-								className="relative text-center"
-							>
-								{/* Circle with step number */}
-								<div className="flex justify-center mb-4 md:mb-6">
-									<div className="relative">
-										<div className="w-12 h-12 sm:w-16 sm:h-16 md:w-20 md:h-20 rounded-full bg-gradient-to-br from-[#004d1a] to-[#003300] flex items-center justify-center">
-											<MaterialIcon icon={step.icon} className="text-white text-lg sm:text-2xl md:text-4xl" />
-										</div>
-										<div className="absolute -top-2 -right-2 sm:-top-3 sm:-right-3 w-6 sm:w-8 h-6 sm:h-8 rounded-full bg-[#92D6A2] flex items-center justify-center text-white font-bold text-xs sm:text-sm">
-											{step.step}
-										</div>
-									</div>
-								</div>
-								<h3 className="text-base sm:text-lg md:text-2xl font-bold text-[#003300] mb-2 md:mb-3">{step.title}</h3>
-								<p className="text-xs sm:text-sm md:text-base text-stone-600 mb-4 md:mb-6">{step.description}</p>
-								{step.step < 3 && (
-									<div className="hidden md:block absolute top-20 -right-10 text-4xl text-stone-300">
-										→
-									</div>
-								)}
-							</motion.div>
-						))}
-					</motion.div>
 				</div>
 			</Section>
 
