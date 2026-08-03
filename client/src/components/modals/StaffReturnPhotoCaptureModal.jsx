@@ -367,7 +367,8 @@ export default function StaffReturnPhotoCaptureModal({
               )}
             </div>
           )}
-        </div>      </div>
+        </div>
+        </div>
         {/* Footer */}
         <div className="sticky bottom-0 bg-gray-50 border-t px-6 py-4 flex gap-3">
           <button
