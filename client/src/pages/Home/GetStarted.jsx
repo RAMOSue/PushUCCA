@@ -558,7 +558,7 @@ export default function GetStarted() {
 							<span className="text-[#ffbd59]">Bud</span>
 							<span className="text-[#ff3131]">Ka</span>
 						</h1>
-						<p className="uppercase tracking-[0.2em] text-[#92D6A2] text-sm sm:text-base md:text-lg font-medium leading-6 mb-4 max-w-xl">
+						<p className="uppercase tracking-[0.2em] text-[#92D6A2] text-xs sm:text-sm md:text-base lg:text-base font-medium leading-6 mb-4 max-w-full">
 							Sa Sining Nagapadayon ang Tingog sa Kaliwatan.
 						</p>
 						<p className="max-w-full sm:max-w-2xl text-xs sm:text-sm md:text-base leading-relaxed text-white/85 mb-6">
