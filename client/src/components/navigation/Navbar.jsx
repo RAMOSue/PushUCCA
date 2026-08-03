@@ -11,7 +11,7 @@ import { INACTIVITY_CONFIG } from "../../config/inactivityConfig";
 import { Home, LogOut, Camera, Menu, BookOpen, ShoppingCart, Smartphone, ImageIcon, X, User, ChevronDown, Bell, Settings, History, Search } from 'lucide-react';
 import NotificationBadge from "../ui/NotificationBadge";
 import { notificationService } from "../../services/notifications";
-import LogoImage from "../../assets/Logo.png";
+import Logo from "../../assets/Logo.png";
 
 // Material Symbols Icon Component
 const MaterialIcon = ({ icon, className = "" }) => (
@@ -19,10 +19,12 @@ const MaterialIcon = ({ icon, className = "" }) => (
 );
 
 const PublicBrand = () => (
-  <div className="flex items-center leading-none text-[20px] font-black tracking-[-0.08em] sm:text-[22px]">
-    <span className="text-[#004aad]">Du</span>
-    <span className="text-[#ffbd59]">Bud</span>
-    <span className="text-[#ff3131]">Ka</span>
+  <div className="flex items-center gap-3">
+    <img src={Logo} alt="CSU Logo" className="h-12 w-auto object-contain" />
+    <div className="leading-tight">
+      <p className="text-base sm:text-lg font-thin text-black">Caraga State University</p>
+      <p className="text-xs sm:text-sm font-thin text-black">University Center for Culture and the Arts</p>
+    </div>
   </div>
 );
 
@@ -193,23 +195,15 @@ export default function Navbar() {
   // Professional header for unauthenticated users (GetStarted page)
   if (!user) {
     return (
-      <header className="sticky top-0 z-40 border-b border-slate-200 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.04)] transition-all duration-300 ease-in-out h-16 sm:h-20">
-        <div className="flex h-full w-full items-center justify-between gap-4 px-3 py-3 sm:px-4 sm:py-4 md:px-6">
-          <div className="flex min-w-0 items-center gap-3 sm:gap-4">
-            <img src={LogoImage} alt="CSUUCAA Logo" className="h-12 sm:h-16 w-auto flex-shrink-0" />
-            <div className="flex min-w-0 flex-col">
-              <h1 className="text-sm sm:text-base md:text-lg font-light text-black leading-tight tracking-tight">
-                Caraga State University
-              </h1>
-              <p className="text-xs sm:text-sm font-light text-slate-700 leading-tight">
-                University Center for Culture and the Arts
-              </p>
-            </div>
+      <header className="sticky top-0 z-40 border-b border-slate-200 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.04)] transition-all duration-300 ease-in-out h-14 sm:h-16">
+        <div className="flex h-full w-full items-center justify-between gap-3 px-3 py-3 sm:px-4 sm:py-4 md:px-6">
+          <div className="flex min-w-0 items-center">
+            <PublicBrand />
           </div>
 
           <button
             onClick={openLoginModal}
-            className="inline-flex h-10 items-center justify-center rounded-full border border-slate-200 bg-[#1B6B2F] px-4 text-sm font-semibold text-white shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:bg-[#145A27] hover:shadow-md sm:h-11 sm:px-5 flex-shrink-0"
+            className="inline-flex h-10 items-center justify-center rounded-full border border-slate-200 bg-[#164f11] px-4 text-sm font-semibold text-white shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:bg-[#0f3c0c] hover:shadow-md sm:h-11 sm:px-5"
           >
             Log In
           </button>
