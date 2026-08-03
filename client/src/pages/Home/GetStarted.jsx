@@ -276,11 +276,7 @@ export default function GetStarted() {
 	}, [slideImages]);
 
 	const scrollToSection = (sectionId) => {
-		const target = document.getElementById(sectionId);
-		if (!target) return;
-		const navbarHeight = document.querySelector('header')?.offsetHeight || 0;
-		const targetTop = target.getBoundingClientRect().top + window.scrollY - navbarHeight - 16;
-		window.scrollTo({ top: targetTop, behavior: 'smooth' });
+		document.getElementById(sectionId)?.scrollIntoView({ behavior: "smooth", block: "start" });
 	};
 
 	// ✅ SECURITY: Rate limiting for login
@@ -532,53 +528,55 @@ export default function GetStarted() {
 			{/* ============================================ */}
 			{slideImages.length > 0 ? (
 				<Section className="relative w-full h-[320px] sm:h-[460px] md:h-[560px] lg:h-[660px] overflow-hidden bg-[#001800]">
-							<AnimatePresence mode="sync">
-								<motion.img
-									key={slideImages[currentSlide]?.id ?? currentSlide}
-									src={slideImages[currentSlide]?.imageUrl}
-									alt={slideImages[currentSlide]?.title || "Heritage slideshow"}
-									className="absolute inset-0 h-full w-full object-cover"
-									initial={{ opacity: 0, x: 30 }}
-									animate={{ opacity: 1, x: 0 }}
-									exit={{ opacity: 0, x: -20 }}
-									transition={{ duration: 1.6, ease: [0.22, 1, 0.36, 1] }}
-							/>
-							<div className="absolute inset-0 bg-black/45" />
-							<motion.div
-								className="absolute inset-0 flex flex-col justify-center items-center sm:items-start text-center sm:text-left px-4 sm:px-8 md:px-14 lg:px-20 z-20"
-								initial={{ opacity: 0, y: 20 }}
-								animate={{ opacity: 1, y: 0 }}
-								transition={{ duration: 0.9, ease: "easeOut" }}
-							>
-								<h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl xl:text-[5.5rem] font-black leading-[0.95] tracking-[-0.04em] text-white mb-5 max-w-full sm:max-w-3xl font-headline">
-									<span className="text-[#004aad]">Du</span>
-									<span className="text-[#ffbd59]">Bud</span>
-									<span className="text-[#ff3131]">Ka</span>
-								</h1>
-								<p className="text-white text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-[4.5rem] font-black leading-[1.02] tracking-[-0.03em] mb-4 max-w-full sm:max-w-3xl font-headline">
-									Sa Sining Nagapadayon ang Tingog sa Kaliwatan.
-								</p>
-								<p className="max-w-full sm:max-w-2xl text-sm sm:text-base md:text-lg leading-relaxed text-white/75 mb-6 font-medium">
-									Through Art, Culture Continues Across Generations.
-								</p>
-								<div className="flex flex-col sm:flex-row gap-3 justify-center sm:justify-start w-full">
-									<button
-										onClick={() => setShowLoginModal(true)}
-										className="inline-flex items-center justify-center rounded-full px-4 py-2.5 sm:px-5 sm:py-2 text-sm font-semibold bg-[#FBBC38] text-[#001800] shadow-sm shadow-[#001800]/20 hover:bg-[#f9d86f] transition"
-									>
-										Sugdan Ta
-									</button>
-									<button
-										onClick={() => scrollToSection("about")}
-										className="inline-flex items-center justify-center rounded-full px-4 py-2.5 sm:px-5 sm:py-2 text-sm border border-white/30 text-white hover:border-white hover:bg-white/10 transition"
-									>
-										Ilahon Ta
-									</button>
-								</div>
-							</motion.div>
-						</AnimatePresence>
+					<AnimatePresence mode="wait">
+						<motion.img
+							key={slideImages[currentSlide]?.id ?? currentSlide}
+							src={slideImages[currentSlide]?.imageUrl}
+							alt={slideImages[currentSlide]?.title || "Heritage slideshow"}
+							className="absolute inset-0 h-full w-full object-cover"
+							initial={{ opacity: 0, x: 30 }}
+							animate={{ opacity: 1, x: 0 }}
+							exit={{ opacity: 0, x: -30 }}
+							transition={{ duration: 1.4, ease: "easeInOut" }}
+						/>
+					</AnimatePresence>
 
-					</Section>
+					<div className="absolute inset-0 bg-black/45" />
+
+					<motion.div
+						className="absolute inset-0 flex flex-col justify-center items-center sm:items-start text-center sm:text-left px-4 sm:px-8 md:px-14 lg:px-20 z-20"
+						initial={{ opacity: 0, y: 20 }}
+						animate={{ opacity: 1, y: 0 }}
+						transition={{ duration: 0.9, ease: "easeOut" }}
+					>
+						<h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl xl:text-[5.5rem] font-black leading-[0.95] tracking-[-0.04em] text-white mb-5 max-w-full sm:max-w-3xl font-headline">
+							<span className="text-[#004aad]">Du</span>
+							<span className="text-[#ffbd59]">Bud</span>
+							<span className="text-[#ff3131]">Ka</span>
+						</h1>
+						<p className="uppercase tracking-[0.2em] text-[#92D6A2] text-[11px] sm:text-xs font-medium leading-6 mb-4 max-w-xl">
+							Sa Sining Nagapadayon ang Tingog sa Kaliwatan.
+						</p>
+						<p className="max-w-full sm:max-w-2xl text-sm sm:text-base md:text-lg leading-relaxed text-white/85 mb-6">
+							Through Art, Culture Continues Across Generations.
+						</p>
+						<div className="flex flex-col sm:flex-row gap-3 justify-center sm:justify-start w-full">
+							<button
+								onClick={() => setShowLoginModal(true)}
+								className="inline-flex items-center justify-center rounded-full px-4 py-2.5 sm:px-5 sm:py-2 text-sm font-semibold bg-[#FBBC38] text-[#001800] shadow-sm shadow-[#001800]/20 hover:bg-[#f9d86f] transition"
+							>
+								Sugdan Ta
+							</button>
+							<button
+								onClick={() => scrollToSection("about")}
+								className="inline-flex items-center justify-center rounded-full px-4 py-2.5 sm:px-5 sm:py-2 text-sm border border-white/30 text-white hover:border-white hover:bg-white/10 transition"
+							>
+								Ilahon Ta
+							</button>
+						</div>
+					</motion.div>
+
+				</Section>
 			) : (
 				<div className="relative w-full h-[300px] sm:h-[400px] md:h-[500px] lg:h-[600px] bg-gradient-to-b from-[#013300] to-[#003300] flex items-center justify-center">
 					<div className="text-center">
