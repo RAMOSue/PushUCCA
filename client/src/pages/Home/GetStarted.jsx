@@ -276,7 +276,11 @@ export default function GetStarted() {
 	}, [slideImages]);
 
 	const scrollToSection = (sectionId) => {
-		document.getElementById(sectionId)?.scrollIntoView({ behavior: "smooth", block: "start" });
+		const target = document.getElementById(sectionId);
+		if (!target) return;
+		const navbarHeight = document.querySelector('header')?.offsetHeight || 0;
+		const targetTop = target.getBoundingClientRect().top + window.scrollY - navbarHeight - 16;
+		window.scrollTo({ top: targetTop, behavior: "smooth" });
 	};
 
 	// ✅ SECURITY: Rate limiting for login
@@ -554,10 +558,10 @@ export default function GetStarted() {
 							<span className="text-[#ffbd59]">Bud</span>
 							<span className="text-[#ff3131]">Ka</span>
 						</h1>
-						<p className="uppercase tracking-[0.2em] text-[#92D6A2] text-[11px] sm:text-xs font-medium leading-6 mb-4 max-w-xl">
+						<p className="uppercase tracking-[0.2em] text-[#92D6A2] text-sm sm:text-base md:text-lg font-medium leading-6 mb-4 max-w-xl">
 							Sa Sining Nagapadayon ang Tingog sa Kaliwatan.
 						</p>
-						<p className="max-w-full sm:max-w-2xl text-sm sm:text-base md:text-lg leading-relaxed text-white/85 mb-6">
+						<p className="max-w-full sm:max-w-2xl text-xs sm:text-sm md:text-base leading-relaxed text-white/85 mb-6">
 							Through Art, Culture Continues Across Generations.
 						</p>
 						<div className="flex flex-col sm:flex-row gap-3 justify-center sm:justify-start w-full">
