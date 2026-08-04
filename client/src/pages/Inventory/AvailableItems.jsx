@@ -777,7 +777,7 @@ export default function AvailableItems() {
       <div className="min-h-screen bg-surface dark:bg-[#171717] transition-colors duration-300 scroll-smooth">
         <div className="px-3 sm:px-6 md:px-8 lg:px-12 space-y-3 sm:space-y-4 pb-6 sm:pb-8">
           {/* Filters - Mobile Optimized */}
-          <div className="flex gap-2 flex-wrap items-center overflow-x-auto pb-1">
+          <div className="flex justify-end gap-2 flex-wrap items-center overflow-x-auto pb-1">
             {["costume", "instrument", "accessories"].map(cat => (
               <button
                 key={cat}
