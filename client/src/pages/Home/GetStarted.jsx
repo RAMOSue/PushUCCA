@@ -5,7 +5,7 @@ import { LoginModalContext } from "../../../context/LoginModalContext";
 import { motion, AnimatePresence } from "framer-motion";
 import axios from "axios";
 import { toast } from "react-hot-toast";
-import { Eye, EyeOff, AlertCircle, X as XIcon } from "lucide-react";
+import { Eye, EyeOff, AlertCircle, X as XIcon, Palette, Music4, Hammer } from "lucide-react";
 
 // Material Symbols Icon Component
 const MaterialIcon = ({ icon, className = "" }) => (
@@ -693,15 +693,15 @@ export default function GetStarted() {
 							}`}
 						>
 							<div className="flex items-start justify-between mb-4 md:mb-6">
-								<div className="w-8 h-8 sm:w-10 sm:h-10 md:w-14 md:h-14 rounded-lg bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center flex-shrink-0">
-									<MaterialIcon icon="theater_comedy" className="text-white text-base sm:text-lg md:text-3xl" />
+								<div className="w-8 h-8 sm:w-10 sm:h-10 md:w-14 md:h-14 rounded-lg bg-gradient-to-br from-sky-500 to-blue-600 flex items-center justify-center flex-shrink-0">
+									<Palette className="text-white w-4 h-4 sm:w-5 sm:h-5 md:w-7 md:h-7" />
 								</div>
 								<motion.div animate={{ rotate: activeDepartment === "dulimbay" ? 180 : 0 }} transition={{ duration: 0.3 }}>
 									<MaterialIcon icon="expand_more" className="text-[#004d1a] text-lg md:text-2xl" />
 								</motion.div>
 							</div>
 							<h3 className="text-base sm:text-lg md:text-2xl font-bold text-[#003300] mb-1 md:mb-2">Dulimbay</h3>
-							<p className="text-xs font-bold uppercase tracking-wider text-purple-600 mb-2 md:mb-4">Dance & Performance</p>
+							<p className="text-xs font-bold uppercase tracking-wider text-sky-600 mb-2 md:mb-4">Dance & Performance</p>
 							<p className="text-xs sm:text-sm md:text-sm text-stone-700 leading-relaxed">
 								Specializing in traditional cultural dances that express stories of heritage.
 							</p>
@@ -719,15 +719,15 @@ export default function GetStarted() {
 							}`}
 						>
 							<div className="flex items-start justify-between mb-4 md:mb-6">
-								<div className="w-8 h-8 sm:w-10 sm:h-10 md:w-14 md:h-14 rounded-lg bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center flex-shrink-0">
-									<MaterialIcon icon="library_music" className="text-white text-base sm:text-lg md:text-3xl" />
+								<div className="w-8 h-8 sm:w-10 sm:h-10 md:w-14 md:h-14 rounded-lg bg-gradient-to-br from-amber-400 to-yellow-500 flex items-center justify-center flex-shrink-0">
+									<Music4 className="text-white w-4 h-4 sm:w-5 sm:h-5 md:w-7 md:h-7" />
 								</div>
 								<motion.div animate={{ rotate: activeDepartment === "budjong" ? 180 : 0 }} transition={{ duration: 0.3 }}>
 									<MaterialIcon icon="expand_more" className="text-[#004d1a] text-lg md:text-2xl" />
 								</motion.div>
 							</div>
 							<h3 className="text-base sm:text-lg md:text-2xl font-bold text-[#003300] mb-1 md:mb-2">Budjong</h3>
-							<p className="text-xs font-bold uppercase tracking-wider text-blue-600 mb-2 md:mb-4">Music & Instruments</p>
+							<p className="text-xs font-bold uppercase tracking-wider text-amber-600 mb-2 md:mb-4">Music & Instruments</p>
 							<p className="text-xs sm:text-sm md:text-sm text-stone-700 leading-relaxed">
 								Dedicated to preserving indigenous music and traditional instruments.
 							</p>
@@ -745,15 +745,15 @@ export default function GetStarted() {
 							}`}
 						>
 							<div className="flex items-start justify-between mb-4 md:mb-6">
-								<div className="w-8 h-8 sm:w-10 sm:h-10 md:w-14 md:h-14 rounded-lg bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center flex-shrink-0">
-									<MaterialIcon icon="handcraft" className="text-white text-base sm:text-lg md:text-3xl" />
+								<div className="w-8 h-8 sm:w-10 sm:h-10 md:w-14 md:h-14 rounded-lg bg-gradient-to-br from-rose-500 to-red-600 flex items-center justify-center flex-shrink-0">
+									<Hammer className="text-white w-4 h-4 sm:w-5 sm:h-5 md:w-7 md:h-7" />
 								</div>
 								<motion.div animate={{ rotate: activeDepartment === "kayam" ? 180 : 0 }} transition={{ duration: 0.3 }}>
 									<MaterialIcon icon="expand_more" className="text-[#004d1a] text-lg md:text-2xl" />
 								</motion.div>
 							</div>
 							<h3 className="text-lg md:text-2xl font-bold text-[#003300] mb-2">Kayam</h3>
-							<p className="text-xs font-bold uppercase tracking-wider text-green-600 mb-4">Preservation & Crafts</p>
+							<p className="text-xs font-bold uppercase tracking-wider text-rose-600 mb-4">Preservation & Crafts</p>
 							<p className="text-sm text-stone-700 leading-relaxed">
 								Focusing on cultural research, traditional crafts, and material heritage that tell stories of local communities.
 							</p>
