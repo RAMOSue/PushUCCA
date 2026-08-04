@@ -241,7 +241,6 @@ function AppContent() {
               <Route path="/register" element={<Register />} />
               <Route path="/verify-email" element={<VerifyEmail />} />
               <Route path="/login" element={<Login />} />
-              <Route path="/login/" element={<Login />} />
               <Route path="/dashboard" element={<Dashboard />} />
 
               {/* ==============================
