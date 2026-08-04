@@ -59,16 +59,16 @@ export default function AvailableItems() {
       <motion.div
         whileHover={{ y: -2 }}
         onClick={onClick}
-        className="group cursor-pointer"
+        className="group h-full cursor-pointer"
       >
-        <div className="relative bg-surface-container-low dark:bg-[#1a1a1a] rounded-lg sm:rounded-xl overflow-hidden border border-transparent hover:border-primary/20 dark:border-gray-700 dark:hover:border-blue-500/50 transition-all shadow-sm hover:shadow-md dark:hover:shadow-lg dark:hover:shadow-black/40 h-full flex flex-col">
+        <div className="relative bg-surface-container-low dark:bg-[#1a1a1a] rounded-lg sm:rounded-xl overflow-hidden border border-transparent hover:border-primary/20 dark:border-gray-700 dark:hover:border-blue-500/50 transition-all shadow-sm hover:shadow-md dark:hover:shadow-lg dark:hover:shadow-black/40 h-full min-h-[190px] sm:min-h-[220px] md:min-h-[260px] flex flex-col">
           {isRecommended && recommendation && (
             <div className="absolute top-3 left-3 z-20 rounded-full bg-amber-400 dark:bg-amber-500 px-2 py-1 text-[9px] font-bold text-amber-900 dark:text-amber-100 shadow-sm">
               {recommendation.performance_title || 'Recommended'}
             </div>
           )}
 
-          <div className="relative h-24 sm:h-32 md:h-48 bg-surface-container-high dark:bg-[#222] overflow-hidden">
+          <div className="relative h-24 sm:h-28 md:h-48 bg-surface-container-high dark:bg-[#222] overflow-hidden">
             {imageUrl ? (
               <img
                 src={imageUrl}
@@ -88,24 +88,24 @@ export default function AvailableItems() {
 
           <div className="p-2 sm:p-3 md:p-4 flex-grow flex flex-col justify-between">
             <div>
-              <p className="text-[10px] sm:text-xs text-on-surface-variant dark:text-gray-400 uppercase tracking-wide mb-0.5 sm:mb-1">
+              <p className="text-[9px] sm:text-xs text-on-surface-variant dark:text-gray-400 uppercase tracking-wide mb-0.5 sm:mb-1 leading-3">
                 {divisionName ? `${divisionName} • ${categoryLabel}` : categoryLabel}
               </p>
-              <h3 className="text-xs sm:text-sm font-bold text-on-surface dark:text-white line-clamp-2 mb-1 sm:mb-2">
+              <h3 className="text-[11px] sm:text-sm font-bold text-on-surface dark:text-white line-clamp-2 leading-4 sm:leading-5 mb-1 sm:mb-2">
                 {item.name}
               </h3>
               {divisionName && (
-                <span className="inline-flex items-center rounded-full border border-primary/20 bg-primary/10 px-2 py-0.5 text-[9px] sm:text-[10px] font-medium text-primary dark:border-blue-400/20 dark:bg-blue-500/10 dark:text-blue-300 mb-1">
+                <span className="inline-flex items-center rounded-full border border-primary/20 bg-primary/10 px-2 py-0.5 text-[8px] sm:text-[10px] font-medium text-primary dark:border-blue-400/20 dark:bg-blue-500/10 dark:text-blue-300 mb-1">
                   {divisionName}
                 </span>
               )}
             </div>
 
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between mt-1">
               <p className={`text-[9px] sm:text-xs font-medium ${isAvailable ? 'text-primary dark:text-blue-400' : 'text-on-surface-variant dark:text-gray-400'}`}>
                 {isAvailable ? `${availCount} avail` : 'All borrowed'}
               </p>
-              <ChevronRight className="w-3 sm:w-4 h-3 sm:h-4 text-primary dark:text-blue-400 opacity-0 group-hover:opacity-100 transition" />
+              <ChevronRight className="hidden sm:block w-3 sm:w-4 h-3 sm:h-4 text-primary dark:text-blue-400 opacity-0 group-hover:opacity-100 transition" />
             </div>
           </div>
         </div>
@@ -114,7 +114,7 @@ export default function AvailableItems() {
   };
 
   const renderItemCards = (itemsList) => (
-    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3 md:gap-4 pb-6 sm:pb-8">
+    <div className="grid grid-cols-2 gap-2 sm:gap-3 md:grid-cols-3 lg:grid-cols-5 md:gap-4 pb-6 sm:pb-8">
       {itemsList.map((item) => {
         const recommendation = getItemRecommendation(item.id);
         return (
