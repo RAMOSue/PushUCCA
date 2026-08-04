@@ -705,10 +705,10 @@ export default function GetStarted() {
 						{activeDepartment && (
 							<motion.div
 								key={activeDepartment}
-								initial={{ y: -24, scale: 0.985 }}
-								animate={{ y: 0, scale: 1 }}
-								exit={{ y: -24, scale: 0.985 }}
-								transition={{ duration: 0.5, ease: [0.4, 0, 0.2, 1] }}
+								initial={{ clipPath: "polygon(0 0, 100% 0, 100% 0, 0 0)" }}
+								animate={{ clipPath: "polygon(0 0, 100% 0, 100% 100%, 0 100%)" }}
+								exit={{ clipPath: "polygon(0 0, 100% 0, 100% 0, 0 0)" }}
+								transition={{ duration: 0.55, ease: [0.16, 0.84, 0.44, 1] }}
 								className="relative left-1/2 mb-6 w-screen -ml-[50vw] overflow-hidden md:mb-8"
 							>
 								<div className="w-full overflow-hidden bg-[#003300] px-3 py-6 text-white sm:px-6 sm:py-8 md:px-10 md:py-10 lg:px-14 lg:py-14">
@@ -748,9 +748,6 @@ export default function GetStarted() {
 													key={`${activeDepartment}-${departmentSlideIndex[activeDepartment]}`}
 													src={departmentData[activeDepartment].highlights[departmentSlideIndex[activeDepartment]]}
 													alt={`${activeDepartment} highlight`}
-													initial={{ opacity: 0, scale: 1.05 }}
-													animate={{ opacity: 1, scale: 1 }}
-													transition={{ duration: 0.6, ease: "easeInOut" }}
 													className="h-full w-full object-cover"
 												/>
 												<div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
@@ -851,49 +848,6 @@ export default function GetStarted() {
 					</motion.div>
 				</div>
 			</Section>
-			{/* ============================================ */}
-			{/* SECTION 10: WHY IT MATTERS (CTA) */}
-			{/* ============================================ */}
-			<Section id="mission" className="py-12 md:py-32 px-3 sm:px-4 md:px-6 bg-gradient-to-r from-[#004d1a] via-[#003300] to-[#002108] text-white">
-				<div className="max-w-4xl mx-auto text-center">
-					<motion.span
-						className="text-[#92D6A2] font-bold uppercase tracking-widest text-xs md:text-sm"
-						variants={itemVariants}
-						initial="hidden"
-						whileInView="visible"
-						viewport={{ once: true }}
-					>
-						Our Mission
-					</motion.span>
-					<motion.h2
-						className="text-lg sm:text-2xl md:text-5xl lg:text-6xl font-headline font-bold mt-3 md:mt-6 mb-6 md:mb-10"
-						variants={slideInVariants}
-						initial="hidden"
-						whileInView="visible"
-						viewport={{ once: true }}
-					>
-						Preserving Heritage, Building Community
-					</motion.h2>
-					<motion.p
-						className="text-xs sm:text-sm md:text-lg lg:text-xl text-gray-100 leading-relaxed mb-6 md:mb-12 px-2"
-						variants={itemVariants}
-						initial="hidden"
-						whileInView="visible"
-						viewport={{ once: true }}
-					>
-						Preserving culture ensures future generations understand their identity and heritage. By borrowing and experiencing these cultural treasures, we keep traditions alive.
-					</motion.p>
-					<motion.button
-						onClick={() => setShowLoginModal(true)}
-						whileHover={{ scale: 1.05 }}
-						whileTap={{ scale: 0.95 }}
-						className="mt-2 px-6 sm:px-8 py-2 sm:py-3 md:py-4 bg-[#92D6A2] hover:bg-[#ADF2BC] text-[#003300] font-bold rounded-lg text-sm sm:text-base md:text-lg transition-all"
-					>
-						Start Your Journey
-					</motion.button>
-				</div>
-			</Section>
-
 			{/* ============================================ */}
 			{/* FOOTER */}
 			{/* ============================================ */}
