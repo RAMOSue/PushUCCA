@@ -598,6 +598,8 @@ export default function GetStarted() {
 			return;
 		}
 
+		setIsWiping(true);
+		const wipingStartTime = Date.now();
 		setIsLoading(true);
 		try {
 			const res = await axios.post(`${import.meta.env.VITE_API_URL || window.location.origin}/api/auth/register`, {
@@ -619,19 +621,28 @@ export default function GetStarted() {
 			const registrationToken = res.data?.token;
 			if (registrationUser && registrationToken) {
 				persistAuthSession(registrationUser, registrationToken, "🎉 Account created! You’re now signed in.");
-				navigateBasedOnRole(registrationUser);
+				const elapsedTime = (Date.now() - wipingStartTime) / 1000;
+				const remainingWipeTime = Math.max(0, wipeDuration - elapsedTime);
+				setTimeout(() => {
+					navigateBasedOnRole(registrationUser);
+				}, remainingWipeTime * 1000);
 			} else {
 				const loggedInUser = await authenticateWithCredentials({
 					email: normalizedEmail,
 					password,
 					successMessage: "🎉 Account created! You’re now signed in.",
 				});
-				navigateBasedOnRole(loggedInUser);
+				const elapsedTime = (Date.now() - wipingStartTime) / 1000;
+				const remainingWipeTime = Math.max(0, wipeDuration - elapsedTime);
+				setTimeout(() => {
+					navigateBasedOnRole(loggedInUser);
+				}, remainingWipeTime * 1000);
 			}
 		} catch (error) {
 			console.error("Registration error:", error.message);
 			const errorMsg = error.response?.data?.error || error.message || "Registration failed. Please try again.";
 			toast.error(errorMsg);
+			setIsWiping(false);
 		} finally {
 			setIsLoading(false);
 		}

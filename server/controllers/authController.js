@@ -77,6 +77,16 @@ const registerUser = async (req, res) => {
 
     const user = newUser.rows[0];
 
+    // Fire-and-forget verification setup so registration is not blocked by email delivery.
+    void (async () => {
+      try {
+        const tokenData = await verificationService.createVerificationToken(user.id, emailLower);
+        await sendVerificationEmail(emailLower, tokenData.code);
+      } catch (emailError) {
+        console.warn("⚠️ [registerUser] Verification email could not be sent:", emailError.message);
+      }
+    })();
+
     const token = jwt.sign(
       {
         id: user.id,
@@ -90,17 +100,6 @@ const registerUser = async (req, res) => {
     );
 
     res.cookie("token", token, getAuthCookieOptions());
-
-    // Best-effort verification email after account creation
-    try {
-      const tokenData = await verificationService.createVerificationToken(
-        user.id,
-        emailLower
-      );
-      await sendVerificationEmail(emailLower, tokenData.code);
-    } catch (emailError) {
-      console.warn("⚠️ [registerUser] Verification email could not be sent:", emailError.message);
-    }
 
     res.json({
       message: "Registration successful! You are now logged in.",
