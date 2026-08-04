@@ -339,6 +339,20 @@ export default function GetStarted() {
 
 	const emailStatus = getEmailStatus();
 
+	const clearRegisterError = (field) => {
+		setRegisterErrors((prev) => {
+			if (!prev[field]) return prev;
+			const next = { ...prev };
+			delete next[field];
+			return next;
+		});
+	};
+
+	const handleRegisterFieldChange = (field, value) => {
+		setRegisterData((prev) => ({ ...prev, [field]: value }));
+		clearRegisterError(field);
+	};
+
 	// ✅ SECURITY: Validate login form (enhanced)
 	const validateLoginForm = () => {
 		const errors = {};
@@ -1007,14 +1021,6 @@ export default function GetStarted() {
 								</button>
 							</p>
 						</div>
-						<motion.p
-							className="text-center text-gray-500 text-xs mt-6"
-							initial={{ opacity: 0 }}
-							animate={{ opacity: 1 }}
-							transition={{ delay: 0.4 }}
-						>
-							🔒 Secure authentication • University verified
-						</motion.p>
 					</div>
 				</motion.div>
 			</motion.div>
@@ -1057,14 +1063,6 @@ export default function GetStarted() {
 							<h1 className="text-xl sm:text-2xl md:text-4xl font-bold text-gray-900 mb-2">Create Account</h1>
 							</div>
 
-							{/* ✅ NEW: Allowed Email Domains Notice */}
-							<div className="mb-6 p-4 bg-blue-50 border border-blue-300 rounded-lg">
-								<p className="text-blue-900 text-xs leading-relaxed">
-									<strong>ℹ️ Email Required:</strong> You can register with{" "}
-									<strong>@carsu.edu.ph</strong> or <strong>@gmail.com</strong> email addresses.
-								</p>
-							</div>
-
 							<form onSubmit={handleRegister} className="space-y-5">
 								<div>
 									<label className="block text-gray-700 font-semibold text-sm mb-2">Full Name</label>
@@ -1075,7 +1073,7 @@ export default function GetStarted() {
 										}`}
 										placeholder="Enter your full name..."
 										value={registerData.name}
-										onChange={(e) => setRegisterData({ ...registerData, name: e.target.value })}
+										onChange={(e) => handleRegisterFieldChange("name", e.target.value)}
 										disabled={isLoading}
 										required
 									/>
@@ -1096,7 +1094,7 @@ export default function GetStarted() {
 											}`}
 											placeholder="example@carsu.edu.ph or @gmail.com"
 											value={registerData.email}
-											onChange={(e) => setRegisterData({ ...registerData, email: e.target.value })}
+											onChange={(e) => handleRegisterFieldChange("email", e.target.value)}
 											disabled={isLoading}
 											required
 										/>
@@ -1135,7 +1133,7 @@ export default function GetStarted() {
 										}`}
 										placeholder="+63 9XX XXX XXXX"
 										value={registerData.phone}
-										onChange={(e) => setRegisterData({ ...registerData, phone: e.target.value })}
+										onChange={(e) => handleRegisterFieldChange("phone", e.target.value)}
 										disabled={isLoading}
 										required
 									/>
@@ -1152,7 +1150,7 @@ export default function GetStarted() {
 											}`}
 											placeholder="Enter your password..."
 											value={registerData.password}
-											onChange={(e) => setRegisterData({ ...registerData, password: e.target.value })}
+											onChange={(e) => handleRegisterFieldChange("password", e.target.value)}
 											disabled={isLoading}
 											required
 										/>
@@ -1174,7 +1172,7 @@ export default function GetStarted() {
 
 								<button
 									type="submit"
-									disabled={isLoading || !emailStatus?.valid || Object.keys(registerErrors).length > 0 || !registerData.name || !registerData.email || !registerData.phone || !registerData.password}
+									disabled={isLoading}
 									className={`w-full mt-6 px-6 py-3 font-bold rounded-lg shadow-xl transition-all duration-300 transform text-sm ${
 										isLoading
 											? "bg-[#004d1a] text-white scale-105"
@@ -1223,14 +1221,6 @@ export default function GetStarted() {
 							</p>
 						</div>
 
-						<motion.p
-							className="text-center text-gray-500 text-xs mt-6"
-							initial={{ opacity: 0 }}
-							animate={{ opacity: 1 }}
-							transition={{ delay: 0.4 }}
-						>
-							🔒 Secure authentication • University verified
-						</motion.p>
 					</div>
 				</motion.div>
 			</motion.div>
