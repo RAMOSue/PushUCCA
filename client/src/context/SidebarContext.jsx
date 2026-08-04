@@ -1,6 +1,16 @@
 import { createContext, useState, useEffect, useCallback } from "react";
 
-export const SidebarContext = createContext();
+const defaultSidebarContext = {
+  sidebarOpen: true,
+  setSidebarOpen: () => {},
+  leftSidebarCollapsed: false,
+  setLeftSidebarCollapsed: () => {},
+  rightSidebarOpen: true,
+  setRightSidebarOpen: () => {},
+  isMobile: false,
+};
+
+export const SidebarContext = createContext(defaultSidebarContext);
 
 export function SidebarProvider({ children }) {
   const [leftSidebarCollapsed, setLeftSidebarCollapsedState] = useState(() => {

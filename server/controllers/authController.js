@@ -328,65 +328,22 @@ const loginUser = async (req, res) => {
 
 /* ---------------- GOOGLE OAUTH CALLBACK ---------------- */
 const googleCallback = async (req, res) => {
-  const { name, email } = req.user;
+  const frontendBaseUrl = process.env.FRONTEND_URL || "http://localhost:5173";
+  const name = req.user?.name || "No Name";
+  const email = req.user?.email;
 
   try {
-    let userQuery = await pool.query("SELECT * FROM users WHERE email = $1", [email]);
-    let user;
-
-    if (userQuery.rows.length === 0) {
-      const newUser = await pool.query(
-        "INSERT INTO users (name, email, role, is_verified) VALUES ($1, $2, $3, TRUE) RETURNING *",
-        [name, email, "borrower"]
-      );
-      user = newUser.rows[0];
-      console.log(`✅ [Google OAuth] New user created: ${email} (role: borrower)`);
-    } else {
-      user = userQuery.rows[0];
-      // ✅ Mark existing user as verified on Google login
-      await pool.query("UPDATE users SET is_verified = TRUE WHERE id = $1", [user.id]);
-      user.is_verified = true;
-      console.log(`✅ [Google OAuth] Existing user logged in: ${email} (role: ${user.role})`);
+    if (!email) {
+      console.warn("⚠️ [Google OAuth] Missing email in Google profile");
+      return res.redirect(`${frontendBaseUrl}/?google_error=${encodeURIComponent("Google profile did not include an email")}`);
     }
 
-    const token = jwt.sign(
-      {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        role: user.role,
-        phone: user.phone,
-      },
-      process.env.JWT_SECRET,
-      { expiresIn: "7d" }
-    );
-
-    // ✅ Set cookie for server-side auth if needed
-    res.cookie("token", token, getAuthCookieOptions());
-
-    console.log(`🔐 [Google OAuth] Token generated for user: ${user.email}`);
-
-    // ✅ Step 4 also for Google login: trigger resend of pending notifications
-    try {
-      await notificationController.resendPendingForUser(user.id);
-    } catch (notifyError) {
-      console.warn("⚠️ Failed to resend pending notifications on Google login:", notifyError && notifyError.message ? notifyError.message : notifyError);
-    }
-
-    // ✅ Redirect based on user role for staff/admin
-    const redirectPath = 
-      user.role === "admin" ? "/admin" :
-      user.role === "staff" ? "/staff" :
-      "/available-items";
-
-    // ✅ IMPORTANT: Pass token in URL so frontend can store it
-    const redirectURL = `${process.env.FRONTEND_URL || "http://localhost:5173"}${redirectPath}?token=${encodeURIComponent(token)}&user=${encodeURIComponent(JSON.stringify({id: user.id, email: user.email, name: user.name, role: user.role}))}`;
-    console.log(`✅ [Google OAuth] Redirecting to: ${redirectPath}`);
-    
+    const redirectURL = `${frontendBaseUrl}/?google_name=${encodeURIComponent(name)}&google_email=${encodeURIComponent(email)}`;
+    console.log(`✅ [Google OAuth] Returning prefill data for: ${email}`);
     res.redirect(redirectURL);
   } catch (error) {
     console.error("❌ Google auth error:", error.message);
-    res.redirect(`${process.env.FRONTEND_URL || "http://localhost:5173"}/login?error=Google login failed`);
+    res.redirect(`${frontendBaseUrl}/?google_error=${encodeURIComponent("Google sign-up failed")}`);
   }
 };
 

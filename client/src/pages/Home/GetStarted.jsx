@@ -1,4 +1,4 @@
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useContext, useEffect, useRef, useState } from "react";
 import { UserContext } from "../../../context/userContext";
 import { LoginModalContext } from "../../../context/LoginModalContext";
@@ -86,6 +86,7 @@ export default function GetStarted() {
 		switchToLogin,
 	} = useContext(LoginModalContext);
 	const navigate = useNavigate();
+	const location = useLocation();
 	const departmentsSectionRef = useRef(null);
 
 	// ✅ Local component states
@@ -411,6 +412,31 @@ export default function GetStarted() {
 		setRegisterErrors(errors);
 		return Object.keys(errors).length === 0;
 	};
+
+	useEffect(() => {
+		const params = new URLSearchParams(location.search);
+		const googleName = params.get("google_name");
+		const googleEmail = params.get("google_email");
+		const googleError = params.get("google_error");
+
+		if (googleError) {
+			toast.error(decodeURIComponent(googleError));
+		}
+
+		if (googleName || googleEmail) {
+			setRegisterData((prev) => ({
+				...prev,
+				name: googleName ? decodeURIComponent(googleName) : prev.name,
+				email: googleEmail ? decodeURIComponent(googleEmail).toLowerCase() : prev.email,
+				password: "",
+				phone: "",
+			}));
+			setRegisterErrors({});
+			setShowRegisterModal(true);
+			setShowLoginModal(false);
+			window.history.replaceState({}, document.title, window.location.pathname);
+		}
+	}, [location.search, setShowRegisterModal, setShowLoginModal]);
 
 	// ✅ SECURITY: Redirect logged-in users away from public page
 	useEffect(() => {
@@ -1002,7 +1028,7 @@ export default function GetStarted() {
 								</div>
 
 								<a
-									href={`${import.meta.env.VITE_API_URL || window.location.origin}/api/auth/google`}
+									href={`${import.meta.env.VITE_API_URL || window.location.origin}/api/auth/google?mode=register`}
 									className="w-full px-6 py-3 bg-gray-100 hover:bg-gray-200 border border-gray-300 text-gray-900 font-semibold rounded-lg transition-all duration-300 flex items-center justify-center gap-2 text-sm"
 								>
 									<svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
@@ -1201,7 +1227,7 @@ export default function GetStarted() {
 								</div>
 
 								<a
-									href={`${import.meta.env.VITE_API_URL || window.location.origin}/api/auth/google`}
+									href={`${import.meta.env.VITE_API_URL || window.location.origin}/api/auth/google?mode=register`}
 									className="w-full px-6 py-3 bg-gray-100 hover:bg-gray-200 border border-gray-300 text-gray-900 font-semibold rounded-lg transition-all duration-300 flex items-center justify-center gap-2 text-sm"
 								>
 									<svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">

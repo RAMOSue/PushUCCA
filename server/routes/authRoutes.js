@@ -59,7 +59,7 @@ router.get(
 router.get(
   '/google/callback',
   passport.authenticate('google', {
-    failureRedirect: `${process.env.FRONTEND_URL || "http://localhost:5173"}/login`,
+    failureRedirect: `${process.env.FRONTEND_URL || "http://localhost:5173"}/?google_error=${encodeURIComponent("Google sign-up failed")}`,
     session: false,
   }),
   googleCallback

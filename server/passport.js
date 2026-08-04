@@ -1,7 +1,6 @@
 // server/passport.js
 const passport = require("passport");
 const GoogleStrategy = require("passport-google-oauth20").Strategy;
-const pool = require("./db"); // ✅ correct relative path
 require("dotenv").config();
 
 /**
@@ -38,26 +37,17 @@ passport.use(
         const email = profile.emails?.[0]?.value;
         const name = profile.displayName || "No Name";
 
-        if (!email) return done(new Error("No email found in Google profile"), null);
-
-        // 🔍 Check if the user already exists
-        const result = await pool.query("SELECT * FROM users WHERE email = $1", [email]);
-        let user;
-
-        if (result.rows.length > 0) {
-          user = result.rows[0];
-        } else {
-          // 🧩 Insert a new Google user with default role
-          const insert = await pool.query(
-            `INSERT INTO users (name, email, password, role, phone)
-             VALUES ($1, $2, $3, $4, $5)
-             RETURNING *`,
-            [name, email, "google-oauth", "borrower", ""]
-          );
-          user = insert.rows[0];
+        if (!email) {
+          return done(new Error("No email found in Google profile"), null);
         }
 
-        return done(null, user);
+        // Return the Google profile only so the callback can prefill the register form
+        return done(null, {
+          id: null,
+          name,
+          email,
+          provider: "google",
+        });
       } catch (err) {
         console.error("❌ Error in GoogleStrategy:", err.message);
         return done(err, null);
