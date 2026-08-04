@@ -16,9 +16,17 @@ export function SidebarProvider({ children }) {
   const [leftSidebarCollapsed, setLeftSidebarCollapsedState] = useState(() => {
     try {
       const saved = localStorage.getItem("leftSidebarCollapsed");
-      return saved !== null ? JSON.parse(saved) : false;
-    } catch {
+      if (saved !== null) {
+        return JSON.parse(saved);
+      }
+
+      if (typeof window !== "undefined" && window.innerWidth < 1024) {
+        return true;
+      }
+
       return false;
+    } catch {
+      return typeof window !== "undefined" && window.innerWidth < 1024;
     }
   });
 
@@ -31,7 +39,12 @@ export function SidebarProvider({ children }) {
     }
   });
 
-  const [isMobile, setIsMobile] = useState(false);
+  const [isMobile, setIsMobile] = useState(() => {
+    if (typeof window !== "undefined") {
+      return window.innerWidth < 1024;
+    }
+    return false;
+  });
 
   const sidebarOpen = !leftSidebarCollapsed;
 

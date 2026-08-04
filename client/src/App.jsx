@@ -61,7 +61,7 @@ import { useBorrowingStore } from "../context/borrowingStore";
 
 // ✅ TEMPORARY: Legacy Context providers for backward compatibility during migration
 import { BorrowingProvider } from "../context/borrowingContext";
-import { SidebarProvider } from "./context/SidebarContext";
+import { SidebarProvider, SidebarContext } from "./context/SidebarContext";
 import { LoginModalProvider } from "../context/LoginModalContext";
 
 // ✅ Global axios configuration (supports both local and production)
@@ -72,6 +72,7 @@ axios.defaults.withCredentials = true;
 
 function AppContent() {
   const { user, darkMode, loading } = useContext(UserContext);
+  const { isMobile } = useContext(SidebarContext);
 
   // ✅ Initialize Zustand stores
   const initializeMobile = useSidebarStore((state) => state.initializeMobile);
@@ -421,7 +422,7 @@ function AppContent() {
               </Routes>
             </main>
 
-            {user && (user?.role === "borrower" || user?.role === "staff" || user?.role === "admin") && (
+            {user && !isMobile && (user?.role === "borrower" || user?.role === "staff" || user?.role === "admin") && (
               <RightNavbar />
             )}
           </div>

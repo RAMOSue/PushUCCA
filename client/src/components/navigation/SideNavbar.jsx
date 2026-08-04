@@ -5,6 +5,7 @@ import { BorrowingContext } from "../../../context/borrowingContext";
 import { SidebarContext } from "../../context/SidebarContext";
 import axios from "axios";
 import { Package, ClipboardList, RefreshCw, Calendar, Users, Box, LogOut, PanelLeftClose, PanelLeftOpen, ChevronRight, Plus, Database, Camera, Settings, Home, TrendingUp, Megaphone } from "lucide-react";
+import RightSidebarContent from "./RightSidebarContent";
 
 export default function SideNavbar({ role = "staff" }) {
   const { user, setUser, loading } = useContext(UserContext);
@@ -107,10 +108,10 @@ export default function SideNavbar({ role = "staff" }) {
 
       {/* Sidebar */}
       <aside
-        className={`left-sidebar ${isMobile ? "fixed inset-y-0 left-0 z-[70] w-72 max-w-[85vw] border-r border-outline-variant/20 bg-surface-container-low shadow-2xl dark:border-[#2a2a2a] dark:bg-[#1f1f1f]" : "sticky left-0 top-0 h-screen shrink-0 border-r border-outline-variant/20 bg-surface-container-low dark:border-[#2a2a2a] dark:bg-[#1f1f1f] shadow-lg dark:shadow-none z-30"} transition-all duration-300 ease-in-out ${
+        className={`left-sidebar ${
           isMobile
-            ? sidebarOpen ? "translate-x-0" : "-translate-x-full"
-            : leftSidebarCollapsed ? "w-16" : "w-64"
+            ? `fixed inset-y-0 left-0 z-[60] flex w-[88vw] max-w-[360px] flex-col border-r border-outline-variant/20 bg-surface-container-low shadow-2xl transition-all duration-300 ease-in-out dark:border-[#2a2a2a] dark:bg-[#1f1f1f] ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}`
+            : `sticky left-0 top-0 h-screen shrink-0 border-r border-outline-variant/20 bg-surface-container-low shadow-lg transition-all duration-300 ease-in-out dark:border-[#2a2a2a] dark:bg-[#1f1f1f] dark:shadow-none ${leftSidebarCollapsed ? "w-16" : "w-64"}`
         }`}
         style={{
           overflowY: "auto",
@@ -129,8 +130,30 @@ export default function SideNavbar({ role = "staff" }) {
           }
         `}</style>
 
-        <div className={`sticky top-0 z-10 border-b border-outline-variant/20 bg-surface-container-low dark:border-[#2a2a2a] dark:bg-[#1f1f1f] transition-all duration-300 ${leftSidebarCollapsed ? "px-2 py-3" : "px-3 py-3"}`}>
-          {leftSidebarCollapsed ? (
+        <div className={`sticky top-0 z-10 border-b border-outline-variant/20 bg-surface-container-low dark:border-[#2a2a2a] dark:bg-[#1f1f1f] transition-all duration-300 ${isMobile ? "px-4 py-3" : leftSidebarCollapsed ? "px-2 py-3" : "px-3 py-3"}`}>
+          {isMobile ? (
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="flex h-8 w-8 items-center justify-center rounded-md bg-slate-100 text-[11px] font-black text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                  Du
+                </div>
+                <div className="leading-tight">
+                  <p className="text-sm font-semibold text-slate-900 dark:text-white">DuBudKa</p>
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400">Navigation</p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setSidebarOpen(false)}
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-slate-200 bg-white/80 text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+                title="Close navigation"
+                aria-label="Close navigation"
+              >
+                <PanelLeftClose className="h-4 w-4" />
+              </button>
+            </div>
+          ) : leftSidebarCollapsed ? (
             <div
               className="relative flex h-10 w-full items-center justify-center"
               onMouseEnter={() => setShowCollapsedToggle(true)}
@@ -162,66 +185,67 @@ export default function SideNavbar({ role = "staff" }) {
 
               <button
                 type="button"
-                onClick={() => (isMobile ? setSidebarOpen(false) : setLeftSidebarCollapsed(true))}
+                onClick={() => setLeftSidebarCollapsed(true)}
                 className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-slate-200 bg-white/80 text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
-                title={isMobile ? "Close sidebar" : "Collapse sidebar"}
-                aria-label={isMobile ? "Close sidebar" : "Collapse sidebar"}
+                title="Collapse sidebar"
+                aria-label="Collapse sidebar"
               >
-                {isMobile ? <PanelLeftClose className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
+                <PanelLeftClose className="h-4 w-4" />
               </button>
             </div>
           )}
         </div>
 
-      
+        <div className="flex-1 overflow-y-auto px-2 py-2 sm:px-3 sm:py-3 md:px-4 lg:px-4">
+          <nav className={`flex flex-col space-y-1 sm:space-y-1 md:space-y-2 lg:space-y-2 ${leftSidebarCollapsed ? "lg:items-center lg:px-2" : ""}`}>
+            {navItems.map((item) => {
+              const Icon = item.icon;
+              const active = isActive(item.path);
+              return (
+                <Link
+                  key={item.path}
+                  to={item.path}
+                  title={item.label}
+                  aria-label={item.label}
+                  onClick={() => {
+                    if (isMobile) {
+                      setSidebarOpen(false);
+                    }
+                  }}
+                  className={`flex items-center justify-between rounded-lg text-xs sm:text-xs md:text-sm lg:text-sm font-medium transition-all duration-200 gap-2 sm:gap-3 ${
+                    leftSidebarCollapsed
+                      ? "lg:w-10 lg:h-10 lg:justify-center lg:px-0 lg:py-0"
+                      : "px-3 sm:px-3 md:px-4 lg:px-4 py-2 sm:py-2 md:py-3 lg:py-3"
+                  } ${
+                    active
+                      ? "bg-surface-container-lowest dark:bg-[#2a2a2a] text-primary dark:text-blue-400 shadow-sm border border-primary/20 dark:border-blue-500/30"
+                      : "text-on-surface-variant dark:text-gray-400 hover:bg-surface-container-highest dark:hover:bg-[#2a2a2a] hover:text-on-surface dark:hover:text-white"
+                  }`}
+                >
+                  <div className={`flex items-center ${leftSidebarCollapsed ? "lg:justify-center" : "gap-2 sm:gap-3 flex-1 min-w-0"}`}>
+                    <Icon className={`${leftSidebarCollapsed ? "w-5 h-5" : "w-4 sm:w-4 md:w-5 lg:w-5 h-4 sm:h-4 md:h-5 lg:h-5"} flex-shrink-0`} />
+                    {!leftSidebarCollapsed && (
+                      <span className="text-[9px] sm:text-[9px] md:text-[10px] lg:text-[10px] uppercase tracking-widest font-semibold truncate">{item.label}</span>
+                    )}
+                  </div>
+                  {!leftSidebarCollapsed && active && <ChevronRight className="w-3 sm:w-3 md:w-4 lg:w-4 h-3 sm:h-3 md:h-4 lg:h-4 flex-shrink-0" />}
+                </Link>
+              );
+            })}
+          </nav>
 
-        {/* Home removed — staff workflow streamlines to Manage Borrowing as landing */}
-
-        {/* Navigation Items */}
-        <nav className={`flex-1 flex flex-col px-2 sm:px-3 md:px-4 lg:px-4 space-y-1 sm:space-y-1 md:space-y-2 lg:space-y-2 ${leftSidebarCollapsed ? "lg:items-center lg:px-2" : ""}`}>
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            const active = isActive(item.path);
-            return (
-              <Link
-                key={item.path}
-                to={item.path}
-                title={item.label}
-                aria-label={item.label}
-                onClick={() => {
-                  if (isMobile) {
-                    setSidebarOpen(false);
-                  }
-                }}
-                className={`flex items-center justify-between rounded-lg text-xs sm:text-xs md:text-sm lg:text-sm font-medium transition-all duration-200 gap-2 sm:gap-3 ${
-                  leftSidebarCollapsed
-                    ? "lg:w-10 lg:h-10 lg:justify-center lg:px-0 lg:py-0"
-                    : "px-3 sm:px-3 md:px-4 lg:px-4 py-2 sm:py-2 md:py-3 lg:py-3"
-                } ${
-                  active
-                    ? "bg-surface-container-lowest dark:bg-[#2a2a2a] text-primary dark:text-blue-400 shadow-sm border border-primary/20 dark:border-blue-500/30"
-                    : "text-on-surface-variant dark:text-gray-400 hover:bg-surface-container-highest dark:hover:bg-[#2a2a2a] hover:text-on-surface dark:hover:text-white"
-                }`}
-              >
-                <div className={`flex items-center ${leftSidebarCollapsed ? "lg:justify-center" : "gap-2 sm:gap-3 flex-1 min-w-0"}`}>
-                  <Icon className={`${leftSidebarCollapsed ? "w-5 h-5" : "w-4 sm:w-4 md:w-5 lg:w-5 h-4 sm:h-4 md:h-5 lg:h-5"} flex-shrink-0`} />
-                  {!leftSidebarCollapsed && (
-                    <span className="text-[9px] sm:text-[9px] md:text-[10px] lg:text-[10px] uppercase tracking-widest font-semibold truncate">{item.label}</span>
-                  )}
-                </div>
-                {!leftSidebarCollapsed && active && <ChevronRight className="w-3 sm:w-3 md:w-4 lg:w-4 h-3 sm:h-3 md:h-4 lg:h-4 flex-shrink-0" />}
-              </Link>
-            );
-          })}
-        </nav>
-
-       
+          {isMobile && (
+            <div className="mt-4 rounded-xl border border-outline-variant/20 bg-surface-container-lowest p-2 shadow-sm dark:border-[#3a3a3a] dark:bg-[#2a2a2a]">
+              <RightSidebarContent isMobile onClose={() => setSidebarOpen(false)} />
+            </div>
+          )}
+        </div>
       </aside>
 
       {/* Overlay when sidebar is open on mobile */}
       {sidebarOpen && isMobile && (
         <div
-          className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-[1px]"
+          className="fixed inset-0 bg-black/50 z-40 top-16"
           onClick={() => setSidebarOpen(false)}
         />
       )}

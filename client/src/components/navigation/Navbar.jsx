@@ -7,11 +7,11 @@ import { useSidebarStore, DIVISION_OPTIONS } from "../../../context/sidebarStore
 import axios from "axios";
 import tokenManager from "../../utils/tokenManager";
 import { INACTIVITY_CONFIG } from "../../config/inactivityConfig";
-import { Home, LogOut, Camera, BookOpen, ShoppingCart, Smartphone, X, User, ChevronDown, Settings, Search, Calendar, Menu, PanelRightOpen } from "lucide-react";
+import { Home, LogOut, Camera, BookOpen, ShoppingCart, Smartphone, X, User, ChevronDown, Settings, Search, Calendar, Menu } from "lucide-react";
 import NotificationBadge from "../ui/NotificationBadge";
 import { notificationService } from "../../services/notifications";
-import { SidebarContext } from "../../context/SidebarContext";
 import Logo from "../../assets/Logo.png";
+import { SidebarContext } from "../../context/SidebarContext";
 
 const PublicBrand = () => (
   <div className="flex items-center gap-2 sm:gap-3">
@@ -52,8 +52,8 @@ export default function Navbar() {
   const { user, setUser, loading } = useContext(UserContext);
   const { cart } = useContext(BorrowingContext);
   const { openLoginModal } = useContext(LoginModalContext);
-  const { isMobile, setSidebarOpen, setRightSidebarOpen } = useContext(SidebarContext);
   const { selectedDivision, setSelectedDivision, globalSearchQuery, setGlobalSearchQuery } = useSidebarStore();
+  const { isMobile, setSidebarOpen } = useContext(SidebarContext);
   const location = useLocation();
   const navigate = useNavigate();
   const [showScannerModal, setShowScannerModal] = useState(false);
@@ -323,13 +323,14 @@ export default function Navbar() {
     <>
       <header className="sticky top-0 z-40 border-b border-slate-200 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.04)] transition-all duration-300 ease-in-out">
         <div className="flex items-center justify-between gap-3 px-3 py-3 sm:px-4 sm:py-4 md:px-6">
-          <div className="flex min-w-0 items-center gap-2 sm:gap-3">
-            {user && isMobile && (
+          <div className="flex min-w-0 items-center gap-3">
+            {isMobile && user && (
               <button
                 type="button"
                 onClick={() => setSidebarOpen(true)}
-                className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-slate-50 text-slate-700 transition hover:bg-slate-100"
-                aria-label="Open navigation menu"
+                className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-slate-50 text-slate-700 transition hover:bg-slate-100 lg:hidden"
+                title="Open navigation"
+                aria-label="Open navigation"
               >
                 <Menu className="h-4 w-4" />
               </button>
@@ -385,17 +386,6 @@ export default function Navbar() {
                 placeholder="Search"
               />
             </div>
-
-            {isMobile && user && (
-              <button
-                type="button"
-                onClick={() => setRightSidebarOpen(true)}
-                className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-slate-50 text-slate-700 transition hover:bg-slate-100"
-                aria-label="Open sidebar panel"
-              >
-                <PanelRightOpen className="h-4 w-4" />
-              </button>
-            )}
 
             {(user?.role === "staff" || user?.role === "borrower") && (
               <div className="flex">
