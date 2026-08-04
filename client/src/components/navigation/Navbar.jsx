@@ -19,11 +19,11 @@ const MaterialIcon = ({ icon, className = "" }) => (
 );
 
 const PublicBrand = () => (
-  <div className="flex items-center gap-3">
-    <img src={Logo} alt="CSU Logo" className="h-12 w-auto object-contain" />
+  <div className="flex items-center gap-2 sm:gap-3">
+    <img src={Logo} alt="CSU Logo" className="h-9 w-auto object-contain sm:h-12" />
     <div className="leading-tight">
-      <p className="text-base sm:text-lg font-thick text-black">Caraga State University</p>
-      <p className="text-xs sm:text-sm font-thin text-black">University Center for Culture and the Arts</p>
+      <p className="text-sm font-thick text-black sm:text-base">Caraga State University</p>
+      <p className="text-[10px] font-thin text-black sm:text-xs">University Center for Culture and the Arts</p>
     </div>
   </div>
 );
@@ -203,7 +203,7 @@ export default function Navbar() {
 
           <button
             onClick={openLoginModal}
-            className="inline-flex h-10 items-center justify-center rounded-full border border-slate-200 bg-[#164f11] px-4 text-sm font-semibold text-white shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:bg-[#0f3c0c] hover:shadow-md sm:h-11 sm:px-5"
+            className="inline-flex h-9 items-center justify-center rounded-full border border-slate-200 bg-[#164f11] px-3 text-xs font-semibold text-white shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:bg-[#0f3c0c] hover:shadow-md sm:h-11 sm:px-5 sm:text-sm"
           >
             Log In
           </button>

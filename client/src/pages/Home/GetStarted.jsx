@@ -297,8 +297,12 @@ export default function GetStarted() {
 	const scrollToSection = (sectionId) => {
 		const target = document.getElementById(sectionId);
 		if (!target) return;
-		const navbarHeight = document.querySelector('header')?.offsetHeight || 0;
-		const targetTop = target.getBoundingClientRect().top + window.scrollY - navbarHeight - 16;
+
+		const header = document.querySelector('header');
+		const navbarHeight = header ? header.getBoundingClientRect().height : 0;
+		const offset = Math.max(16, navbarHeight + 16);
+		const targetTop = target.getBoundingClientRect().top + window.scrollY - offset;
+
 		window.scrollTo({ top: Math.max(0, targetTop), behavior: "smooth" });
 	};
 
@@ -642,9 +646,6 @@ export default function GetStarted() {
 							variants={itemVariants}
 							className="rounded-2xl border border-stone-200 bg-white p-6 md:p-7 text-center shadow-sm hover:shadow-md transition-shadow duration-300"
 						>
-							<div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-[#eef8ef] text-[#004d1a]">
-								<MaterialIcon icon="flag" className="text-xl" />
-							</div>
 							<h3 className="font-headline text-lg font-semibold text-[#003300] mb-2">Mission</h3>
 							<p className="text-sm leading-relaxed text-stone-600">
 								To preserve, promote, and advance culture and the arts through education, creativity, and community engagement.
@@ -655,9 +656,6 @@ export default function GetStarted() {
 							variants={itemVariants}
 							className="rounded-2xl border border-stone-200 bg-white p-6 md:p-7 text-center shadow-sm hover:shadow-md transition-shadow duration-300"
 						>
-							<div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-[#eef8ef] text-[#004d1a]">
-								<MaterialIcon icon="visibility" className="text-xl" />
-							</div>
 							<h3 className="font-headline text-lg font-semibold text-[#003300] mb-2">Vision</h3>
 							<p className="text-sm leading-relaxed text-stone-600">
 								A vibrant cultural center that inspires artistic excellence and safeguards the heritage of future generations.
@@ -668,9 +666,6 @@ export default function GetStarted() {
 							variants={itemVariants}
 							className="rounded-2xl border border-stone-200 bg-white p-6 md:p-7 text-center shadow-sm hover:shadow-md transition-shadow duration-300"
 						>
-							<div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-[#eef8ef] text-[#004d1a]">
-								<MaterialIcon icon="event" className="text-xl" />
-							</div>
 							<h3 className="font-headline text-lg font-semibold text-[#003300] mb-2">Established</h3>
 							<p className="text-sm leading-relaxed text-stone-600">
 								Established in <span className="font-semibold text-[#003300]">1980</span>, UCCA has served as the university's center for preserving and promoting culture and the arts.
