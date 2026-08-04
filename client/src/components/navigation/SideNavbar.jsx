@@ -4,7 +4,7 @@ import { UserContext } from "../../../context/userContext";
 import { BorrowingContext } from "../../../context/borrowingContext";
 import { SidebarContext } from "../../context/SidebarContext";
 import axios from "axios";
-import { Package, ClipboardList, RefreshCw, Calendar, Users, Box, LogOut, PanelLeftClose, PanelLeftOpen, ChevronRight, Plus, Database, Camera, Settings, Home, FileText, TrendingUp, Megaphone } from "lucide-react";
+import { Package, ClipboardList, RefreshCw, Calendar, Users, Box, LogOut, PanelLeftClose, PanelLeftOpen, ChevronRight, Plus, Database, Camera, Settings, Home, TrendingUp, Megaphone } from "lucide-react";
 
 export default function SideNavbar({ role = "staff" }) {
   const { user, setUser, loading } = useContext(UserContext);
@@ -62,7 +62,6 @@ export default function SideNavbar({ role = "staff" }) {
       { path: "/staff/announcements", label: "Announcements", icon: Megaphone },
       // Member Management
       { path: "/staff/borrower-profiles", label: "Borrower Profiles", icon: Users },
-      { path: "/staff/documents", label: "Documents", icon: FileText },
       // Administration
       { path: "/staff/master-list", label: "Master List", icon: Database },
     ];

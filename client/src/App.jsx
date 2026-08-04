@@ -43,7 +43,6 @@ import BorrowerProfileFacebook from "./pages/Borrower/BorrowerProfileFacebook"; 
 import Settings from "./pages/Settings/Settings";
 import NotificationsPage from "./pages/Notifications/NotificationsPage"; // ✅ Notifications page
 import StaffAdminProfileFacebook from "./pages/Staff/StaffAdminProfileFacebook"; // ✅ Facebook-style UI
-import StaffDocuments from "./pages/Staff/StaffDocuments"; // ✅ Staff document management
 import MasterList from "./pages/Staff/MasterList";
 import Announcements from "./pages/Staff/Announcements";
 import StaffLayout from "./components/layout/StaffLayout"; // ✅ Staff layout shell
@@ -384,7 +383,6 @@ function AppContent() {
                 <Route path="announcements" element={<Announcements />} />
                 <Route path="manage-inventory" element={<ManageInventory />} />
                 <Route path="borrower-profiles" element={<BorrowerProfiles />} />
-                <Route path="documents" element={<StaffDocuments />} />
                 <Route path="master-list" element={<MasterList />} />
                 <Route path="profile" element={<StaffAdminProfileFacebook />} />
                 <Route path="settings" element={<Settings />} />

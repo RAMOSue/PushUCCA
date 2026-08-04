@@ -446,7 +446,7 @@ export default function Navbar() {
               <Link
                 to="/profile"
                 className={`flex flex-col items-center justify-center transition-all duration-300 ${
-                  location.pathname === "/documents"
+                  location.pathname === "/profile"
                     ? "text-emerald-600 dark:text-blue-400"
                     : "text-gray-500 dark:text-gray-400 hover:text-emerald-600 dark:hover:text-blue-300"
                 }`}
