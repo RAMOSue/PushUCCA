@@ -712,17 +712,6 @@ export default function GetStarted() {
 								className="mb-6 md:mb-8"
 							>
 								<div className="rounded-[2rem] border border-stone-200 bg-gradient-to-br from-white via-[#fcfefb] to-[#eef8ef] p-5 shadow-[0_20px_45px_rgba(0,51,0,0.08)] sm:p-7 md:p-10">
-									<div className="mb-6 flex justify-center">
-										<button
-											type="button"
-											onClick={() => toggleDepartment(activeDepartment)}
-											className="flex flex-col items-center rounded-full border border-[#004d1a]/15 bg-white p-3 text-[#004d1a] shadow-sm transition duration-300 hover:-translate-y-0.5 hover:shadow-md"
-										>
-											<MaterialIcon icon="keyboard_arrow_up" className="text-xl" />
-											<span className="mt-1 text-[10px] font-semibold uppercase tracking-[0.25em] text-stone-500">Close</span>
-										</button>
-									</div>
-
 									<div className="grid grid-cols-1 gap-8 lg:grid-cols-[1.05fr_0.95fr] lg:gap-10">
 										<div className="flex flex-col justify-center">
 											<div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#eef8ef] text-[#004d1a] shadow-sm">
@@ -772,6 +761,17 @@ export default function GetStarted() {
 												))}
 											</div>
 										</div>
+									</div>
+
+									<div className="mt-8 flex justify-center">
+										<button
+											type="button"
+											onClick={() => toggleDepartment(activeDepartment)}
+											className="flex flex-col items-center rounded-full border border-[#004d1a]/15 bg-white p-3 text-[#004d1a] shadow-sm transition duration-300 hover:-translate-y-0.5 hover:shadow-md"
+										>
+											<MaterialIcon icon="keyboard_arrow_up" className="text-xl" />
+											<span className="mt-1 text-[10px] font-semibold uppercase tracking-[0.25em] text-stone-500">Close</span>
+										</button>
 									</div>
 								</div>
 							</motion.div>
