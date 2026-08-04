@@ -1,5 +1,5 @@
 import { useContext, useState, useEffect } from "react";
-import { Music, QrCode, Camera } from "lucide-react";
+import { Music, QrCode, Camera, X } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import Calendar from "react-calendar";
 import { SidebarContext } from "../../context/SidebarContext";
@@ -8,7 +8,7 @@ import axios from "axios";
 import "react-calendar/dist/Calendar.css";
 
 export default function RightNavbar() {
-  const { rightSidebarOpen, setRightSidebarOpen } = useContext(SidebarContext);
+  const { isMobile, rightSidebarOpen, setRightSidebarOpen } = useContext(SidebarContext);
   const { user } = useContext(UserContext);
   const navigate = useNavigate();
   const location = useLocation();
@@ -287,9 +287,16 @@ export default function RightNavbar() {
         }
       `}</style>
 
+      {isMobile && rightSidebarOpen && (
+        <div
+          className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-[1px]"
+          onClick={() => setRightSidebarOpen(false)}
+        />
+      )}
+
       <aside
-        className={`right-navbar hidden lg:flex h-full shrink-0 border-l border-outline-variant/10 bg-surface-container-low dark:border-[#2a2a2a] dark:bg-[#1f1f1f] shadow-2xl dark:shadow-[inset_-1px_0_0_rgba(255,255,255,0.05)] z-30 transition-all duration-250 ease-in-out ${
-          rightSidebarOpen ? "w-64 opacity-100" : "w-14 opacity-100"
+        className={`right-navbar ${isMobile ? "fixed inset-y-0 right-0 z-[70] flex w-[88vw] max-w-sm border-l border-outline-variant/10 bg-surface-container-low shadow-2xl dark:border-[#2a2a2a] dark:bg-[#1f1f1f] dark:shadow-[inset_-1px_0_0_rgba(255,255,255,0.05)]" : "hidden lg:flex h-full shrink-0 border-l border-outline-variant/10 bg-surface-container-low dark:border-[#2a2a2a] dark:bg-[#1f1f1f] shadow-2xl dark:shadow-[inset_-1px_0_0_rgba(255,255,255,0.05)] z-30"} transition-all duration-300 ease-in-out ${
+          isMobile ? (rightSidebarOpen ? "translate-x-0" : "translate-x-full") : rightSidebarOpen ? "w-64 opacity-100" : "w-14 opacity-100"
         }`}
         style={{
           overflowY: "auto",
@@ -308,7 +315,21 @@ export default function RightNavbar() {
             pointerEvents: "auto",
           }}
         >
-          {!rightSidebarOpen ? (
+          {isMobile && (
+            <div className="flex items-center justify-between border-b border-outline-variant/10 px-4 py-3 dark:border-[#3a3a3a]">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-on-surface-variant dark:text-gray-400">Panel</p>
+              <button
+                type="button"
+                onClick={() => setRightSidebarOpen(false)}
+                className="flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white/80 text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+                aria-label="Close sidebar panel"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          )}
+
+          {!rightSidebarOpen && !isMobile ? (
             <div className="flex flex-1 flex-col items-center justify-center gap-3 py-3 transition-all duration-300 ease-in-out">
               {scannerButtons}
             </div>

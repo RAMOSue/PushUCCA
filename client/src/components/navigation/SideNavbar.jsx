@@ -107,9 +107,9 @@ export default function SideNavbar({ role = "staff" }) {
 
       {/* Sidebar */}
       <aside
-        className={`left-sidebar sticky left-0 top-0 h-screen shrink-0 border-r border-outline-variant/20 bg-surface-container-low dark:border-[#2a2a2a] dark:bg-[#1f1f1f] shadow-lg dark:shadow-none z-30 transition-all duration-300 ease-in-out ${
+        className={`left-sidebar ${isMobile ? "fixed inset-y-0 left-0 z-[70] w-72 max-w-[85vw] border-r border-outline-variant/20 bg-surface-container-low shadow-2xl dark:border-[#2a2a2a] dark:bg-[#1f1f1f]" : "sticky left-0 top-0 h-screen shrink-0 border-r border-outline-variant/20 bg-surface-container-low dark:border-[#2a2a2a] dark:bg-[#1f1f1f] shadow-lg dark:shadow-none z-30"} transition-all duration-300 ease-in-out ${
           isMobile
-            ? sidebarOpen ? "w-64" : "w-0"
+            ? sidebarOpen ? "translate-x-0" : "-translate-x-full"
             : leftSidebarCollapsed ? "w-16" : "w-64"
         }`}
         style={{
@@ -162,12 +162,12 @@ export default function SideNavbar({ role = "staff" }) {
 
               <button
                 type="button"
-                onClick={() => setLeftSidebarCollapsed(true)}
+                onClick={() => (isMobile ? setSidebarOpen(false) : setLeftSidebarCollapsed(true))}
                 className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-slate-200 bg-white/80 text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
-                title="Collapse sidebar"
-                aria-label="Collapse sidebar"
+                title={isMobile ? "Close sidebar" : "Collapse sidebar"}
+                aria-label={isMobile ? "Close sidebar" : "Collapse sidebar"}
               >
-                <PanelLeftClose className="h-4 w-4" />
+                {isMobile ? <PanelLeftClose className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
               </button>
             </div>
           )}
@@ -221,7 +221,7 @@ export default function SideNavbar({ role = "staff" }) {
       {/* Overlay when sidebar is open on mobile */}
       {sidebarOpen && isMobile && (
         <div
-          className="fixed inset-0 bg-black/50 z-40 top-16"
+          className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-[1px]"
           onClick={() => setSidebarOpen(false)}
         />
       )}
