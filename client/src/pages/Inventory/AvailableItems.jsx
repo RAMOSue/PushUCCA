@@ -11,6 +11,7 @@ import { UserContext } from '../../../context/userContext.jsx';
 import { BorrowingContext } from '../../../context/borrowingContext.jsx';
 import { useSidebarStore } from '../../../context/sidebarStore.js';
 import { getInventoryDivisionInfo } from '../../utils/inventoryDivisionStorage.js';
+import { getFullImageUrl } from '../../utils/imageUrlHelper.js';
 
 export default function AvailableItems() {
   const [items, setItems] = useState([]);
@@ -33,8 +34,16 @@ export default function AvailableItems() {
 
   const resolveImageUrl = (imageUrl) => {
     if (!imageUrl) return null;
-    if (imageUrl.startsWith('http')) return imageUrl;
-    return `${import.meta.env.VITE_API_URL || window.location.origin}${imageUrl}`;
+    return getFullImageUrl(imageUrl);
+  };
+
+  const normalizeDivisionFilter = (value) => {
+    if (!value) return null;
+    const normalized = String(value).trim().toLowerCase();
+    if (['all', 'all divisions', 'all division'].includes(normalized)) {
+      return null;
+    }
+    return normalized;
   };
 
   const InventoryItemCard = ({ item, onClick, recommendation }) => {
@@ -335,7 +344,7 @@ export default function AvailableItems() {
       );
     }
 
-    const activeDivisionFilter = selectedDivision === 'All' ? null : selectedDivision;
+    const activeDivisionFilter = normalizeDivisionFilter(selectedDivision);
 
     if (activeDivisionFilter) {
       filteredItems = filteredItems.filter((it) => {
@@ -384,7 +393,7 @@ export default function AvailableItems() {
                 </p>
               </div>
             ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-3 md:gap-4 pb-6 sm:pb-8">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3 md:gap-4 pb-6 sm:pb-8">
                 {filteredItems.map((item) => {
                   const isAvailable = item.units?.some(u => u.status === 'available');
                   const availCount = item.units?.filter(u => u.status === 'available').length || 0;
@@ -401,7 +410,7 @@ export default function AvailableItems() {
                         <div className="relative h-24 sm:h-32 md:h-48 bg-surface-container-high dark:bg-[#222] overflow-hidden">
                           {item.image_url ? (
                             <img
-                              src={item.image_url?.startsWith('http') ? item.image_url : `http://localhost:8000${item.image_url}`}
+                              src={resolveImageUrl(item.image_url)}
                               alt={item.name}
                               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                             />
@@ -792,10 +801,11 @@ export default function AvailableItems() {
                 (item.category || '').toLowerCase().includes(selectedCategory.toLowerCase())
               );
             }
-            if (selectedDivision) {
+            const activeDivisionFilter = normalizeDivisionFilter(selectedDivision);
+            if (activeDivisionFilter) {
               filtered = filtered.filter((item) => {
                 const divisionInfo = getInventoryDivisionInfo(item);
-                const selectedDivisionName = String(selectedDivision).trim().toLowerCase();
+                const selectedDivisionName = activeDivisionFilter;
                 const itemDivisionName = (divisionInfo?.division_name || item.division_name || '').toString().trim().toLowerCase();
                 return itemDivisionName === selectedDivisionName;
               });
@@ -824,7 +834,7 @@ export default function AvailableItems() {
                 </p>
               </div>
             ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-3 md:gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3 md:gap-4">
                 {filtered.map((item) => {
                   const isAvailable = item.units?.some(u => u.status === 'available');
                   const availCount = item.units?.filter(u => u.status === 'available').length || 0;
@@ -857,7 +867,7 @@ export default function AvailableItems() {
                           
                           {item.image_url ? (
                             <img
-                              src={item.image_url?.startsWith('http') ? item.image_url : `http://localhost:8000${item.image_url}`}
+                              src={resolveImageUrl(item.image_url)}
                               alt={item.name}
                               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                             />
@@ -948,7 +958,7 @@ export default function AvailableItems() {
                   <div className="w-16 sm:w-20 md:w-24 h-16 sm:h-20 md:h-24 flex-shrink-0">
                     {selectedItem.image_url ? (
                       <img
-                        src={selectedItem.image_url?.startsWith('http') ? selectedItem.image_url : `http://localhost:8000${selectedItem.image_url}`}
+                        src={resolveImageUrl(selectedItem.image_url)}
                         alt={selectedItem.name}
                         className="w-full h-full object-cover rounded-lg sm:rounded-xl"
                       />
