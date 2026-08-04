@@ -1,11 +1,11 @@
 import { useNavigate } from "react-router-dom";
-import { useContext, useEffect, useState } from "react";
+import { useContext, useEffect, useRef, useState } from "react";
 import { UserContext } from "../../../context/userContext";
 import { LoginModalContext } from "../../../context/LoginModalContext";
 import { motion, AnimatePresence } from "framer-motion";
 import axios from "axios";
 import { toast } from "react-hot-toast";
-import { Eye, EyeOff, AlertCircle, X as XIcon, Palette, Music4, Hammer } from "lucide-react";
+import { Eye, EyeOff, AlertCircle, X as XIcon, PersonStanding, Music4, Guitar } from "lucide-react";
 
 // Material Symbols Icon Component
 const MaterialIcon = ({ icon, className = "" }) => (
@@ -85,6 +85,7 @@ export default function GetStarted() {
 		switchToLogin,
 	} = useContext(LoginModalContext);
 	const navigate = useNavigate();
+	const departmentsSectionRef = useRef(null);
 
 	// ✅ Local component states
 	const [showPassword, setShowPassword] = useState(false);
@@ -127,13 +128,15 @@ export default function GetStarted() {
 	const [activeDepartment, setActiveDepartment] = useState(null);
 	const [departmentSlideIndex, setDepartmentSlideIndex] = useState({
 		dulimbay: 0,
-		budjong: 0,
+		budyong: 0,
 		kayam: 0
 	});
 
 	// ✅ DEPARTMENT DATA: Content for each cultural department
 	const departmentData = {
 		dulimbay: {
+			description:
+				"Dulimbay comes from the words Dula and Limbay, representing theater and dance. The department promotes indigenous dances, contemporary performances, stage productions, and cultural storytelling that preserve the traditions and identity of the community.",
 			achievements: [
 				"Cultural Dance Champion – Regional Festival",
 				"University Performing Arts Excellence Award",
@@ -150,7 +153,9 @@ export default function GetStarted() {
 				"https://images.unsplash.com/photo-1459749411175-04bf5292ceea?w=800&h=300&fit=crop"
 			]
 		},
-		budjong: {
+		budyong: {
+			description:
+				"Budyong is named after the traditional shell trumpet, a cultural instrument used to communicate and gather communities. The department focuses on music, vocal performances, traditional instruments, and preserving the rich musical heritage of Caraga.",
 			achievements: [
 				"Traditional Music Preservation Award",
 				"Kulintang Ensemble Recognition",
@@ -168,6 +173,8 @@ export default function GetStarted() {
 			]
 		},
 		kayam: {
+			description:
+				"Kayam represents the university's contemporary band, blending modern musical expression with cultural appreciation. Through vocals, guitars, drums, keyboards, and other instruments, the department showcases artistic excellence while celebrating Filipino identity.",
 			achievements: [
 				"Cultural Research Excellence Award",
 				"Indigenous Crafts Preservation Recognition",
@@ -187,12 +194,22 @@ export default function GetStarted() {
 	};
 
 	// ✅ TOGGLE DEPARTMENT: Open/close department reveal panel
+	const scrollToDepartments = () => {
+		const section = departmentsSectionRef.current;
+		if (!section) return;
+		const top = section.getBoundingClientRect().top + window.scrollY - 90;
+		window.scrollTo({ top, behavior: "smooth" });
+	};
+
 	const toggleDepartment = (dept) => {
-		setActiveDepartment(prev => (prev === dept ? null : dept));
-		// Reset slideshow index when opening
-		if (activeDepartment !== dept) {
-			setDepartmentSlideIndex(prev => ({ ...prev, [dept]: 0 }));
+		if (activeDepartment === dept) {
+			setActiveDepartment(null);
+			requestAnimationFrame(() => scrollToDepartments());
+			return;
 		}
+
+		setActiveDepartment(dept);
+		setDepartmentSlideIndex(prev => ({ ...prev, [dept]: 0 }));
 	};
 
 	// ✅ AUTO-SLIDE DEPARTMENT HIGHLIGHTS
@@ -664,10 +681,10 @@ export default function GetStarted() {
 			</Section>
 
 			{/* ============================================ */}
-			{/* SECTION 3: OUR CULTURAL DEPARTMENTS (SIMPLIFIED CARDS) */}
+			{/* SECTION 3: OUR CULTURAL DEPARTMENTS */}
 			{/* ============================================ */}
 			<Section className="py-12 md:py-24 px-3 sm:px-4 md:px-6 bg-gradient-to-b from-white via-white to-[#003300]/5">
-				<div className="max-w-6xl mx-auto">
+				<div className="max-w-6xl mx-auto" ref={departmentsSectionRef}>
 					<motion.div
 						className="text-center mb-2 md:mb-4"
 						variants={slideInVariants}
@@ -675,66 +692,142 @@ export default function GetStarted() {
 						whileInView="visible"
 						viewport={{ once: true }}
 					>
-						
 						<h2 className="text-xl sm:text-2xl md:text-4xl lg:text-5xl font-headline font-bold text-[#003300]">
-							UCCA Departments
+							Departments
 						</h2>
 					</motion.div>
 
-					<p className="text-center text-stone-600 mb-8 md:mb-16 text-xs sm:text-sm md:text-base lg:text-lg max-w-2xl mx-auto px-2">
+					<p className="text-center text-stone-600 mb-8 md:mb-10 text-xs sm:text-sm md:text-base lg:text-lg max-w-2xl mx-auto px-2">
 						Every department is a living expression of art, preserving traditions and revealing the beauty of our culture.
 					</p>
 
-					<div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-8">
+					<AnimatePresence mode="wait">
+						{activeDepartment && (
+							<motion.div
+								key={activeDepartment}
+								initial={{ opacity: 0, y: 20 }}
+								animate={{ opacity: 1, y: 0 }}
+								exit={{ opacity: 0, y: 20 }}
+								transition={{ duration: 0.45, ease: "easeOut" }}
+								className="mb-6 md:mb-8"
+							>
+								<div className="rounded-[2rem] border border-stone-200 bg-gradient-to-br from-white via-[#fcfefb] to-[#eef8ef] p-5 shadow-[0_20px_45px_rgba(0,51,0,0.08)] sm:p-7 md:p-10">
+									<div className="mb-6 flex justify-center">
+										<button
+											type="button"
+											onClick={() => toggleDepartment(activeDepartment)}
+											className="flex flex-col items-center rounded-full border border-[#004d1a]/15 bg-white p-3 text-[#004d1a] shadow-sm transition duration-300 hover:-translate-y-0.5 hover:shadow-md"
+										>
+											<MaterialIcon icon="keyboard_arrow_up" className="text-xl" />
+											<span className="mt-1 text-[10px] font-semibold uppercase tracking-[0.25em] text-stone-500">Close</span>
+										</button>
+									</div>
+
+									<div className="grid grid-cols-1 gap-8 lg:grid-cols-[1.05fr_0.95fr] lg:gap-10">
+										<div className="flex flex-col justify-center">
+											<div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#eef8ef] text-[#004d1a] shadow-sm">
+												{activeDepartment === "dulimbay" ? (
+													<PersonStanding className="h-7 w-7" />
+												) : activeDepartment === "budyong" ? (
+													<Music4 className="h-7 w-7" />
+												) : (
+													<Guitar className="h-7 w-7" />
+												)}
+											</div>
+											<h3 className="text-2xl font-bold text-[#003300] sm:text-3xl">
+												{activeDepartment === "dulimbay" ? "Dulimbay" : activeDepartment === "budyong" ? "Budyong" : "Kayam"}
+											</h3>
+											<p className="mt-3 text-sm leading-relaxed text-stone-700 sm:text-base">
+												{departmentData[activeDepartment].description}
+											</p>
+											<div className="mt-6 grid gap-3 sm:grid-cols-2">
+												{departmentData[activeDepartment].achievements.slice(0, 2).map((achievement, idx) => (
+													<div key={idx} className="rounded-2xl border border-[#004d1a]/10 bg-white/80 p-3 text-sm text-stone-700 shadow-sm">
+														<span className="mr-2 font-semibold text-[#004d1a]">•</span>
+														{achievement}
+													</div>
+												))}
+											</div>
+										</div>
+
+										<div className="relative h-[260px] overflow-hidden rounded-[1.5rem] border border-stone-200 bg-stone-900 sm:h-[320px]">
+											<motion.img
+												key={`${activeDepartment}-${departmentSlideIndex[activeDepartment]}`}
+												src={departmentData[activeDepartment].highlights[departmentSlideIndex[activeDepartment]]}
+												alt={`${activeDepartment} highlight`}
+												initial={{ opacity: 0, scale: 1.05 }}
+												animate={{ opacity: 1, scale: 1 }}
+												transition={{ duration: 0.6 }}
+												className="h-full w-full object-cover"
+											/>
+											<div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+											<div className="absolute bottom-3 left-1/2 flex -translate-x-1/2 gap-2">
+												{departmentData[activeDepartment].highlights.map((_, idx) => (
+													<div
+														key={idx}
+														className={`h-1.5 rounded-full transition-all ${
+															idx === departmentSlideIndex[activeDepartment] ? "w-7 bg-white" : "w-2 bg-white/60"
+														}`}
+													/>
+												))}
+											</div>
+										</div>
+									</div>
+								</div>
+							</motion.div>
+						)}
+					</AnimatePresence>
+
+					<motion.div
+						animate={{ y: activeDepartment ? 24 : 0 }}
+						transition={{ duration: 0.35, ease: "easeInOut" }}
+						className="grid grid-cols-1 gap-3 md:grid-cols-3 md:gap-8"
+					>
 						{/* Department 1: Dulimbay */}
 						<motion.div
 							variants={itemVariants}
 							whileHover={{ y: -6, boxShadow: "0 25px 50px rgba(0,51,0,0.15)" }}
 							onClick={() => toggleDepartment("dulimbay")}
-							className={`rounded-lg sm:rounded-xl p-4 sm:p-6 md:p-8 border overflow-hidden transition-all duration-300 cursor-pointer ${
+							className={`rounded-lg border p-4 shadow-sm transition-all duration-300 sm:rounded-xl sm:p-6 md:p-8 ${
 								activeDepartment === "dulimbay"
-									? "bg-white border-[#004d1a] ring-2 ring-[#004d1a] shadow-lg"
-									: "bg-white border-gray-200 hover:border-[#004d1a]/30 shadow-sm"
+									? "border-[#004d1a]/40 bg-[#f6fcf6] shadow-md"
+									: "cursor-pointer border-gray-200 bg-white hover:border-[#004d1a]/30"
 							}`}
 						>
-							<div className="flex items-start justify-between mb-4 md:mb-6">
-								<div className="w-8 h-8 sm:w-10 sm:h-10 md:w-14 md:h-14 rounded-lg bg-gradient-to-br from-sky-500 to-blue-600 flex items-center justify-center flex-shrink-0">
-									<Palette className="text-white w-4 h-4 sm:w-5 sm:h-5 md:w-7 md:h-7" />
+							<div className="mb-4 flex items-start justify-between md:mb-6">
+								<div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl border border-[#004d1a]/10 bg-[#eef8ef] text-[#004d1a] sm:h-12 sm:w-12 md:h-14 md:w-14">
+									<PersonStanding className="h-5 w-5 sm:h-6 sm:w-6 md:h-7 md:w-7" />
 								</div>
-								<motion.div animate={{ rotate: activeDepartment === "dulimbay" ? 180 : 0 }} transition={{ duration: 0.3 }}>
-									<MaterialIcon icon="expand_more" className="text-[#004d1a] text-lg md:text-2xl" />
-								</motion.div>
+								<MaterialIcon icon="expand_more" className="text-[#004d1a] text-lg md:text-2xl" />
 							</div>
-							<h3 className="text-base sm:text-lg md:text-2xl font-bold text-[#003300] mb-1 md:mb-2">Dulimbay</h3>
-							<p className="text-xs font-bold uppercase tracking-wider text-sky-600 mb-2 md:mb-4">Dance & Performance</p>
-							<p className="text-xs sm:text-sm md:text-sm text-stone-700 leading-relaxed">
-								Specializing in traditional cultural dances that express stories of heritage.
+							<h3 className="mb-1 text-base font-bold text-[#003300] sm:text-lg md:text-2xl">Dulimbay</h3>
+							<p className="mb-2 text-xs font-bold uppercase tracking-wider text-[#004d1a] md:mb-4">Dance & Performance</p>
+							<p className="text-xs leading-relaxed text-stone-700 sm:text-sm">
+								Dulimbay comes from Dula and Limbay, representing theater and dance through cultural storytelling.
 							</p>
 						</motion.div>
 
-						{/* Department 2: Budjong */}
+						{/* Department 2: Budyong */}
 						<motion.div
 							variants={itemVariants}
 							whileHover={{ y: -6, boxShadow: "0 25px 50px rgba(0,51,0,0.15)" }}
-							onClick={() => toggleDepartment("budjong")}
-							className={`rounded-lg sm:rounded-xl p-4 sm:p-6 md:p-8 border overflow-hidden transition-all duration-300 cursor-pointer ${
-								activeDepartment === "budjong"
-									? "bg-white border-[#004d1a] ring-2 ring-[#004d1a] shadow-lg"
-									: "bg-white border-gray-200 hover:border-[#004d1a]/30 shadow-sm"
+							onClick={() => toggleDepartment("budyong")}
+							className={`rounded-lg border p-4 shadow-sm transition-all duration-300 sm:rounded-xl sm:p-6 md:p-8 ${
+								activeDepartment === "budyong"
+									? "border-[#004d1a]/40 bg-[#f6fcf6] shadow-md"
+									: "cursor-pointer border-gray-200 bg-white hover:border-[#004d1a]/30"
 							}`}
 						>
-							<div className="flex items-start justify-between mb-4 md:mb-6">
-								<div className="w-8 h-8 sm:w-10 sm:h-10 md:w-14 md:h-14 rounded-lg bg-gradient-to-br from-amber-400 to-yellow-500 flex items-center justify-center flex-shrink-0">
-									<Music4 className="text-white w-4 h-4 sm:w-5 sm:h-5 md:w-7 md:h-7" />
+							<div className="mb-4 flex items-start justify-between md:mb-6">
+								<div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl border border-[#004d1a]/10 bg-[#eef8ef] text-[#004d1a] sm:h-12 sm:w-12 md:h-14 md:w-14">
+									<Music4 className="h-5 w-5 sm:h-6 sm:w-6 md:h-7 md:w-7" />
 								</div>
-								<motion.div animate={{ rotate: activeDepartment === "budjong" ? 180 : 0 }} transition={{ duration: 0.3 }}>
-									<MaterialIcon icon="expand_more" className="text-[#004d1a] text-lg md:text-2xl" />
-								</motion.div>
+								<MaterialIcon icon="expand_more" className="text-[#004d1a] text-lg md:text-2xl" />
 							</div>
-							<h3 className="text-base sm:text-lg md:text-2xl font-bold text-[#003300] mb-1 md:mb-2">Budjong</h3>
-							<p className="text-xs font-bold uppercase tracking-wider text-amber-600 mb-2 md:mb-4">Music & Instruments</p>
-							<p className="text-xs sm:text-sm md:text-sm text-stone-700 leading-relaxed">
-								Dedicated to preserving indigenous music and traditional instruments.
+							<h3 className="mb-1 text-base font-bold text-[#003300] sm:text-lg md:text-2xl">Budyong</h3>
+							<p className="mb-2 text-xs font-bold uppercase tracking-wider text-[#004d1a] md:mb-4">Music & Heritage</p>
+							<p className="text-xs leading-relaxed text-stone-700 sm:text-sm">
+								Budyong is named after the traditional shell trumpet used to gather communities and preserve heritage.
 							</p>
 						</motion.div>
 
@@ -743,166 +836,27 @@ export default function GetStarted() {
 							variants={itemVariants}
 							whileHover={{ y: -6, boxShadow: "0 25px 50px rgba(0,51,0,0.15)" }}
 							onClick={() => toggleDepartment("kayam")}
-							className={`rounded-lg sm:rounded-xl p-4 sm:p-6 md:p-8 border overflow-hidden transition-all duration-300 cursor-pointer ${
+							className={`rounded-lg border p-4 shadow-sm transition-all duration-300 sm:rounded-xl sm:p-6 md:p-8 ${
 								activeDepartment === "kayam"
-									? "bg-white border-[#004d1a] ring-2 ring-[#004d1a] shadow-lg"
-									: "bg-white border-gray-200 hover:border-[#004d1a]/30 shadow-sm"
+									? "border-[#004d1a]/40 bg-[#f6fcf6] shadow-md"
+									: "cursor-pointer border-gray-200 bg-white hover:border-[#004d1a]/30"
 							}`}
 						>
-							<div className="flex items-start justify-between mb-4 md:mb-6">
-								<div className="w-8 h-8 sm:w-10 sm:h-10 md:w-14 md:h-14 rounded-lg bg-gradient-to-br from-rose-500 to-red-600 flex items-center justify-center flex-shrink-0">
-									<Hammer className="text-white w-4 h-4 sm:w-5 sm:h-5 md:w-7 md:h-7" />
+							<div className="mb-4 flex items-start justify-between md:mb-6">
+								<div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl border border-[#004d1a]/10 bg-[#eef8ef] text-[#004d1a] sm:h-12 sm:w-12 md:h-14 md:w-14">
+									<Guitar className="h-5 w-5 sm:h-6 sm:w-6 md:h-7 md:w-7" />
 								</div>
-								<motion.div animate={{ rotate: activeDepartment === "kayam" ? 180 : 0 }} transition={{ duration: 0.3 }}>
-									<MaterialIcon icon="expand_more" className="text-[#004d1a] text-lg md:text-2xl" />
-								</motion.div>
+								<MaterialIcon icon="expand_more" className="text-[#004d1a] text-lg md:text-2xl" />
 							</div>
-							<h3 className="text-lg md:text-2xl font-bold text-[#003300] mb-2">Kayam</h3>
-							<p className="text-xs font-bold uppercase tracking-wider text-rose-600 mb-4">Preservation & Crafts</p>
-							<p className="text-sm text-stone-700 leading-relaxed">
-								Focusing on cultural research, traditional crafts, and material heritage that tell stories of local communities.
+							<h3 className="mb-1 text-base font-bold text-[#003300] sm:text-lg md:text-2xl">Kayam</h3>
+							<p className="mb-2 text-xs font-bold uppercase tracking-wider text-[#004d1a] md:mb-4">Band & Expression</p>
+							<p className="text-xs leading-relaxed text-stone-700 sm:text-sm">
+								Kayam represents the university's contemporary band, blending modern musical expression with cultural appreciation.
 							</p>
 						</motion.div>
-					</div>
-
-					{/* REVEAL PANEL: Department Details with Enhanced Layout */}
-					<AnimatePresence>
-						{activeDepartment && (
-							<motion.div
-								key={activeDepartment}
-								initial={{
-									height: 0,
-									opacity: 0,
-									clipPath: "inset(0 0 100% 0)"
-								}}
-								animate={{
-									height: "auto",
-									opacity: 1,
-									clipPath: "inset(0 0 0% 0)"
-								}}
-								exit={{
-									height: 0,
-									opacity: 0,
-									clipPath: "inset(0 0 100% 0)"
-								}}
-								transition={{
-									duration: 0.7,
-									ease: "easeInOut"
-								}}
-								className="mt-8 w-full"
-							>
-								<motion.div
-									initial={{ opacity: 0, y: 20 }}
-									animate={{ opacity: 1, y: 0 }}
-									transition={{ staggerChildren: 0.12, delayChildren: 0.2 }}
-									className="bg-white border border-gray-200 rounded-xl shadow-xl p-4 md:p-8 lg:p-10 overflow-hidden"
-								>
-									{/* 2-Column Layout */}
-									<div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-										{/* LEFT: Achievements & Events */}
-										<motion.div
-											initial={{ opacity: 0, x: -20 }}
-											animate={{ opacity: 1, x: 0 }}
-											transition={{ duration: 0.6 }}
-										>
-											{/* Achievements */}
-											<div className="mb-10">
-												<h4 className="text-lg font-bold text-[#003300] mb-6 flex items-center gap-3">
-													<div className="w-7 h-7 md:w-8 md:h-8 rounded-lg bg-yellow-100 flex items-center justify-center">
-														<MaterialIcon icon="star" className="text-yellow-600 text-xs md:text-lg" />
-													</div>
-													Achievements
-												</h4>
-												<motion.ul
-													className="space-y-3"
-													variants={containerVariants}
-													initial="hidden"
-													animate="visible"
-												>
-													{departmentData[activeDepartment].achievements.map((achievement, idx) => (
-														<motion.li
-															key={idx}
-															variants={itemVariants}
-															className="flex gap-3 text-sm text-stone-700"
-														>
-															<span className="text-[#004d1a] font-bold text-lg mt-1">✓</span>
-															<span>{achievement}</span>
-														</motion.li>
-													))}
-												</motion.ul>
-											</div>
-
-											{/* Events */}
-											<div>
-												<h4 className="text-lg font-bold text-[#003300] mb-6 flex items-center gap-3">
-													<div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center">
-														<MaterialIcon icon="event" className="text-blue-600 text-lg" />
-													</div>
-													Events & Programs
-												</h4>
-												<motion.ul
-													className="space-y-3"
-													variants={containerVariants}
-													initial="hidden"
-													animate="visible"
-												>
-													{departmentData[activeDepartment].events.map((event, idx) => (
-														<motion.li
-															key={idx}
-															variants={itemVariants}
-															className="flex gap-3 text-sm text-stone-700"
-														>
-															<span className="text-blue-600 text-lg mt-1">📅</span>
-															<span>{event}</span>
-														</motion.li>
-													))}
-												</motion.ul>
-											</div>
-										</motion.div>
-
-										{/* RIGHT: Slideshow */}
-										<motion.div
-											initial={{ opacity: 0, x: 20 }}
-											animate={{ opacity: 1, x: 0 }}
-											transition={{ duration: 0.6 }}
-										>
-											<div className="relative h-[280px] md:h-[320px] bg-gray-900 flex items-center justify-center group rounded-xl overflow-hidden">
-												<motion.img
-													key={`${activeDepartment}-${departmentSlideIndex[activeDepartment]}`}
-													src={departmentData[activeDepartment].highlights[departmentSlideIndex[activeDepartment]]}
-													alt={`${activeDepartment} highlight`}
-													initial={{ opacity: 0, scale: 1.05 }}
-													animate={{ opacity: 1, scale: 1 }}
-													exit={{ opacity: 0 }}
-													transition={{ duration: 0.6 }}
-													className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-												/>
-												{/* Overlay gradient */}
-												<div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
-
-												{/* Slide indicators */}
-												<div className="absolute bottom-2 md:bottom-4 left-1/2 transform -translate-x-1/2 flex gap-1 md:gap-2 z-10">
-													{departmentData[activeDepartment].highlights.map((_, idx) => (
-														<motion.div
-															key={idx}
-															className={`h-1 md:h-2 rounded-full transition-all ${
-																idx === departmentSlideIndex[activeDepartment]
-																	? "w-5 md:w-8 bg-white"
-																	: "w-1 md:w-2 bg-white/50"
-															}`}
-														/>
-													))}
-												</div>
-											</div>
-										</motion.div>
-									</div>
-								</motion.div>
-							</motion.div>
-						)}
-					</AnimatePresence>
+					</motion.div>
 				</div>
 			</Section>
-
 			{/* ============================================ */}
 			{/* SECTION 10: WHY IT MATTERS (CTA) */}
 			{/* ============================================ */}
