@@ -705,34 +705,25 @@ export default function GetStarted() {
 						{activeDepartment && (
 							<motion.div
 								key={activeDepartment}
-								initial={{ opacity: 0, y: 20 }}
-								animate={{ opacity: 1, y: 0 }}
-								exit={{ opacity: 0, y: 20 }}
-								transition={{ duration: 0.45, ease: "easeOut" }}
+								initial={{ opacity: 0, y: 20, scale: 0.98 }}
+								animate={{ opacity: 1, y: 0, scale: 1 }}
+								exit={{ opacity: 0, y: 20, scale: 0.98 }}
+								transition={{ duration: 0.55, ease: "easeInOut" }}
 								className="mb-6 md:mb-8"
 							>
-								<div className="w-full overflow-hidden rounded-[2rem] bg-[#003300] px-4 py-8 text-white shadow-[0_25px_60px_rgba(0,40,0,0.20)] sm:px-8 sm:py-10 md:px-10 md:py-12 lg:px-14 lg:py-16">
-									<div className="flex justify-center">
+								<div className="w-full overflow-hidden bg-[#003300] px-3 py-6 text-white sm:px-6 sm:py-8 md:px-10 md:py-10 lg:px-14 lg:py-14">
+									<div className="flex justify-center pt-1">
 										<button
 											type="button"
 											onClick={() => toggleDepartment(activeDepartment)}
-											className="text-2xl text-white/80 transition duration-300 hover:text-white"
+											className="text-2xl text-white/70 transition duration-300 hover:text-white"
 											aria-label="Close department details"
 										>
 											<MaterialIcon icon="keyboard_arrow_up" className="text-3xl" />
 										</button>
 									</div>
 
-									<div className="mx-auto mt-4 max-w-3xl text-center">
-										<div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full border border-white/15 bg-white/10 text-white shadow-sm sm:h-20 sm:w-20">
-											{activeDepartment === "dulimbay" ? (
-												<PersonStanding className="h-8 w-8 sm:h-9 sm:w-9" />
-											) : activeDepartment === "budyong" ? (
-												<Music4 className="h-8 w-8 sm:h-9 sm:w-9" />
-											) : (
-												<Guitar className="h-8 w-8 sm:h-9 sm:w-9" />
-											)}
-										</div>
+									<div className="mx-auto mt-3 max-w-3xl text-center">
 										<h3 className="text-3xl font-black uppercase tracking-[0.22em] text-white sm:text-4xl md:text-5xl">
 											{activeDepartment === "dulimbay" ? "DULIMBAY" : activeDepartment === "budyong" ? "BUDYONG" : "KAYAM"}
 										</h3>
@@ -758,7 +749,7 @@ export default function GetStarted() {
 												alt={`${activeDepartment} highlight`}
 												initial={{ opacity: 0, scale: 1.05 }}
 												animate={{ opacity: 1, scale: 1 }}
-												transition={{ duration: 0.6 }}
+												transition={{ duration: 0.6, ease: "easeInOut" }}
 												className="h-full w-full object-cover"
 											/>
 											<div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
@@ -780,8 +771,8 @@ export default function GetStarted() {
 					</AnimatePresence>
 
 					<motion.div
-						animate={{ y: activeDepartment ? 24 : 0 }}
-						transition={{ duration: 0.35, ease: "easeInOut" }}
+						animate={{ y: activeDepartment ? 28 : 0 }}
+						transition={{ duration: 0.55, ease: "easeInOut" }}
 						className="grid grid-cols-1 gap-3 md:grid-cols-3 md:gap-8"
 					>
 						{/* Department 1: Dulimbay */}
