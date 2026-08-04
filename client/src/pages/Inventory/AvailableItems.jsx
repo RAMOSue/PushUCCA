@@ -342,9 +342,15 @@ export default function AvailableItems() {
     }
   };
 
+  useEffect(() => {
+    if (!loading && !user && location.pathname !== '/login') {
+      navigate('/login', { replace: true });
+    }
+  }, [loading, user, location.pathname, navigate]);
+
   if (loading || loadingItems)
     return <div className="h-screen flex items-center justify-center">Loading...</div>;
-  if (!user) return <div className="h-screen flex items-center justify-center">Not authenticated</div>;
+  if (!user) return null;
 
   // ============ STAFF/ADMIN VIEW ============
   if (user?.role === 'admin' || user?.role === 'staff') {

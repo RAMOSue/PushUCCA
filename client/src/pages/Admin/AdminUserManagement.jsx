@@ -108,6 +108,12 @@ export default function AdminUserManagement() {
 
     try {
       await axios.delete(`/api/auth/admin/users/${id}`);
+      if (Number(user?.id) === Number(id)) {
+        window.dispatchEvent(new CustomEvent("auth:logout", { detail: { reason: "account-deleted" } }));
+        toast.success("Your account was deleted. You have been signed out.");
+        return;
+      }
+
       toast.success("User deleted successfully.");
       setUsers((prev) => prev.filter((u) => u.id !== id));
     } catch (error) {

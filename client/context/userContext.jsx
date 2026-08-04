@@ -79,7 +79,16 @@ export function UserContextProvider({ children }) {
     if (INACTIVITY_CONFIG.PERSIST_SESSION) {
       localStorage.removeItem(INACTIVITY_CONFIG.SESSION_KEY);
     }
+    try {
+      document.cookie = "token=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/";
+    } catch (e) {
+      console.warn("Failed to clear auth cookie:", e);
+    }
     console.log(`🧹 [Auth] Session cleared (${reason})`);
+
+    if (typeof window !== "undefined" && window.location.pathname !== "/login") {
+      window.location.replace("/login");
+    }
   };
 
   // ✅ Global Dark Mode State (persists in localStorage)
