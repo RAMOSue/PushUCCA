@@ -109,7 +109,7 @@ export default function SideNavbar({ role = "staff" }) {
       <aside
         className={`left-sidebar sticky left-0 top-0 h-screen shrink-0 border-r border-outline-variant/20 bg-surface-container-low dark:border-[#2a2a2a] dark:bg-[#1f1f1f] shadow-lg dark:shadow-none z-30 transition-all duration-300 ease-in-out ${
           isMobile
-            ? sidebarOpen ? "w-64" : "w-0"
+            ? "w-[220px] max-w-[78vw]"
             : leftSidebarCollapsed ? "w-16" : "w-64"
         }`}
         style={{
@@ -129,7 +129,7 @@ export default function SideNavbar({ role = "staff" }) {
           }
         `}</style>
 
-        <div className={`sticky top-0 z-10 border-b border-outline-variant/20 bg-surface-container-low dark:border-[#2a2a2a] dark:bg-[#1f1f1f] transition-all duration-300 ${leftSidebarCollapsed ? "px-2 py-3" : "px-3 py-3"}`}>
+        <div className={`sticky top-0 z-10 border-b border-outline-variant/20 bg-surface-container-low dark:border-[#2a2a2a] dark:bg-[#1f1f1f] transition-all duration-300 ${leftSidebarCollapsed ? "px-2 py-2 sm:px-2 sm:py-3" : "px-2 py-2 sm:px-3 sm:py-3"}`}>
           {leftSidebarCollapsed ? (
             <div
               className="relative flex h-10 w-full items-center justify-center"
@@ -163,7 +163,7 @@ export default function SideNavbar({ role = "staff" }) {
               <button
                 type="button"
                 onClick={() => setLeftSidebarCollapsed(true)}
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-slate-200 bg-white/80 text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-slate-200 bg-white/80 text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 sm:h-8 sm:w-8"
                 title="Collapse sidebar"
                 aria-label="Collapse sidebar"
               >
@@ -178,7 +178,7 @@ export default function SideNavbar({ role = "staff" }) {
         {/* Home removed — staff workflow streamlines to Manage Borrowing as landing */}
 
         {/* Navigation Items */}
-        <nav className={`flex-1 flex flex-col px-2 sm:px-3 md:px-4 lg:px-4 space-y-1 sm:space-y-1 md:space-y-2 lg:space-y-2 ${leftSidebarCollapsed ? "lg:items-center lg:px-2" : ""}`}>
+        <nav className={`flex-1 flex flex-col px-2 py-2 sm:px-3 sm:py-2 md:px-4 lg:px-4 space-y-1 sm:space-y-1.5 md:space-y-2 lg:space-y-2 ${leftSidebarCollapsed ? "lg:items-center lg:px-2" : ""}`}>
           {navItems.map((item) => {
             const Icon = item.icon;
             const active = isActive(item.path);
@@ -193,23 +193,23 @@ export default function SideNavbar({ role = "staff" }) {
                     setSidebarOpen(false);
                   }
                 }}
-                className={`flex items-center justify-between rounded-lg text-xs sm:text-xs md:text-sm lg:text-sm font-medium transition-all duration-200 gap-2 sm:gap-3 ${
+                className={`flex items-center justify-between rounded-lg text-[10px] sm:text-[11px] md:text-sm lg:text-sm font-medium transition-all duration-200 gap-1.5 sm:gap-2 ${
                   leftSidebarCollapsed
                     ? "lg:w-10 lg:h-10 lg:justify-center lg:px-0 lg:py-0"
-                    : "px-3 sm:px-3 md:px-4 lg:px-4 py-2 sm:py-2 md:py-3 lg:py-3"
+                    : "px-2.5 sm:px-3 md:px-4 lg:px-4 py-2 sm:py-2 md:py-2.5 lg:py-3"
                 } ${
                   active
                     ? "bg-surface-container-lowest dark:bg-[#2a2a2a] text-primary dark:text-blue-400 shadow-sm border border-primary/20 dark:border-blue-500/30"
                     : "text-on-surface-variant dark:text-gray-400 hover:bg-surface-container-highest dark:hover:bg-[#2a2a2a] hover:text-on-surface dark:hover:text-white"
                 }`}
               >
-                <div className={`flex items-center ${leftSidebarCollapsed ? "lg:justify-center" : "gap-2 sm:gap-3 flex-1 min-w-0"}`}>
-                  <Icon className={`${leftSidebarCollapsed ? "w-5 h-5" : "w-4 sm:w-4 md:w-5 lg:w-5 h-4 sm:h-4 md:h-5 lg:h-5"} flex-shrink-0`} />
+                <div className={`flex items-center ${leftSidebarCollapsed ? "lg:justify-center" : "gap-1.5 sm:gap-2 flex-1 min-w-0"}`}>
+                  <Icon className={`${leftSidebarCollapsed ? "w-4 h-4 sm:w-4 sm:h-4" : "w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-4.5 md:h-4.5 lg:w-5 lg:h-5"} flex-shrink-0`} />
                   {!leftSidebarCollapsed && (
-                    <span className="text-[9px] sm:text-[9px] md:text-[10px] lg:text-[10px] uppercase tracking-widest font-semibold truncate">{item.label}</span>
+                    <span className="text-[8px] sm:text-[9px] md:text-[10px] lg:text-[10px] uppercase tracking-[0.16em] font-semibold truncate">{item.label}</span>
                   )}
                 </div>
-                {!leftSidebarCollapsed && active && <ChevronRight className="w-3 sm:w-3 md:w-4 lg:w-4 h-3 sm:h-3 md:h-4 lg:h-4 flex-shrink-0" />}
+                {!leftSidebarCollapsed && active && <ChevronRight className="w-3 h-3 sm:w-3 sm:h-3 md:w-3.5 md:h-3.5 flex-shrink-0" />}
               </Link>
             );
           })}

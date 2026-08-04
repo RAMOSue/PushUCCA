@@ -13,11 +13,11 @@ import { notificationService } from "../../services/notifications";
 import Logo from "../../assets/Logo.png";
 
 const PublicBrand = () => (
-  <div className="flex items-center gap-2 sm:gap-3">
-    <img src={Logo} alt="CSU Logo" className="h-9 w-auto object-contain sm:h-12" />
-    <div className="leading-tight">
-      <p className="text-sm font-thick text-black sm:text-base">Caraga State University</p>
-      <p className="text-[10px] font-thin text-black sm:text-xs">University Center for Culture and the Arts</p>
+  <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+    <img src={Logo} alt="CSU Logo" className="h-7 w-auto object-contain sm:h-9 md:h-10" />
+    <div className="min-w-0 leading-tight">
+      <p className="truncate text-[10px] font-semibold text-black sm:text-xs md:text-sm">Caraga State University</p>
+      <p className="truncate text-[8px] font-medium text-black/80 sm:text-[10px] md:text-xs">University Center for Culture and the Arts</p>
     </div>
   </div>
 );
@@ -284,14 +284,14 @@ export default function Navbar() {
 
   if (loading) {
     return (
-      <header className="sticky top-0 z-40 border-b border-slate-200 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.04)] transition-all duration-300 ease-in-out h-14 sm:h-16">
-        <div className="flex h-full w-full items-center justify-between gap-3 px-3 py-3 sm:px-4 sm:py-4 md:px-6">
-          <div className="flex min-w-0 items-center gap-3">
+      <header className="sticky top-0 z-40 border-b border-slate-200 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.04)] transition-all duration-300 ease-in-out h-12 sm:h-14 md:h-16">
+        <div className="flex h-full w-full items-center justify-between gap-2 px-2 py-2 sm:px-3 sm:py-3 md:px-6">
+          <div className="flex min-w-0 items-center gap-2">
             <PublicBrand />
           </div>
           <div className="flex items-center gap-2">
             <div className="h-4 w-4 animate-spin rounded-full border-b-2 border-[#004aad]"></div>
-            <span className="text-sm text-slate-500">Loading...</span>
+            <span className="text-xs text-slate-500 sm:text-sm">Loading...</span>
           </div>
         </div>
       </header>
@@ -300,15 +300,15 @@ export default function Navbar() {
 
   if (!user) {
     return (
-      <header className="sticky top-0 z-40 border-b border-slate-200 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.04)] transition-all duration-300 ease-in-out h-14 sm:h-16">
-        <div className="flex h-full w-full items-center justify-between gap-3 px-3 py-3 sm:px-4 sm:py-4 md:px-6">
+      <header className="sticky top-0 z-40 border-b border-slate-200 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.04)] transition-all duration-300 ease-in-out h-12 sm:h-14 md:h-16">
+        <div className="flex h-full w-full items-center justify-between gap-2 px-2 py-2 sm:px-3 sm:py-3 md:px-6">
           <div className="flex min-w-0 items-center">
             <PublicBrand />
           </div>
 
           <button
             onClick={openLoginModal}
-            className="inline-flex h-9 items-center justify-center rounded-full border border-slate-200 bg-[#164f11] px-3 text-xs font-semibold text-white shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:bg-[#0f3c0c] hover:shadow-md sm:h-11 sm:px-5 sm:text-sm"
+            className="inline-flex h-8 items-center justify-center rounded-full border border-slate-200 bg-[#164f11] px-2.5 text-[10px] font-semibold text-white shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:bg-[#0f3c0c] hover:shadow-md sm:h-9 sm:px-3 sm:text-xs md:h-11 md:px-5 md:text-sm"
           >
             Log In
           </button>
@@ -319,11 +319,11 @@ export default function Navbar() {
 
   return (
     <>
-      <header className="sticky top-0 z-40 border-b border-slate-200 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.04)] transition-all duration-300 ease-in-out">
-        <div className="flex items-center justify-between gap-3 px-3 py-3 sm:px-4 sm:py-4 md:px-6">
-          <div className="flex min-w-0 items-center gap-3">
+      <header className="sticky top-0 z-40 border-b border-slate-200 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.04)] transition-all duration-300 ease-in-out h-12 sm:h-14 md:h-16">
+        <div className="flex h-full items-center justify-between gap-2 px-2 py-2 sm:px-3 sm:py-3 md:px-6">
+          <div className="flex min-w-0 items-center gap-2 sm:gap-3">
             <div className="flex min-w-0 flex-col">
-              <div className="flex items-center leading-none text-[20px] font-black tracking-[-0.08em] sm:text-[22px]">
+              <div className="flex items-center leading-none text-[15px] font-black tracking-[-0.08em] sm:text-[17px] md:text-[20px]">
                 <span className="text-[#004aad]">Du</span>
                 <span className="text-[#ffbd59]">Bud</span>
                 <span className="text-[#ff3131]">Ka</span>
@@ -333,10 +333,10 @@ export default function Navbar() {
                 <button
                   type="button"
                   onClick={() => setDivisionMenuOpen((prev) => !prev)}
-                  className="flex items-center gap-1.5 text-left text-[11px] font-semibold text-slate-600 transition hover:text-slate-900 sm:text-xs"
+                  className="flex items-center gap-1 text-left text-[9px] font-semibold text-slate-600 transition hover:text-slate-900 sm:text-[10px] md:text-xs"
                 >
-                  <span>{selectedDivision === "All" ? "ᜇᜓᜊᜓᜇ᜔ᜃ" : selectedDivision}</span>
-                  <ChevronDown className={`h-3.5 w-3.5 transition ${divisionMenuOpen ? "rotate-180" : ""}`} />
+                  <span className="truncate">{selectedDivision === "All" ? "ᜇᜓᜊᜓᜇ᜔ᜃ" : selectedDivision}</span>
+                  <ChevronDown className={`h-3 w-3 transition ${divisionMenuOpen ? "rotate-180" : ""}`} />
                 </button>
 
                 {divisionMenuOpen && (
@@ -363,8 +363,8 @@ export default function Navbar() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2 sm:gap-3">
-            <div className="hidden md:block w-56 lg:w-72">
+          <div className="flex items-center gap-1.5 sm:gap-2 md:gap-3">
+            <div className="block w-24 sm:w-32 md:w-48 lg:w-72">
               <GlobalSearchBar
                 value={globalSearchQuery}
                 onChange={(e) => setGlobalSearchQuery(e.target.value)}
@@ -380,20 +380,20 @@ export default function Navbar() {
             )}
 
             {(user?.role === "staff" || user?.role === "admin") && (
-              <Link to="/staff-borrow-cart" className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-slate-50 text-slate-700 transition hover:bg-slate-100" title="Staff Borrowing Cart">
-                <ShoppingCart className="h-4 w-4" />
+              <Link to="/staff-borrow-cart" className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full border border-slate-200 bg-slate-50 text-slate-700 transition hover:bg-slate-100 sm:h-9 sm:w-9" title="Staff Borrowing Cart">
+                <ShoppingCart className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               </Link>
             )}
 
             {user?.role === "borrower" && (
               <Link
                 to="/borrow-cart"
-                className="relative flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-slate-50 text-slate-700 transition hover:bg-slate-100"
+                className="relative flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full border border-slate-200 bg-slate-50 text-slate-700 transition hover:bg-slate-100 sm:h-9 sm:w-9"
                 title="Borrow Cart"
               >
-                <ShoppingCart className="h-4 w-4" />
+                <ShoppingCart className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                 {cart && cart.length > 0 && (
-                  <span className="absolute -top-2 -right-2 bg-red-500 text-white text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center">
+                  <span className="absolute -top-2 -right-2 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white sm:h-5 sm:w-5 sm:text-[10px]">
                     {cart.length}
                   </span>
                 )}
@@ -401,20 +401,20 @@ export default function Navbar() {
             )}
 
             <div
-              className="relative hidden md:block"
+              className="relative flex-shrink-0"
               ref={profileDropdownRef}
               onMouseEnter={() => setProfileHovered(true)}
               onMouseLeave={() => setProfileHovered(false)}
             >
               <button
                 onClick={() => setProfileDropdownOpen((prev) => !prev)}
-                className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border border-slate-200 bg-slate-50 text-slate-700 transition hover:border-slate-300 hover:bg-slate-100"
+                className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full border border-slate-200 bg-slate-50 text-slate-700 transition hover:border-slate-300 hover:bg-slate-100 sm:h-9 sm:w-9"
                 title="Profile menu"
               >
                 {profilePic ? (
                   <img alt={user?.name} className="h-full w-full object-cover" src={profilePic} />
                 ) : (
-                  <User className="h-4 w-4" />
+                  <User className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                 )}
               </button>
 
