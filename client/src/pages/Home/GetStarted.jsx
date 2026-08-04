@@ -711,35 +711,47 @@ export default function GetStarted() {
 								transition={{ duration: 0.45, ease: "easeOut" }}
 								className="mb-6 md:mb-8"
 							>
-								<div className="rounded-[2rem] border border-stone-200 bg-gradient-to-br from-white via-[#fcfefb] to-[#eef8ef] p-5 shadow-[0_20px_45px_rgba(0,51,0,0.08)] sm:p-7 md:p-10">
-									<div className="grid grid-cols-1 gap-8 lg:grid-cols-[1.05fr_0.95fr] lg:gap-10">
-										<div className="flex flex-col justify-center">
-											<div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#eef8ef] text-[#004d1a] shadow-sm">
-												{activeDepartment === "dulimbay" ? (
-													<PersonStanding className="h-7 w-7" />
-												) : activeDepartment === "budyong" ? (
-													<Music4 className="h-7 w-7" />
-												) : (
-													<Guitar className="h-7 w-7" />
-												)}
-											</div>
-											<h3 className="text-2xl font-bold text-[#003300] sm:text-3xl">
-												{activeDepartment === "dulimbay" ? "Dulimbay" : activeDepartment === "budyong" ? "Budyong" : "Kayam"}
-											</h3>
-											<p className="mt-3 text-sm leading-relaxed text-stone-700 sm:text-base">
-												{departmentData[activeDepartment].description}
-											</p>
-											<div className="mt-6 grid gap-3 sm:grid-cols-2">
-												{departmentData[activeDepartment].achievements.slice(0, 2).map((achievement, idx) => (
-													<div key={idx} className="rounded-2xl border border-[#004d1a]/10 bg-white/80 p-3 text-sm text-stone-700 shadow-sm">
-														<span className="mr-2 font-semibold text-[#004d1a]">•</span>
-														{achievement}
-													</div>
-												))}
-											</div>
+								<div className="w-full overflow-hidden rounded-[2rem] bg-[#003300] px-4 py-8 text-white shadow-[0_25px_60px_rgba(0,40,0,0.20)] sm:px-8 sm:py-10 md:px-10 md:py-12 lg:px-14 lg:py-16">
+									<div className="flex justify-center">
+										<button
+											type="button"
+											onClick={() => toggleDepartment(activeDepartment)}
+											className="text-2xl text-white/80 transition duration-300 hover:text-white"
+											aria-label="Close department details"
+										>
+											<MaterialIcon icon="keyboard_arrow_up" className="text-3xl" />
+										</button>
+									</div>
+
+									<div className="mx-auto mt-4 max-w-3xl text-center">
+										<div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full border border-white/15 bg-white/10 text-white shadow-sm sm:h-20 sm:w-20">
+											{activeDepartment === "dulimbay" ? (
+												<PersonStanding className="h-8 w-8 sm:h-9 sm:w-9" />
+											) : activeDepartment === "budyong" ? (
+												<Music4 className="h-8 w-8 sm:h-9 sm:w-9" />
+											) : (
+												<Guitar className="h-8 w-8 sm:h-9 sm:w-9" />
+											)}
+										</div>
+										<h3 className="text-3xl font-black uppercase tracking-[0.22em] text-white sm:text-4xl md:text-5xl">
+											{activeDepartment === "dulimbay" ? "DULIMBAY" : activeDepartment === "budyong" ? "BUDYONG" : "KAYAM"}
+										</h3>
+										<p className="mx-auto mt-5 max-w-2xl text-sm leading-7 text-white/85 sm:text-base">
+											{departmentData[activeDepartment].description}
+										</p>
+									</div>
+
+									<div className="mx-auto mt-8 flex w-full max-w-5xl flex-col gap-4 border-t border-white/15 pt-8 sm:gap-6 md:gap-8">
+										<div className="grid gap-3 sm:grid-cols-2">
+											{departmentData[activeDepartment].achievements.slice(0, 2).map((achievement, idx) => (
+												<div key={idx} className="rounded-2xl border border-white/10 bg-white/10 px-4 py-3 text-sm text-white/80 shadow-sm backdrop-blur-sm">
+													<span className="mr-2 font-semibold text-[#92D6A2]">•</span>
+													{achievement}
+												</div>
+											))}
 										</div>
 
-										<div className="relative h-[260px] overflow-hidden rounded-[1.5rem] border border-stone-200 bg-stone-900 sm:h-[320px]">
+										<div className="relative h-[260px] overflow-hidden rounded-[1.5rem] border border-white/10 bg-stone-900 sm:h-[320px]">
 											<motion.img
 												key={`${activeDepartment}-${departmentSlideIndex[activeDepartment]}`}
 												src={departmentData[activeDepartment].highlights[departmentSlideIndex[activeDepartment]]}
@@ -761,17 +773,6 @@ export default function GetStarted() {
 												))}
 											</div>
 										</div>
-									</div>
-
-									<div className="mt-8 flex justify-center">
-										<button
-											type="button"
-											onClick={() => toggleDepartment(activeDepartment)}
-											className="flex flex-col items-center rounded-full border border-[#004d1a]/15 bg-white p-3 text-[#004d1a] shadow-sm transition duration-300 hover:-translate-y-0.5 hover:shadow-md"
-										>
-											<MaterialIcon icon="keyboard_arrow_up" className="text-xl" />
-											<span className="mt-1 text-[10px] font-semibold uppercase tracking-[0.25em] text-stone-500">Close</span>
-										</button>
 									</div>
 								</div>
 							</motion.div>
