@@ -709,59 +709,61 @@ export default function GetStarted() {
 								animate={{ opacity: 1, y: 0, scale: 1 }}
 								exit={{ opacity: 0, y: 20, scale: 0.98 }}
 								transition={{ duration: 0.55, ease: "easeInOut" }}
-								className="mb-6 md:mb-8"
+								className="relative left-1/2 mb-6 w-screen -ml-[50vw] overflow-hidden md:mb-8"
 							>
 								<div className="w-full overflow-hidden bg-[#003300] px-3 py-6 text-white sm:px-6 sm:py-8 md:px-10 md:py-10 lg:px-14 lg:py-14">
-									<div className="flex justify-center pt-1">
-										<button
-											type="button"
-											onClick={() => toggleDepartment(activeDepartment)}
-											className="text-2xl text-white/70 transition duration-300 hover:text-white"
-											aria-label="Close department details"
-										>
-											<MaterialIcon icon="keyboard_arrow_up" className="text-3xl" />
-										</button>
-									</div>
-
-									<div className="mx-auto mt-3 max-w-3xl text-center">
-										<h3 className="text-3xl font-black uppercase tracking-[0.22em] text-white sm:text-4xl md:text-5xl">
-											{activeDepartment === "dulimbay" ? "DULIMBAY" : activeDepartment === "budyong" ? "BUDYONG" : "KAYAM"}
-										</h3>
-										<p className="mx-auto mt-5 max-w-2xl text-sm leading-7 text-white/85 sm:text-base">
-											{departmentData[activeDepartment].description}
-										</p>
-									</div>
-
-									<div className="mx-auto mt-8 flex w-full max-w-5xl flex-col gap-4 border-t border-white/15 pt-8 sm:gap-6 md:gap-8">
-										<div className="grid gap-3 sm:grid-cols-2">
-											{departmentData[activeDepartment].achievements.slice(0, 2).map((achievement, idx) => (
-												<div key={idx} className="rounded-2xl border border-white/10 bg-white/10 px-4 py-3 text-sm text-white/80 shadow-sm backdrop-blur-sm">
-													<span className="mr-2 font-semibold text-[#92D6A2]">•</span>
-													{achievement}
-												</div>
-											))}
+									<div className="mx-auto flex w-full max-w-6xl flex-col">
+										<div className="flex justify-center pt-1">
+											<button
+												type="button"
+												onClick={() => toggleDepartment(activeDepartment)}
+												className="text-2xl text-white/70 transition duration-300 hover:text-white"
+												aria-label="Close department details"
+											>
+												<MaterialIcon icon="keyboard_arrow_up" className="text-3xl" />
+											</button>
 										</div>
 
-										<div className="relative h-[260px] overflow-hidden rounded-[1.5rem] border border-white/10 bg-stone-900 sm:h-[320px]">
-											<motion.img
-												key={`${activeDepartment}-${departmentSlideIndex[activeDepartment]}`}
-												src={departmentData[activeDepartment].highlights[departmentSlideIndex[activeDepartment]]}
-												alt={`${activeDepartment} highlight`}
-												initial={{ opacity: 0, scale: 1.05 }}
-												animate={{ opacity: 1, scale: 1 }}
-												transition={{ duration: 0.6, ease: "easeInOut" }}
-												className="h-full w-full object-cover"
-											/>
-											<div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
-											<div className="absolute bottom-3 left-1/2 flex -translate-x-1/2 gap-2">
-												{departmentData[activeDepartment].highlights.map((_, idx) => (
-													<div
-														key={idx}
-														className={`h-1.5 rounded-full transition-all ${
-															idx === departmentSlideIndex[activeDepartment] ? "w-7 bg-white" : "w-2 bg-white/60"
-														}`}
-													/>
+										<div className="mx-auto mt-3 max-w-3xl text-center">
+											<h3 className="text-3xl font-black uppercase tracking-[0.22em] text-white sm:text-4xl md:text-5xl">
+												{activeDepartment === "dulimbay" ? "DULIMBAY" : activeDepartment === "budyong" ? "BUDYONG" : "KAYAM"}
+											</h3>
+											<p className="mx-auto mt-5 max-w-2xl text-sm leading-7 text-white/85 sm:text-base">
+												{departmentData[activeDepartment].description}
+											</p>
+										</div>
+
+										<div className="mx-auto mt-8 flex w-full max-w-5xl flex-col gap-4 border-t border-white/15 pt-8 sm:gap-6 md:gap-8">
+											<div className="grid gap-3 sm:grid-cols-2">
+												{departmentData[activeDepartment].achievements.slice(0, 2).map((achievement, idx) => (
+													<div key={idx} className="rounded-2xl border border-white/10 bg-white/10 px-4 py-3 text-sm text-white/80 shadow-sm backdrop-blur-sm">
+														<span className="mr-2 font-semibold text-[#92D6A2]">•</span>
+														{achievement}
+													</div>
 												))}
+											</div>
+
+											<div className="relative h-[260px] overflow-hidden rounded-[1.5rem] border border-white/10 bg-stone-900 sm:h-[320px]">
+												<motion.img
+													key={`${activeDepartment}-${departmentSlideIndex[activeDepartment]}`}
+													src={departmentData[activeDepartment].highlights[departmentSlideIndex[activeDepartment]]}
+													alt={`${activeDepartment} highlight`}
+													initial={{ opacity: 0, scale: 1.05 }}
+													animate={{ opacity: 1, scale: 1 }}
+													transition={{ duration: 0.6, ease: "easeInOut" }}
+													className="h-full w-full object-cover"
+												/>
+												<div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+												<div className="absolute bottom-3 left-1/2 flex -translate-x-1/2 gap-2">
+													{departmentData[activeDepartment].highlights.map((_, idx) => (
+														<div
+															key={idx}
+															className={`h-1.5 rounded-full transition-all ${
+																idx === departmentSlideIndex[activeDepartment] ? "w-7 bg-white" : "w-2 bg-white/60"
+															}`}
+														/>
+													))}
+												</div>
 											</div>
 										</div>
 									</div>
