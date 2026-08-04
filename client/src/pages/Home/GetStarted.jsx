@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import axios from "axios";
 import { toast } from "react-hot-toast";
 import { Eye, EyeOff, AlertCircle, X as XIcon, PersonStanding, Music4, Guitar } from "lucide-react";
+import tokenManager from "../../utils/tokenManager";
 
 // Material Symbols Icon Component
 const MaterialIcon = ({ icon, className = "" }) => (
@@ -431,7 +432,12 @@ export default function GetStarted() {
 		setIsLoading(true);
 		try {
 			const res = await axios.post(
-					`${import.meta.env.VITE_API_URL || window.location.origin}/api/auth/login`,
+				`${import.meta.env.VITE_API_URL || window.location.origin}/api/auth/login`,
+				{
+					email: loginData.email.trim().toLowerCase(),
+					password: loginData.password,
+				},
+				{ withCredentials: true }
 			);
 
 			if (res.data.error) {
@@ -443,6 +449,17 @@ export default function GetStarted() {
 				setLoginAttempts(0);
 				toast.success("✅ Login successful!");
 				const loggedInUser = res.data.user;
+				const token = res.data.token;
+
+				if (token && loggedInUser?.id) {
+					tokenManager.addToken(loggedInUser.id, loggedInUser.email, token, {
+						name: loggedInUser.name,
+						role: loggedInUser.role,
+						phone: loggedInUser.phone,
+					});
+					tokenManager.setActiveToken(loggedInUser.id);
+				}
+
 				setUser(loggedInUser);
 				setLoginData({ email: "", password: "" });
 				setLoginErrors({});
