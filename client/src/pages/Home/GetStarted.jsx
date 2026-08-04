@@ -705,10 +705,10 @@ export default function GetStarted() {
 						{activeDepartment && (
 							<motion.div
 								key={activeDepartment}
-								initial={{ opacity: 0, y: 20, scale: 0.98 }}
-								animate={{ opacity: 1, y: 0, scale: 1 }}
-								exit={{ opacity: 0, y: 20, scale: 0.98 }}
-								transition={{ duration: 0.55, ease: "easeInOut" }}
+								initial={{ y: -24, scale: 0.985 }}
+								animate={{ y: 0, scale: 1 }}
+								exit={{ y: -24, scale: 0.985 }}
+								transition={{ duration: 0.5, ease: [0.4, 0, 0.2, 1] }}
 								className="relative left-1/2 mb-6 w-screen -ml-[50vw] overflow-hidden md:mb-8"
 							>
 								<div className="w-full overflow-hidden bg-[#003300] px-3 py-6 text-white sm:px-6 sm:py-8 md:px-10 md:py-10 lg:px-14 lg:py-14">
@@ -774,7 +774,7 @@ export default function GetStarted() {
 
 					<motion.div
 						animate={{ y: activeDepartment ? 28 : 0 }}
-						transition={{ duration: 0.55, ease: "easeInOut" }}
+						transition={{ duration: 0.5, ease: [0.4, 0, 0.2, 1] }}
 						className="grid grid-cols-1 gap-3 md:grid-cols-3 md:gap-8"
 					>
 						{/* Department 1: Dulimbay */}
