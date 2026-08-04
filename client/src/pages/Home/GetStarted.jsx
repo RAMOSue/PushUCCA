@@ -591,12 +591,19 @@ export default function GetStarted() {
 			const normalizedEmail = email.toLowerCase().trim();
 			setLoginData((prev) => ({ ...prev, email: normalizedEmail }));
 
-			const loggedInUser = await authenticateWithCredentials({
-				email: normalizedEmail,
-				password,
-				successMessage: "🎉 Account created! You’re now signed in.",
-			});
-			navigateBasedOnRole(loggedInUser);
+			const registrationUser = res.data?.user;
+			const registrationToken = res.data?.token;
+			if (registrationUser && registrationToken) {
+				persistAuthSession(registrationUser, registrationToken, "🎉 Account created! You’re now signed in.");
+				navigateBasedOnRole(registrationUser);
+			} else {
+				const loggedInUser = await authenticateWithCredentials({
+					email: normalizedEmail,
+					password,
+					successMessage: "🎉 Account created! You’re now signed in.",
+				});
+				navigateBasedOnRole(loggedInUser);
+			}
 		} catch (error) {
 			console.error("Registration error:", error.message);
 			const errorMsg = error.response?.data?.error || error.message || "Registration failed. Please try again.";
