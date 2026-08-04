@@ -1,5 +1,6 @@
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
+const pool = require("../db");
 
 /* ---------------- Password Helpers ---------------- */
 const hashPassword = (password) => {
@@ -20,7 +21,7 @@ const comparePassword = (password, hashed) => {
 
 /* ---------------- Auth Middleware ---------------- */
 // ✅ Verify JWT from cookie OR Authorization header, attach user to req
-const ensureAuth = (req, res, next) => {
+const ensureAuth = async (req, res, next) => {
   try {
     let token = req.cookies?.token; // read JWT from cookie first
     
@@ -64,6 +65,22 @@ const ensureAuth = (req, res, next) => {
         });
       }
       throw jwtErr;
+    }
+
+    const userQuery = await pool.query("SELECT id FROM users WHERE id = $1", [decoded.id]);
+    if (userQuery.rows.length === 0) {
+      console.warn(`⚠️ [ensureAuth] Account deleted for user ID: ${decoded.id}`);
+      res.clearCookie("token", {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+        path: "/",
+      });
+      return res.status(401).json({
+        error: "Unauthorized - Account deleted",
+        details: "Your account no longer exists",
+        code: "ACCOUNT_DELETED",
+      });
     }
 
     // Attach decoded user info to req for controllers

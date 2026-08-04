@@ -40,13 +40,28 @@ axios.interceptors.request.use(
  * 🔧 Axios response interceptor to handle 401 errors gracefully
  * During OAuth redirect, some 401 errors are expected and transient
  */
+const emitAuthLogout = (reason = "auth") => {
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent("auth:logout", { detail: { reason } }));
+  }
+};
+
 axios.interceptors.response.use(
   (response) => response,
   (error) => {
-    // ✅ FIX: Don't auto-logout on 401 during component initialization
-    // Components should handle 401 gracefully instead of crashing
-    if (error.response?.status === 401) {
-      // Log but don't throw - let the component handle it
+    const status = error.response?.status;
+    const responseData = error.response?.data;
+    const isDeletedAccount = status === 401 && (
+      responseData?.code === "ACCOUNT_DELETED" ||
+      responseData?.error === "Unauthorized - Account deleted"
+    );
+
+    if (isDeletedAccount) {
+      console.warn("🔐 [Axios] Account deleted detected - clearing session");
+      emitAuthLogout("account-deleted");
+    } else if (status === 401) {
+      // ✅ FIX: Don't auto-logout on 401 during component initialization
+      // Components should handle 401 gracefully instead of crashing
       console.debug("🔐 [Axios] Received 401 - component will handle auth retry");
     }
     return Promise.reject(error);
@@ -57,11 +72,30 @@ export function UserContextProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  const clearAuthSession = (reason = "auth") => {
+    tokenManager.clearAll();
+    setUser(null);
+    setLoading(false);
+    if (INACTIVITY_CONFIG.PERSIST_SESSION) {
+      localStorage.removeItem(INACTIVITY_CONFIG.SESSION_KEY);
+    }
+    console.log(`🧹 [Auth] Session cleared (${reason})`);
+  };
+
   // ✅ Global Dark Mode State (persists in localStorage)
   const [darkMode, setDarkMode] = useState(() => {
     const saved = localStorage.getItem("darkMode");
     return saved ? JSON.parse(saved) : false;
   });
+
+  useEffect(() => {
+    const handleAuthLogout = (event) => {
+      clearAuthSession(event?.detail?.reason || "auth");
+    };
+
+    window.addEventListener("auth:logout", handleAuthLogout);
+    return () => window.removeEventListener("auth:logout", handleAuthLogout);
+  }, []);
 
   // ✅ Session Persistence - recover session from localStorage on app load
   useEffect(() => {
@@ -129,14 +163,12 @@ export function UserContextProvider({ children }) {
           });
           console.log("✅ [Session] Recovered session for:", data.email);
         } else {
-          setUser(null);
-          localStorage.removeItem(INACTIVITY_CONFIG.SESSION_KEY);
+          clearAuthSession("no-session");
         }
       } catch (err) {
         if (err.response?.status === 401 || err.response?.status === 404) {
           // ✅ Expected for logged-out users - silently clear session without logging
-          setUser(null);
-          localStorage.removeItem(INACTIVITY_CONFIG.SESSION_KEY);
+          clearAuthSession("session-expired");
         } else {
           console.error("Session recovery error:", err.response?.data || err.message);
         }
@@ -219,10 +251,7 @@ export function UserContextProvider({ children }) {
             return true; // Success
           } else {
             console.warn('⚠️ [Profile] No user data in response');
-            setUser(null);
-            if (INACTIVITY_CONFIG.PERSIST_SESSION) {
-              localStorage.removeItem(INACTIVITY_CONFIG.SESSION_KEY);
-            }
+            clearAuthSession("no-user");
             return true; // Success but no user
           }
         } catch (err) {
@@ -235,10 +264,7 @@ export function UserContextProvider({ children }) {
             } else {
               // After all retries, assume user is not authenticated
               console.log("✅ [Profile] No user authenticated (401 after all retries)");
-              setUser(null);
-              if (INACTIVITY_CONFIG.PERSIST_SESSION) {
-                localStorage.removeItem(INACTIVITY_CONFIG.SESSION_KEY);
-              }
+              clearAuthSession("unauthenticated");
               return true; // Stop retrying
             }
           } else {
