@@ -114,7 +114,7 @@ export default function AvailableItems() {
   };
 
   const renderItemCards = (itemsList) => (
-    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3 md:gap-4 pb-6 sm:pb-8">
+    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3 md:gap-4 pb-6 sm:pb-8">
       {itemsList.map((item) => {
         const recommendation = getItemRecommendation(item.id);
         return (

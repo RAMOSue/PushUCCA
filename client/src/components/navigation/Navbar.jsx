@@ -7,7 +7,7 @@ import { useSidebarStore, DIVISION_OPTIONS } from "../../../context/sidebarStore
 import axios from "axios";
 import tokenManager from "../../utils/tokenManager";
 import { INACTIVITY_CONFIG } from "../../config/inactivityConfig";
-import { Home, LogOut, Camera, BookOpen, ShoppingCart, Smartphone, X, User, ChevronDown, Settings, Search } from "lucide-react";
+import { Home, LogOut, Camera, BookOpen, ShoppingCart, Smartphone, X, User, ChevronDown, Settings, Search, Calendar } from "lucide-react";
 import NotificationBadge from "../ui/NotificationBadge";
 import { notificationService } from "../../services/notifications";
 import Logo from "../../assets/Logo.png";
@@ -198,22 +198,17 @@ export default function Navbar() {
         </button>
 
         <Link
-          to="/borrow-cart"
+          to="/performances"
           className={`flex flex-col items-center justify-center transition-all duration-300 relative ${
-            location.pathname.includes("/borrow-cart")
+            location.pathname.includes("/performances")
               ? "text-emerald-600 dark:text-blue-400"
               : "text-gray-500 dark:text-gray-400 hover:text-emerald-600 dark:hover:text-blue-300"
           }`}
         >
           <div className="sm-mobile:p-2 md-mobile:p-2.5 lg-mobile:p-2.5 tablet:p-3 relative">
-            <ShoppingCart className="sm-mobile:w-5 sm-mobile:h-5 md-mobile:w-5 md-mobile:h-5 lg-mobile:w-6 lg-mobile:h-6 tablet:w-6 tablet:h-6" />
-            {cart && cart.length > 0 && (
-              <span className="absolute sm-mobile:-top-1 sm-mobile:-right-1 md-mobile:-top-1.5 md-mobile:-right-1.5 bg-emerald-500 dark:bg-blue-500 text-white sm-mobile:text-[7px] md-mobile:text-[8px] lg-mobile:text-[8px] tablet:text-xs font-bold sm-mobile:w-4 sm-mobile:h-4 md-mobile:w-5 md-mobile:h-5 lg-mobile:w-5 lg-mobile:h-5 tablet:w-6 tablet:h-6 rounded-full flex items-center justify-center">
-                {cart.length}
-              </span>
-            )}
+            <Calendar className="sm-mobile:w-5 sm-mobile:h-5 md-mobile:w-5 md-mobile:h-5 lg-mobile:w-6 lg-mobile:h-6 tablet:w-6 tablet:h-6" />
           </div>
-          <span className="sm-mobile:text-[10px] md-mobile:text-[10px] lg-mobile:text-xs tablet:text-xs font-medium">Cart</span>
+          <span className="sm-mobile:text-[10px] md-mobile:text-[10px] lg-mobile:text-xs tablet:text-xs font-medium">Performances</span>
         </Link>
 
         <Link
@@ -379,7 +374,7 @@ export default function Navbar() {
             </div>
 
             {(user?.role === "staff" || user?.role === "borrower") && (
-              <div className="hidden sm:flex">
+              <div className="flex">
                 <NotificationBadge />
               </div>
             )}
@@ -406,7 +401,7 @@ export default function Navbar() {
             )}
 
             <div
-              className="relative"
+              className="relative hidden md:block"
               ref={profileDropdownRef}
               onMouseEnter={() => setProfileHovered(true)}
               onMouseLeave={() => setProfileHovered(false)}
