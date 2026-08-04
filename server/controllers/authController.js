@@ -69,45 +69,51 @@ const registerUser = async (req, res) => {
     // Hash the password
     const hashedPassword = await hashPassword(password);
 
-    // ✅ NEW: Create user with is_verified = false
+    // ✅ NEW: Create user as verified so registration can immediately authenticate
     const newUser = await pool.query(
-      "INSERT INTO users (name, email, password, role, phone, is_verified) VALUES ($1, $2, $3, $4, $5, FALSE) RETURNING id, name, email, role, phone, is_verified",
+      "INSERT INTO users (name, email, password, role, phone, is_verified) VALUES ($1, $2, $3, $4, $5, TRUE) RETURNING id, name, email, role, phone, is_verified",
       [name, emailLower, hashedPassword, "borrower", phone]
     );
 
     const user = newUser.rows[0];
 
-    // ✅ NEW: Create verification token and send email
+    const token = jwt.sign(
+      {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        phone: user.phone,
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: "7d" }
+    );
+
+    res.cookie("token", token, getAuthCookieOptions());
+
+    // Best-effort verification email after account creation
     try {
       const tokenData = await verificationService.createVerificationToken(
         user.id,
         emailLower
       );
-
-      // Send verification email
       await sendVerificationEmail(emailLower, tokenData.code);
-
-      res.json({
-        message:
-          "Registration successful! Check your email for the verification code.",
-        userId: user.id,
-        email: user.email,
-        expiresIn: "15 minutes",
-      });
     } catch (emailError) {
-      console.error("Failed to send verification email:", emailError);
-      console.error("Email error details:", emailError.message);
-      console.error("EMAIL_USER env var:", process.env.EMAIL_USER);
-      console.error("EMAIL_PASS exists:", !!process.env.EMAIL_PASS);
-      
-      // Delete the user if we can't send verification email
-      await pool.query("DELETE FROM users WHERE id = $1", [user.id]);
-      
-      return res.status(500).json({
-        error: "Failed to send verification email. Please try again.",
-        details: emailError.message,
-      });
+      console.warn("⚠️ [registerUser] Verification email could not be sent:", emailError.message);
     }
+
+    res.json({
+      message: "Registration successful! You are now logged in.",
+      token,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        phone: user.phone,
+        is_verified: true,
+      },
+    });
   } catch (error) {
     console.error("Register error:", error.message);
     res.status(500).json({ error: "Registration failed. Please try again." });

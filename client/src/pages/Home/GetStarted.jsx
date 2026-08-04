@@ -590,12 +590,19 @@ export default function GetStarted() {
 			setShowRegisterModal(false);
 			setShowLoginModal(false);
 
-			const loggedInUser = await authenticateWithCredentials({
-				email: normalizedEmail,
-				password,
-				successMessage: "🎉 Account created! You’re now signed in.",
-			});
-			navigateBasedOnRole(loggedInUser);
+			const registeredUser = res.data?.user;
+			const registrationToken = res.data?.token;
+			if (registeredUser && registrationToken) {
+				persistAuthSession(registeredUser, registrationToken);
+				navigateBasedOnRole(registeredUser);
+			} else {
+				const loggedInUser = await authenticateWithCredentials({
+					email: normalizedEmail,
+					password,
+					successMessage: "🎉 Account created! You’re now signed in.",
+				});
+				navigateBasedOnRole(loggedInUser);
+			}
 		} catch (error) {
 			console.error("Registration error:", error.message);
 			const errorMsg = error.response?.data?.error || error.message || "Registration failed. Please try again.";
