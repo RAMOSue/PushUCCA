@@ -170,17 +170,29 @@ export default function AvailableItems() {
   };
 
   const fetchItems = async () => {
-    try {
-      const { data } = await axios.get('/api/inventory/');
-      setItems(data);
-      if (user?.id && user?.role === 'borrower') {
-        fetchRecommendations();
+    setLoadingItems(true);
+
+    for (let attempt = 1; attempt <= 3; attempt += 1) {
+      try {
+        const { data } = await axios.get('/api/inventory/', { withCredentials: true });
+        setItems(Array.isArray(data) ? data : []);
+        if (user?.id && user?.role === 'borrower') {
+          await fetchRecommendations();
+        }
+        return;
+      } catch (error) {
+        const shouldRetry = error.response?.status === 401 || error.response?.status === 403 || error.code === 'ERR_NETWORK';
+        if (shouldRetry && attempt < 3) {
+          await new Promise((resolve) => setTimeout(resolve, 300 * attempt));
+          continue;
+        }
+
+        console.error('Error fetching items:', error.response?.data || error.message);
+        setItems([]);
       }
-    } catch (error) {
-      console.error('Error fetching items:', error.response?.data || error.message);
-    } finally {
-      setLoadingItems(false);
     }
+
+    setLoadingItems(false);
   };
 
   useEffect(() => {
