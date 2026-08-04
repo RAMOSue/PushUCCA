@@ -452,6 +452,53 @@ export default function GetStarted() {
 		}
 	}, [user, loading, navigate]);
 
+	const persistAuthSession = (loggedInUser, token) => {
+		if (token && loggedInUser?.id) {
+			tokenManager.addToken(loggedInUser.id, loggedInUser.email, token, {
+				name: loggedInUser.name,
+				role: loggedInUser.role,
+				phone: loggedInUser.phone,
+			});
+			tokenManager.setActiveToken(loggedInUser.id);
+		}
+
+		setUser(loggedInUser);
+		setLoginData({ email: "", password: "" });
+		setLoginErrors({});
+	};
+
+	const navigateBasedOnRole = (userData) => {
+		const role = userData?.role;
+		if (role === "admin") {
+			navigate("/admin", { replace: true });
+		} else if (role === "staff") {
+			navigate("/staff/manage-requests", { replace: true });
+		} else {
+			navigate("/available-items", { replace: true });
+		}
+	};
+
+	const authenticateWithCredentials = async ({ email, password, successMessage = "✅ Login successful!" }) => {
+		const res = await axios.post(
+			`${import.meta.env.VITE_API_URL || window.location.origin}/api/auth/login`,
+			{
+				email: email.trim().toLowerCase(),
+				password,
+			},
+			{ withCredentials: true }
+		);
+
+		if (res.data.error) {
+			throw new Error(res.data.error);
+		}
+
+		const loggedInUser = res.data.user;
+		const token = res.data.token;
+		persistAuthSession(loggedInUser, token);
+		toast.success(successMessage);
+		return loggedInUser;
+	};
+
 	// ✅ LOGIN: Orchestrate wipe animation timing with API call
 	const handleLogin = async (e) => {
 		e.preventDefault();
@@ -471,61 +518,28 @@ export default function GetStarted() {
 		
 		setIsLoading(true);
 		try {
-			const res = await axios.post(
-				`${import.meta.env.VITE_API_URL || window.location.origin}/api/auth/login`,
-				{
-					email: loginData.email.trim().toLowerCase(),
-					password: loginData.password,
-				},
-				{ withCredentials: true }
-			);
+			await authenticateWithCredentials({
+				email: loginData.email,
+				password: loginData.password,
+				successMessage: "✅ Login successful!",
+			});
 
-			if (res.data.error) {
-				setLoginAttempts(prev => prev + 1);
-				toast.error(res.data.error);
-				setIsWiping(false);
-			} else {
-				// ✅ SECURITY: Reset attempts on successful login
-				setLoginAttempts(0);
-				toast.success("✅ Login successful!");
-				const loggedInUser = res.data.user;
-				const token = res.data.token;
-
-				if (token && loggedInUser?.id) {
-					tokenManager.addToken(loggedInUser.id, loggedInUser.email, token, {
-						name: loggedInUser.name,
-						role: loggedInUser.role,
-						phone: loggedInUser.phone,
-					});
-					tokenManager.setActiveToken(loggedInUser.id);
-				}
-
-				setUser(loggedInUser);
-				setLoginData({ email: "", password: "" });
-				setLoginErrors({});
-				
-				// Calculate remaining wipe animation time
-				const elapsedTime = (Date.now() - wipingStartTime) / 1000;
-				const remainingWipeTime = Math.max(0, wipeDuration - elapsedTime);
-				
-				// Wait for remaining animation time before navigating
-				setTimeout(() => {
-					const role = loggedInUser.role;
-					
-					if (role === "admin") {
-						navigate("/admin", { replace: true });
-					} else if (role === "staff") {
-						navigate("/staff/manage-requests", { replace: true });
-					} else {
-						navigate("/available-items", { replace: true });
-					}
-				}, remainingWipeTime * 1000);
-			}
+			// ✅ SECURITY: Reset attempts on successful login
+			setLoginAttempts(0);
+			
+			// Calculate remaining wipe animation time
+			const elapsedTime = (Date.now() - wipingStartTime) / 1000;
+			const remainingWipeTime = Math.max(0, wipeDuration - elapsedTime);
+			
+			// Wait for remaining animation time before navigating
+			setTimeout(() => {
+				navigateBasedOnRole(user);
+			}, remainingWipeTime * 1000);
 		} catch (error) {
 			setLoginAttempts(prev => prev + 1);
 			console.error("Login error:", error.message);
 			
-			const errorMsg = error.response?.data?.error || "Login failed. Please try again.";
+			const errorMsg = error.response?.data?.error || error.message || "Login failed. Please try again.";
 			toast.error(errorMsg);
 			
 			// Show warning after 3 attempts
@@ -566,22 +580,25 @@ export default function GetStarted() {
 
 			if (res.data.error) {
 				toast.error(res.data.error);
-			} else {
-				const normalizedEmail = email.toLowerCase().trim();
-				toast.success("🎉 Account created! Redirecting you to sign in...");
-				setRegisterData({ name: "", email: "", password: "", phone: "" });
-				setRegisterErrors({});
-				setLoginData((prev) => ({ ...prev, email: normalizedEmail }));
-				setShowRegisterModal(false);
-				setShowLoginModal(true);
-
-				if (window.location.pathname !== "/") {
-					navigate("/login", { replace: true });
-				}
+				return;
 			}
+
+			const normalizedEmail = email.toLowerCase().trim();
+			setRegisterData({ name: "", email: "", password: "", phone: "" });
+			setRegisterErrors({});
+			setLoginData((prev) => ({ ...prev, email: normalizedEmail }));
+			setShowRegisterModal(false);
+			setShowLoginModal(false);
+
+			const loggedInUser = await authenticateWithCredentials({
+				email: normalizedEmail,
+				password,
+				successMessage: "🎉 Account created! You’re now signed in.",
+			});
+			navigateBasedOnRole(loggedInUser);
 		} catch (error) {
 			console.error("Registration error:", error.message);
-			const errorMsg = error.response?.data?.error || "Registration failed. Please try again.";
+			const errorMsg = error.response?.data?.error || error.message || "Registration failed. Please try again.";
 			toast.error(errorMsg);
 		} finally {
 			setIsLoading(false);
@@ -1211,8 +1228,8 @@ export default function GetStarted() {
 									}`}
 								>
 									{isLoading ? (
-										<span className="flex items-center justify-center gap-2">
-											<div className="animate-spin h-5 w-5 border-b-2 border-white"></div>
+										<span className="inline-flex items-center justify-center gap-2">
+											<div className="h-5 w-5 animate-spin rounded-full border-2 border-white/40 border-t-white"></div>
 											<span>Creating Account...</span>
 										</span>
 									) : (
