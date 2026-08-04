@@ -14,20 +14,14 @@ export default function Login() {
 
   // ✅ SECURITY: Redirect based on auth status
   useEffect(() => {
-    if (!loading) {
-      if (user) {
-        // Redirect logged-in users to dashboard
-        const role = user?.role;
-        if (role === "admin") {
-          navigate("/admin", { replace: true });
-        } else if (role === "staff") {
-          navigate("/staff/manage-requests", { replace: true });
-        } else {
-          navigate("/available-items", { replace: true });
-        }
+    if (!loading && user) {
+      const role = user?.role;
+      if (role === "admin") {
+        navigate("/admin", { replace: true });
+      } else if (role === "staff") {
+        navigate("/staff/manage-requests", { replace: true });
       } else {
-        // Redirect logged-out users to GetStarted page (root path)
-        navigate("/", { replace: true });
+        navigate("/available-items", { replace: true });
       }
     }
   }, [user, loading, navigate]);
