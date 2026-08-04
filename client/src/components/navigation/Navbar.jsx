@@ -56,7 +56,7 @@ function GlobalSearchBar({ value, onChange, onClear, placeholder = "Search" }) {
 export default function Navbar() {
   const { user, setUser, loading } = useContext(UserContext);
   const { cart } = useContext(BorrowingContext);
-  const { rightSidebarOpen, setRightSidebarOpen } = useContext(SidebarContext);
+  const { rightSidebarOpen, setRightSidebarOpen, leftSidebarCollapsed, setLeftSidebarCollapsed } = useContext(SidebarContext);
   const { openLoginModal } = useContext(LoginModalContext);
   const { selectedDivision, setSelectedDivision, globalSearchQuery, setGlobalSearchQuery } = useSidebarStore();
   const location = useLocation();
