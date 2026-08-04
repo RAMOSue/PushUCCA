@@ -155,7 +155,7 @@ export default function GetStarted() {
 		},
 		budyong: {
 			description:
-				"Budyong is named after the traditional shell trumpet, a cultural instrument used to communicate and gather communities. The department focuses on music, vocal performances, traditional instruments, and preserving the rich musical heritage of Caraga.",
+				"Budjong is named after the traditional shell trumpet, a cultural instrument used to communicate and gather communities. The department focuses on music, vocal performances, traditional instruments, and preserving the rich musical heritage of Caraga.",
 			achievements: [
 				"Traditional Music Preservation Award",
 				"Kulintang Ensemble Recognition",
@@ -711,56 +711,41 @@ export default function GetStarted() {
 								transition={{ duration: 0.55, ease: [0.16, 0.84, 0.44, 1] }}
 								className="relative left-1/2 mb-6 w-screen -ml-[50vw] overflow-hidden md:mb-8"
 							>
-								<div className="w-full overflow-hidden bg-[#003300] px-3 py-6 text-white sm:px-6 sm:py-8 md:px-10 md:py-10 lg:px-14 lg:py-14">
+								<div className="w-full overflow-hidden bg-[#003300] px-3 pt-4 pb-8 text-white sm:px-6 sm:pt-5 sm:pb-10 md:px-10 md:pt-6 md:pb-12 lg:px-14 lg:pt-7 lg:pb-14">
 									<div className="mx-auto flex w-full max-w-6xl flex-col">
-										<div className="flex justify-center pt-1">
+										<div className="mx-auto w-full max-w-3xl text-center">
 											<button
 												type="button"
 												onClick={() => toggleDepartment(activeDepartment)}
-												className="text-2xl text-white/70 transition duration-300 hover:text-white"
-												aria-label="Close department details"
+												className="w-full cursor-pointer pt-0 text-center transition duration-300 hover:text-white/80"
+												aria-label={`Collapse ${activeDepartment === "dulimbay" ? "Dulimbay" : activeDepartment === "budyong" ? "Budyong" : "Kayam"} details`}
 											>
-												<MaterialIcon icon="keyboard_arrow_up" className="text-3xl" />
+												<h3 className="text-3xl font-medium uppercase tracking-[0.22em] text-white sm:text-4xl md:text-5xl">
+													{activeDepartment === "dulimbay" ? "DULIMBAY" : activeDepartment === "budyong" ? "BUDYONG" : "KAYAM"}
+												</h3>
 											</button>
-										</div>
-
-										<div className="mx-auto mt-3 max-w-3xl text-center">
-											<h3 className="text-3xl font-black uppercase tracking-[0.22em] text-white sm:text-4xl md:text-5xl">
-												{activeDepartment === "dulimbay" ? "DULIMBAY" : activeDepartment === "budyong" ? "BUDYONG" : "KAYAM"}
-											</h3>
-											<p className="mx-auto mt-5 max-w-2xl text-sm leading-7 text-white/85 sm:text-base">
+											<p className="mx-auto mt-4 max-w-2xl text-sm leading-7 text-white/85 sm:text-base">
 												{departmentData[activeDepartment].description}
 											</p>
 										</div>
 
-										<div className="mx-auto mt-8 flex w-full max-w-5xl flex-col gap-4 border-t border-white/15 pt-8 sm:gap-6 md:gap-8">
-											<div className="grid gap-3 sm:grid-cols-2">
-												{departmentData[activeDepartment].achievements.slice(0, 2).map((achievement, idx) => (
-													<div key={idx} className="rounded-2xl border border-white/10 bg-white/10 px-4 py-3 text-sm text-white/80 shadow-sm backdrop-blur-sm">
-														<span className="mr-2 font-semibold text-[#92D6A2]">•</span>
-														{achievement}
-													</div>
+										<div className="relative mx-auto mt-6 h-[260px] w-full max-w-5xl overflow-hidden rounded-[1.5rem] border border-white/10 bg-stone-900 sm:h-[320px]">
+											<motion.img
+												key={`${activeDepartment}-${departmentSlideIndex[activeDepartment]}`}
+												src={departmentData[activeDepartment].highlights[departmentSlideIndex[activeDepartment]]}
+												alt={`${activeDepartment} highlight`}
+												className="h-full w-full object-cover"
+											/>
+											<div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+											<div className="absolute bottom-3 left-1/2 flex -translate-x-1/2 gap-2">
+												{departmentData[activeDepartment].highlights.map((_, idx) => (
+													<div
+														key={idx}
+														className={`h-1.5 rounded-full transition-all ${
+															idx === departmentSlideIndex[activeDepartment] ? "w-7 bg-white" : "w-2 bg-white/60"
+														}`}
+													/>
 												))}
-											</div>
-
-											<div className="relative h-[260px] overflow-hidden rounded-[1.5rem] border border-white/10 bg-stone-900 sm:h-[320px]">
-												<motion.img
-													key={`${activeDepartment}-${departmentSlideIndex[activeDepartment]}`}
-													src={departmentData[activeDepartment].highlights[departmentSlideIndex[activeDepartment]]}
-													alt={`${activeDepartment} highlight`}
-													className="h-full w-full object-cover"
-												/>
-												<div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
-												<div className="absolute bottom-3 left-1/2 flex -translate-x-1/2 gap-2">
-													{departmentData[activeDepartment].highlights.map((_, idx) => (
-														<div
-															key={idx}
-															className={`h-1.5 rounded-full transition-all ${
-																idx === departmentSlideIndex[activeDepartment] ? "w-7 bg-white" : "w-2 bg-white/60"
-															}`}
-														/>
-													))}
-												</div>
 											</div>
 										</div>
 									</div>
@@ -788,7 +773,7 @@ export default function GetStarted() {
 							<h3 className="text-sm font-medium tracking-[0.16em] sm:text-base md:text-lg">Dulimbay</h3>
 						</motion.div>
 
-						{/* Department 2: Budyong */}
+						{/* Department 2: Budjong */}
 						<motion.div
 							variants={itemVariants}
 							whileHover={{ y: -3, scale: 1.01 }}
@@ -799,7 +784,7 @@ export default function GetStarted() {
 									: "cursor-pointer bg-[#fff8e8] text-[#8a5c00] hover:bg-[#fef3c7]"
 							}`}
 						>
-							<h3 className="text-sm font-medium tracking-[0.16em] sm:text-base md:text-lg">Budyong</h3>
+							<h3 className="text-sm font-medium tracking-[0.16em] sm:text-base md:text-lg">Budjong</h3>
 						</motion.div>
 
 						{/* Department 3: Kayam */}
