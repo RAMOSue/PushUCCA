@@ -108,10 +108,10 @@ export default function SideNavbar({ role = "staff" }) {
 
       {/* Sidebar */}
       <aside
-        className={`left-sidebar ${
+        className={`left-sidebar fixed inset-y-0 left-0 z-[60] flex h-screen flex-col border-r border-outline-variant/20 bg-surface-container-low shadow-xl dark:border-[#2a2a2a] dark:bg-[#1f1f1f] transition-all duration-300 ease-in-out ${
           isMobile
-            ? `fixed inset-y-0 left-0 z-[60] flex w-[88vw] max-w-[360px] flex-col border-r border-outline-variant/20 bg-surface-container-low shadow-2xl transition-all duration-300 ease-in-out dark:border-[#2a2a2a] dark:bg-[#1f1f1f] ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}`
-            : `sticky left-0 top-0 h-screen shrink-0 border-r border-outline-variant/20 bg-surface-container-low shadow-lg transition-all duration-300 ease-in-out dark:border-[#2a2a2a] dark:bg-[#1f1f1f] dark:shadow-none ${leftSidebarCollapsed ? "w-16" : "w-64"}`
+            ? sidebarOpen ? "w-[84vw] max-w-[310px] translate-x-0" : "-translate-x-full w-[84vw] max-w-[310px]"
+            : leftSidebarCollapsed ? "w-16" : "w-64"
         }`}
         style={{
           overflowY: "auto",
@@ -130,27 +130,27 @@ export default function SideNavbar({ role = "staff" }) {
           }
         `}</style>
 
-        <div className={`sticky top-0 z-10 border-b border-outline-variant/20 bg-surface-container-low dark:border-[#2a2a2a] dark:bg-[#1f1f1f] transition-all duration-300 ${isMobile ? "px-4 py-3" : leftSidebarCollapsed ? "px-2 py-3" : "px-3 py-3"}`}>
+        <div className={`sticky top-0 z-10 border-b border-outline-variant/20 bg-surface-container-low dark:border-[#2a2a2a] dark:bg-[#1f1f1f] transition-all duration-300 ${isMobile ? "px-3 py-2.5" : leftSidebarCollapsed ? "px-2 py-3" : "px-3 py-3"}`}>
           {isMobile ? (
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2 min-w-0">
-                <div className="flex h-8 w-8 items-center justify-center rounded-md bg-slate-100 text-[11px] font-black text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                <div className="flex h-7 w-7 items-center justify-center rounded-md bg-slate-100 text-[10px] font-black text-slate-700 dark:bg-slate-800 dark:text-slate-200">
                   Du
                 </div>
                 <div className="leading-tight">
-                  <p className="text-sm font-semibold text-slate-900 dark:text-white">DuBudKa</p>
-                  <p className="text-[10px] text-slate-500 dark:text-slate-400">Navigation</p>
+                  <p className="text-[11px] font-semibold text-slate-900 dark:text-white">DuBudKa</p>
+                  <p className="text-[9px] text-slate-500 dark:text-slate-400">Menu</p>
                 </div>
               </div>
 
               <button
                 type="button"
                 onClick={() => setSidebarOpen(false)}
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-slate-200 bg-white/80 text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-slate-200 bg-white/80 text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
                 title="Close navigation"
                 aria-label="Close navigation"
               >
-                <PanelLeftClose className="h-4 w-4" />
+                <PanelLeftClose className="h-3.5 w-3.5" />
               </button>
             </div>
           ) : leftSidebarCollapsed ? (
@@ -196,50 +196,53 @@ export default function SideNavbar({ role = "staff" }) {
           )}
         </div>
 
-        <div className="flex-1 overflow-y-auto px-2 py-2 sm:px-3 sm:py-3 md:px-4 lg:px-4">
-          <nav className={`flex flex-col space-y-1 sm:space-y-1 md:space-y-2 lg:space-y-2 ${leftSidebarCollapsed ? "lg:items-center lg:px-2" : ""}`}>
-            {navItems.map((item) => {
-              const Icon = item.icon;
-              const active = isActive(item.path);
-              return (
-                <Link
-                  key={item.path}
-                  to={item.path}
-                  title={item.label}
-                  aria-label={item.label}
-                  onClick={() => {
-                    if (isMobile) {
-                      setSidebarOpen(false);
-                    }
-                  }}
-                  className={`flex items-center justify-between rounded-lg text-xs sm:text-xs md:text-sm lg:text-sm font-medium transition-all duration-200 gap-2 sm:gap-3 ${
-                    leftSidebarCollapsed
-                      ? "lg:w-10 lg:h-10 lg:justify-center lg:px-0 lg:py-0"
-                      : "px-3 sm:px-3 md:px-4 lg:px-4 py-2 sm:py-2 md:py-3 lg:py-3"
-                  } ${
-                    active
-                      ? "bg-surface-container-lowest dark:bg-[#2a2a2a] text-primary dark:text-blue-400 shadow-sm border border-primary/20 dark:border-blue-500/30"
-                      : "text-on-surface-variant dark:text-gray-400 hover:bg-surface-container-highest dark:hover:bg-[#2a2a2a] hover:text-on-surface dark:hover:text-white"
-                  }`}
-                >
-                  <div className={`flex items-center ${leftSidebarCollapsed ? "lg:justify-center" : "gap-2 sm:gap-3 flex-1 min-w-0"}`}>
-                    <Icon className={`${leftSidebarCollapsed ? "w-5 h-5" : "w-4 sm:w-4 md:w-5 lg:w-5 h-4 sm:h-4 md:h-5 lg:h-5"} flex-shrink-0`} />
-                    {!leftSidebarCollapsed && (
-                      <span className="text-[9px] sm:text-[9px] md:text-[10px] lg:text-[10px] uppercase tracking-widest font-semibold truncate">{item.label}</span>
-                    )}
-                  </div>
-                  {!leftSidebarCollapsed && active && <ChevronRight className="w-3 sm:w-3 md:w-4 lg:w-4 h-3 sm:h-3 md:h-4 lg:h-4 flex-shrink-0" />}
-                </Link>
-              );
-            })}
-          </nav>
+      
 
-          {isMobile && (
-            <div className="mt-4 rounded-xl border border-outline-variant/20 bg-surface-container-lowest p-2 shadow-sm dark:border-[#3a3a3a] dark:bg-[#2a2a2a]">
-              <RightSidebarContent isMobile onClose={() => setSidebarOpen(false)} />
-            </div>
-          )}
-        </div>
+        {/* Home removed — staff workflow streamlines to Manage Borrowing as landing */}
+
+        {/* Navigation Items */}
+        <nav className={`flex-1 flex flex-col ${isMobile ? "px-2 py-2 space-y-1" : "px-2 sm:px-3 md:px-4 lg:px-4 space-y-1 sm:space-y-1 md:space-y-2 lg:space-y-2"} ${leftSidebarCollapsed ? "lg:items-center lg:px-2" : ""}`}>
+          {navItems.map((item) => {
+            const Icon = item.icon;
+            const active = isActive(item.path);
+            return (
+              <Link
+                key={item.path}
+                to={item.path}
+                title={item.label}
+                aria-label={item.label}
+                onClick={() => {
+                  if (isMobile) {
+                    setSidebarOpen(false);
+                  }
+                }}
+                className={`flex items-center justify-between rounded-lg ${isMobile ? "px-2.5 py-2 text-[10px] gap-2" : "text-xs sm:text-xs md:text-sm lg:text-sm font-medium transition-all duration-200 gap-2 sm:gap-3"} ${
+                  leftSidebarCollapsed
+                    ? "lg:w-10 lg:h-10 lg:justify-center lg:px-0 lg:py-0"
+                    : isMobile ? "px-2.5 py-2" : "px-3 sm:px-3 md:px-4 lg:px-4 py-2 sm:py-2 md:py-3 lg:py-3"
+                } ${
+                  active
+                    ? "bg-surface-container-lowest dark:bg-[#2a2a2a] text-primary dark:text-blue-400 shadow-sm border border-primary/20 dark:border-blue-500/30"
+                    : "text-on-surface-variant dark:text-gray-400 hover:bg-surface-container-highest dark:hover:bg-[#2a2a2a] hover:text-on-surface dark:hover:text-white"
+                }`}
+              >
+                <div className={`flex items-center ${leftSidebarCollapsed ? "lg:justify-center" : "gap-2 sm:gap-3 flex-1 min-w-0"}`}>
+                  <Icon className={`${leftSidebarCollapsed ? "w-5 h-5" : isMobile ? "w-3.5 h-3.5" : "w-4 sm:w-4 md:w-5 lg:w-5 h-4 sm:h-4 md:h-5 lg:h-5"} flex-shrink-0`} />
+                  {!leftSidebarCollapsed && (
+                    <span className={`${isMobile ? "text-[9px]" : "text-[9px] sm:text-[9px] md:text-[10px] lg:text-[10px]"} uppercase tracking-widest font-semibold truncate`}>{item.label}</span>
+                  )}
+                </div>
+                {!leftSidebarCollapsed && active && <ChevronRight className={`${isMobile ? "w-2.5 h-2.5" : "w-3 sm:w-3 md:w-4 lg:w-4 h-3 sm:h-3 md:h-4 lg:h-4"} flex-shrink-0`} />}
+              </Link>
+            );
+          })}
+        </nav>
+
+        {isMobile && (
+          <div className="border-t border-outline-variant/20 px-2 py-2 dark:border-[#3a3a3a]">
+            <RightSidebarContent onClose={() => setSidebarOpen(false)} />
+          </div>
+        )}
       </aside>
 
       {/* Overlay when sidebar is open on mobile */}
