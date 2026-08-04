@@ -336,20 +336,65 @@ const loginUser = async (req, res) => {
 const googleCallback = async (req, res) => {
   const frontendBaseUrl = process.env.FRONTEND_URL || "http://localhost:5173";
   const name = req.user?.name || "No Name";
-  const email = req.user?.email;
+  const email = req.user?.email?.toLowerCase();
+  const mode = req.query?.state === "login" ? "login" : "register";
 
   try {
     if (!email) {
       console.warn("⚠️ [Google OAuth] Missing email in Google profile");
-      return res.redirect(`${frontendBaseUrl}/?google_error=${encodeURIComponent("Google profile did not include an email")}`);
+      return res.redirect(`${frontendBaseUrl}/?google_mode=${mode}&google_error=${encodeURIComponent("Google profile did not include an email")}`);
     }
 
-    const redirectURL = `${frontendBaseUrl}/?google_name=${encodeURIComponent(name)}&google_email=${encodeURIComponent(email)}`;
-    console.log(`✅ [Google OAuth] Returning prefill data for: ${email}`);
-    res.redirect(redirectURL);
+    const existingUserQuery = await pool.query(
+      "SELECT id, name, email, role, phone FROM users WHERE email = $1",
+      [email]
+    );
+
+    if (mode === "login") {
+      if (existingUserQuery.rows.length === 0) {
+        console.warn(`⚠️ [Google OAuth] No registered account found for ${email}`);
+        return res.redirect(`${frontendBaseUrl}/?google_mode=login&google_error=${encodeURIComponent("No account found for this Google account. Please create an account first.")}`);
+      }
+
+      const user = existingUserQuery.rows[0];
+      const token = jwt.sign(
+        {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          role: user.role,
+          phone: user.phone,
+        },
+        process.env.JWT_SECRET,
+        { expiresIn: "7d" }
+      );
+
+      res.cookie("token", token, getAuthCookieOptions());
+
+      const payload = {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        phone: user.phone,
+      };
+
+      const redirectURL = `${frontendBaseUrl}/?google_mode=login&google_success=1&token=${encodeURIComponent(token)}&user=${encodeURIComponent(JSON.stringify(payload))}`;
+      console.log(`✅ [Google OAuth] Logging in existing user: ${email}`);
+      return res.redirect(redirectURL);
+    }
+
+    if (existingUserQuery.rows.length > 0) {
+      console.warn(`⚠️ [Google OAuth] Duplicate signup attempt for existing account: ${email}`);
+      return res.redirect(`${frontendBaseUrl}/?google_mode=register&google_name=${encodeURIComponent(name)}&google_email=${encodeURIComponent(email)}&google_error=${encodeURIComponent("This Google account is already registered. Please sign in instead.")}`);
+    }
+
+    const redirectURL = `${frontendBaseUrl}/?google_mode=register&google_name=${encodeURIComponent(name)}&google_email=${encodeURIComponent(email)}`;
+    console.log(`✅ [Google OAuth] Returning prefill data for new account: ${email}`);
+    return res.redirect(redirectURL);
   } catch (error) {
     console.error("❌ Google auth error:", error.message);
-    res.redirect(`${frontendBaseUrl}/?google_error=${encodeURIComponent("Google sign-up failed")}`);
+    res.redirect(`${frontendBaseUrl}/?google_mode=${mode}&google_error=${encodeURIComponent("Google authentication failed")}`);
   }
 };
 

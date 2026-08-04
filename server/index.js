@@ -47,23 +47,29 @@ pool
 
 /* -------------------- CORS CONFIG -------------------- */
 // ✅ Use FRONTEND_URL from .env for production, fallback to localhost
-const allowedOrigins = [
+const allowedOrigins = new Set([
   process.env.FRONTEND_URL || "http://localhost:5173",
   "http://localhost:5174",
-];
+  "http://127.0.0.1:5173",
+  "http://127.0.0.1:5174",
+]);
 
 // ✅ Add any Render frontend domains
 const origin = process.env.FRONTEND_URL;
 if (origin && origin.includes('onrender.com')) {
-  allowedOrigins.push(origin);
+  allowedOrigins.add(origin);
 }
+
+const isLocalDevOrigin = (origin) => {
+  return typeof origin === 'string' && /^(https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?)$/i.test(origin);
+};
 
 app.use((req, res, next) => {
   const origin = req.headers.origin;
   
   // ✅ Allow any onrender.com domain for development flexibility
   const isRenderDomain = origin && origin.includes('onrender.com');
-  const isAllowedOrigin = allowedOrigins.includes(origin);
+  const isAllowedOrigin = allowedOrigins.has(origin) || isLocalDevOrigin(origin);
   
   if (isRenderDomain || isAllowedOrigin) {
     res.header("Access-Control-Allow-Origin", origin);

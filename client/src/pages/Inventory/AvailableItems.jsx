@@ -4,6 +4,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Search, Package, Music, X, ChevronRight, Star } from 'lucide-react';
 import axios from 'axios';
+import { toast } from 'react-hot-toast';
 import PageLayout from '../../components/layout/PageLayout.jsx';
 import AddToCartModal from '../../components/modals/AddToCartModal.jsx';
 import { UserContext } from '../../../context/userContext.jsx';
@@ -29,6 +30,95 @@ export default function AvailableItems() {
   const { addToCart, refreshAvailableItems, cart } = useContext(BorrowingContext);
   const navigate = useNavigate();
   const location = useLocation();
+
+  const resolveImageUrl = (imageUrl) => {
+    if (!imageUrl) return null;
+    if (imageUrl.startsWith('http')) return imageUrl;
+    return `${import.meta.env.VITE_API_URL || window.location.origin}${imageUrl}`;
+  };
+
+  const InventoryItemCard = ({ item, onClick, recommendation }) => {
+    const isAvailable = item.units?.some((u) => u.status === 'available');
+    const availCount = item.units?.filter((u) => u.status === 'available').length || 0;
+    const divisionInfo = getInventoryDivisionInfo(item);
+    const divisionName = divisionInfo?.division_name || item.division_name || null;
+    const categoryLabel = item.category || 'Item';
+    const imageUrl = resolveImageUrl(item.image_url);
+    const isRecommended = !!recommendation;
+
+    return (
+      <motion.div
+        whileHover={{ y: -2 }}
+        onClick={onClick}
+        className="group cursor-pointer"
+      >
+        <div className="relative bg-surface-container-low dark:bg-[#1a1a1a] rounded-lg sm:rounded-xl overflow-hidden border border-transparent hover:border-primary/20 dark:border-gray-700 dark:hover:border-blue-500/50 transition-all shadow-sm hover:shadow-md dark:hover:shadow-lg dark:hover:shadow-black/40 h-full flex flex-col">
+          {isRecommended && recommendation && (
+            <div className="absolute top-3 left-3 z-20 rounded-full bg-amber-400 dark:bg-amber-500 px-2 py-1 text-[9px] font-bold text-amber-900 dark:text-amber-100 shadow-sm">
+              {recommendation.performance_title || 'Recommended'}
+            </div>
+          )}
+
+          <div className="relative h-24 sm:h-32 md:h-48 bg-surface-container-high dark:bg-[#222] overflow-hidden">
+            {imageUrl ? (
+              <img
+                src={imageUrl}
+                alt={item.name}
+                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+              />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center">
+                {(item.category || '').toLowerCase() === 'instrument' ? (
+                  <Music className="w-6 sm:w-10 h-6 sm:h-10 text-on-surface-variant/30 dark:text-gray-500/30" />
+                ) : (
+                  <Package className="w-6 sm:w-10 h-6 sm:h-10 text-on-surface-variant/30 dark:text-gray-500/30" />
+                )}
+              </div>
+            )}
+          </div>
+
+          <div className="p-2 sm:p-3 md:p-4 flex-grow flex flex-col justify-between">
+            <div>
+              <p className="text-[10px] sm:text-xs text-on-surface-variant dark:text-gray-400 uppercase tracking-wide mb-0.5 sm:mb-1">
+                {divisionName ? `${divisionName} • ${categoryLabel}` : categoryLabel}
+              </p>
+              <h3 className="text-xs sm:text-sm font-bold text-on-surface dark:text-white line-clamp-2 mb-1 sm:mb-2">
+                {item.name}
+              </h3>
+              {divisionName && (
+                <span className="inline-flex items-center rounded-full border border-primary/20 bg-primary/10 px-2 py-0.5 text-[9px] sm:text-[10px] font-medium text-primary dark:border-blue-400/20 dark:bg-blue-500/10 dark:text-blue-300 mb-1">
+                  {divisionName}
+                </span>
+              )}
+            </div>
+
+            <div className="flex items-center justify-between">
+              <p className={`text-[9px] sm:text-xs font-medium ${isAvailable ? 'text-primary dark:text-blue-400' : 'text-on-surface-variant dark:text-gray-400'}`}>
+                {isAvailable ? `${availCount} avail` : 'All borrowed'}
+              </p>
+              <ChevronRight className="w-3 sm:w-4 h-3 sm:h-4 text-primary dark:text-blue-400 opacity-0 group-hover:opacity-100 transition" />
+            </div>
+          </div>
+        </div>
+      </motion.div>
+    );
+  };
+
+  const renderItemCards = (itemsList) => (
+    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3 md:gap-4 pb-6 sm:pb-8">
+      {itemsList.map((item) => {
+        const recommendation = getItemRecommendation(item.id);
+        return (
+          <InventoryItemCard
+            key={item.id}
+            item={item}
+            onClick={() => openModal(item)}
+            recommendation={recommendation}
+          />
+        );
+      })}
+    </div>
+  );
 
   useEffect(() => {
     if (!loading && user) {

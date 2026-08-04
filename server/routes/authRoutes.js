@@ -48,13 +48,14 @@ router.put('/theme', ensureAuth, updateThemePreference);
 router.post('/logout', logoutUser);
 
 // ========== GOOGLE OAUTH2 ==========
-router.get(
-  '/google',
+router.get('/google', (req, res, next) => {
+  const mode = req.query.mode === 'login' ? 'login' : 'register';
   passport.authenticate('google', {
     scope: ['profile', 'email'],
     prompt: 'select_account',
-  })
-);
+    state: mode,
+  })(req, res, next);
+});
 
 router.get(
   '/google/callback',
