@@ -595,10 +595,10 @@ export default function GetStarted() {
 			{/* ============================================ */}
 			{/* SECTION 2: ABOUT UCCA */}
 			{/* ============================================ */}
-			<Section id="about" className="py-12 md:py-20 px-3 sm:px-4 md:px-6 bg-white" data-section="about">
-				<div className="max-w-4xl mx-auto">
+			<Section id="about" className="py-16 md:py-20 px-3 sm:px-4 md:px-6 bg-white" data-section="about">
+				<div className="max-w-6xl mx-auto">
 					<motion.div
-						className="text-center mb-6 md:mb-10"
+						className="text-center mb-8 md:mb-10"
 						variants={slideInVariants}
 						initial="hidden"
 						whileInView="visible"
@@ -607,52 +607,57 @@ export default function GetStarted() {
 						<h2 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-headline font-bold text-[#003300] mb-3">
 							About Us
 						</h2>
-						<p className="text-sm sm:text-base md:text-lg text-stone-600">
-							University Center of Culture and the Arts
+						<p className="text-sm sm:text-base md:text-lg text-stone-600 max-w-3xl mx-auto leading-relaxed">
+							The University Center for Culture and the Arts (UCCA) preserves, promotes, and celebrates the rich cultural heritage of Caraga through dance, music, theater, and cultural preservation. It nurtures creativity, strengthens cultural identity, and inspires future generations through the arts.
 						</p>
 					</motion.div>
 
+					<div className="w-20 h-px bg-[#92D6A2] mx-auto mb-8 md:mb-10" />
+
 					<motion.div
-						className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6"
+						className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 md:gap-6"
 						variants={containerVariants}
 						initial="hidden"
 						whileInView="visible"
 						viewport={{ once: true }}
 					>
-						{/* Point 1 */}
 						<motion.div
 							variants={itemVariants}
-							className="bg-gradient-to-br from-[#003300]/5 to-[#92D6A2]/5 rounded-lg p-4 md:p-6 border border-[#92D6A2]/30"
+							className="rounded-2xl border border-stone-200 bg-white p-6 md:p-7 text-center shadow-sm hover:shadow-md transition-shadow duration-300"
 						>
-							<div className="w-8 h-8 md:w-10 md:h-10 rounded-lg bg-[#004d1a] flex items-center justify-center mb-3">
-								<MaterialIcon icon="museum" className="text-white text-lg md:text-xl" />
+							<div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-[#eef8ef] text-[#004d1a]">
+								<MaterialIcon icon="flag" className="text-xl" />
 							</div>
-							<h3 className="font-bold text-[#003300] text-sm md:text-base mb-2">Preserves Heritage</h3>
-							<p className="text-xs md:text-sm text-stone-700">Protects cultural traditions and artifacts for future generations</p>
+							<h3 className="font-headline text-lg font-semibold text-[#003300] mb-2">Mission</h3>
+							<p className="text-sm leading-relaxed text-stone-600">
+								To preserve, promote, and advance culture and the arts through education, creativity, and community engagement.
+							</p>
 						</motion.div>
 
-						{/* Point 2 */}
 						<motion.div
 							variants={itemVariants}
-							className="bg-gradient-to-br from-[#003300]/5 to-[#92D6A2]/5 rounded-lg p-4 md:p-6 border border-[#92D6A2]/30"
+							className="rounded-2xl border border-stone-200 bg-white p-6 md:p-7 text-center shadow-sm hover:shadow-md transition-shadow duration-300"
 						>
-							<div className="w-8 h-8 md:w-10 md:h-10 rounded-lg bg-[#004d1a] flex items-center justify-center mb-3">
-								<MaterialIcon icon="stage" className="text-white text-lg md:text-xl" />
+							<div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-[#eef8ef] text-[#004d1a]">
+								<MaterialIcon icon="visibility" className="text-xl" />
 							</div>
-							<h3 className="font-bold text-[#003300] text-sm md:text-base mb-2">Supports Performances</h3>
-							<p className="text-xs md:text-sm text-stone-700">Provides resources for cultural events and celebrations</p>
+							<h3 className="font-headline text-lg font-semibold text-[#003300] mb-2">Vision</h3>
+							<p className="text-sm leading-relaxed text-stone-600">
+								A vibrant cultural center that inspires artistic excellence and safeguards the heritage of future generations.
+							</p>
 						</motion.div>
 
-						{/* Point 3 */}
 						<motion.div
 							variants={itemVariants}
-							className="bg-gradient-to-br from-[#003300]/5 to-[#92D6A2]/5 rounded-lg p-4 md:p-6 border border-[#92D6A2]/30"
+							className="rounded-2xl border border-stone-200 bg-white p-6 md:p-7 text-center shadow-sm hover:shadow-md transition-shadow duration-300"
 						>
-							<div className="w-8 h-8 md:w-10 md:h-10 rounded-lg bg-[#004d1a] flex items-center justify-center mb-3">
-								<MaterialIcon icon="card_giftcard" className="text-white text-lg md:text-xl" />
+							<div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-[#eef8ef] text-[#004d1a]">
+								<MaterialIcon icon="event" className="text-xl" />
 							</div>
-							<h3 className="font-bold text-[#003300] text-sm md:text-base mb-2">Enables Borrowing</h3>
-							<p className="text-xs md:text-sm text-stone-700">Lends authentic items for approved cultural activities</p>
+							<h3 className="font-headline text-lg font-semibold text-[#003300] mb-2">Established</h3>
+							<p className="text-sm leading-relaxed text-stone-600">
+								Established in <span className="font-semibold text-[#003300]">1980</span>, UCCA has served as the university's center for preserving and promoting culture and the arts.
+							</p>
 						</motion.div>
 					</motion.div>
 				</div>
