@@ -541,12 +541,17 @@ export default function GetStarted() {
 			if (res.data.error) {
 				toast.error(res.data.error);
 			} else {
-				toast.success("✅ Check your email for verification code!");
+				const normalizedEmail = email.toLowerCase().trim();
+				toast.success("🎉 Account created! Redirecting you to sign in...");
 				setRegisterData({ name: "", email: "", password: "", phone: "" });
 				setRegisterErrors({});
-				closeRegisterModal();
-				// ✅ NEW: Redirect to verification page with email
-				navigate("/verify-email", { state: { email } });
+				setLoginData((prev) => ({ ...prev, email: normalizedEmail }));
+				setShowRegisterModal(false);
+				setShowLoginModal(true);
+
+				if (window.location.pathname !== "/") {
+					navigate("/login", { replace: true });
+				}
 			}
 		} catch (error) {
 			console.error("Registration error:", error.message);
@@ -1182,7 +1187,7 @@ export default function GetStarted() {
 									{isLoading ? (
 										<span className="flex items-center justify-center gap-2">
 											<div className="animate-spin h-5 w-5 border-b-2 border-white"></div>
-											Creating account...
+											<span>Creating Account...</span>
 										</span>
 									) : (
 										"Create Account"
