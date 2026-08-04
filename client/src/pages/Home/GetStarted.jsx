@@ -777,73 +777,43 @@ export default function GetStarted() {
 						{/* Department 1: Dulimbay */}
 						<motion.div
 							variants={itemVariants}
-							whileHover={{ y: -6, boxShadow: "0 25px 50px rgba(0,51,0,0.15)" }}
+							whileHover={{ y: -3, scale: 1.01 }}
 							onClick={() => toggleDepartment("dulimbay")}
-							className={`rounded-lg border p-4 shadow-sm transition-all duration-300 sm:rounded-xl sm:p-6 md:p-8 ${
+							className={`flex min-h-[84px] items-center justify-center rounded-xl p-3 text-center shadow-sm transition-all duration-300 sm:min-h-[92px] sm:p-4 md:min-h-[100px] md:p-5 ${
 								activeDepartment === "dulimbay"
-									? "border-[#004d1a]/40 bg-[#f6fcf6] shadow-md"
-									: "cursor-pointer border-gray-200 bg-white hover:border-[#004d1a]/30"
+									? "bg-[#2563eb] text-white shadow-md"
+									: "cursor-pointer bg-[#eff6ff] text-[#1e3a8a] hover:bg-[#dbeafe]"
 							}`}
 						>
-							<div className="mb-4 flex items-start justify-between md:mb-6">
-								<div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl border border-[#004d1a]/10 bg-[#eef8ef] text-[#004d1a] sm:h-12 sm:w-12 md:h-14 md:w-14">
-									<PersonStanding className="h-5 w-5 sm:h-6 sm:w-6 md:h-7 md:w-7" />
-								</div>
-								<MaterialIcon icon="expand_more" className="text-[#004d1a] text-lg md:text-2xl" />
-							</div>
-							<h3 className="mb-1 text-base font-bold text-[#003300] sm:text-lg md:text-2xl">Dulimbay</h3>
-							<p className="mb-2 text-xs font-bold uppercase tracking-wider text-[#004d1a] md:mb-4">Dance & Performance</p>
-							<p className="text-xs leading-relaxed text-stone-700 sm:text-sm">
-								Dulimbay comes from Dula and Limbay, representing theater and dance through cultural storytelling.
-							</p>
+							<h3 className="text-sm font-medium tracking-[0.16em] sm:text-base md:text-lg">Dulimbay</h3>
 						</motion.div>
 
 						{/* Department 2: Budyong */}
 						<motion.div
 							variants={itemVariants}
-							whileHover={{ y: -6, boxShadow: "0 25px 50px rgba(0,51,0,0.15)" }}
+							whileHover={{ y: -3, scale: 1.01 }}
 							onClick={() => toggleDepartment("budyong")}
-							className={`rounded-lg border p-4 shadow-sm transition-all duration-300 sm:rounded-xl sm:p-6 md:p-8 ${
+							className={`flex min-h-[84px] items-center justify-center rounded-xl p-3 text-center shadow-sm transition-all duration-300 sm:min-h-[92px] sm:p-4 md:min-h-[100px] md:p-5 ${
 								activeDepartment === "budyong"
-									? "border-[#004d1a]/40 bg-[#f6fcf6] shadow-md"
-									: "cursor-pointer border-gray-200 bg-white hover:border-[#004d1a]/30"
+									? "bg-[#d4a017] text-[#1f1a0f] shadow-md"
+									: "cursor-pointer bg-[#fff8e8] text-[#8a5c00] hover:bg-[#fef3c7]"
 							}`}
 						>
-							<div className="mb-4 flex items-start justify-between md:mb-6">
-								<div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl border border-[#004d1a]/10 bg-[#eef8ef] text-[#004d1a] sm:h-12 sm:w-12 md:h-14 md:w-14">
-									<Music4 className="h-5 w-5 sm:h-6 sm:w-6 md:h-7 md:w-7" />
-								</div>
-								<MaterialIcon icon="expand_more" className="text-[#004d1a] text-lg md:text-2xl" />
-							</div>
-							<h3 className="mb-1 text-base font-bold text-[#003300] sm:text-lg md:text-2xl">Budyong</h3>
-							<p className="mb-2 text-xs font-bold uppercase tracking-wider text-[#004d1a] md:mb-4">Music & Heritage</p>
-							<p className="text-xs leading-relaxed text-stone-700 sm:text-sm">
-								Budyong is named after the traditional shell trumpet used to gather communities and preserve heritage.
-							</p>
+							<h3 className="text-sm font-medium tracking-[0.16em] sm:text-base md:text-lg">Budyong</h3>
 						</motion.div>
 
 						{/* Department 3: Kayam */}
 						<motion.div
 							variants={itemVariants}
-							whileHover={{ y: -6, boxShadow: "0 25px 50px rgba(0,51,0,0.15)" }}
+							whileHover={{ y: -3, scale: 1.01 }}
 							onClick={() => toggleDepartment("kayam")}
-							className={`rounded-lg border p-4 shadow-sm transition-all duration-300 sm:rounded-xl sm:p-6 md:p-8 ${
+							className={`flex min-h-[84px] items-center justify-center rounded-xl p-3 text-center shadow-sm transition-all duration-300 sm:min-h-[92px] sm:p-4 md:min-h-[100px] md:p-5 ${
 								activeDepartment === "kayam"
-									? "border-[#004d1a]/40 bg-[#f6fcf6] shadow-md"
-									: "cursor-pointer border-gray-200 bg-white hover:border-[#004d1a]/30"
+									? "bg-[#d9480f] text-white shadow-md"
+									: "cursor-pointer bg-[#fff1ed] text-[#9a2c0d] hover:bg-[#ffe4db]"
 							}`}
 						>
-							<div className="mb-4 flex items-start justify-between md:mb-6">
-								<div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl border border-[#004d1a]/10 bg-[#eef8ef] text-[#004d1a] sm:h-12 sm:w-12 md:h-14 md:w-14">
-									<Guitar className="h-5 w-5 sm:h-6 sm:w-6 md:h-7 md:w-7" />
-								</div>
-								<MaterialIcon icon="expand_more" className="text-[#004d1a] text-lg md:text-2xl" />
-							</div>
-							<h3 className="mb-1 text-base font-bold text-[#003300] sm:text-lg md:text-2xl">Kayam</h3>
-							<p className="mb-2 text-xs font-bold uppercase tracking-wider text-[#004d1a] md:mb-4">Band & Expression</p>
-							<p className="text-xs leading-relaxed text-stone-700 sm:text-sm">
-								Kayam represents the university's contemporary band, blending modern musical expression with cultural appreciation.
-							</p>
+							<h3 className="text-sm font-medium tracking-[0.16em] sm:text-base md:text-lg">Kayam</h3>
 						</motion.div>
 					</motion.div>
 				</div>
