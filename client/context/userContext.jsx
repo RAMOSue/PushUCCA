@@ -330,6 +330,7 @@ export function UserContextProvider({ children }) {
         user,
         setUser,
         loading,
+        setLoading,
         darkMode,
         setDarkMode,
         toggleDarkMode,

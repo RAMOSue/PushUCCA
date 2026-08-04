@@ -74,7 +74,7 @@ const FullScreenWipe = ({ isActive, duration = 0.8 }) => {
 };
 
 export default function GetStarted() {
-	const { user, loading, setUser } = useContext(UserContext);
+	const { user, loading, setUser, setLoading } = useContext(UserContext);
 	const {
 		showLoginModal,
 		setShowLoginModal,
@@ -452,7 +452,7 @@ export default function GetStarted() {
 		}
 	}, [user, loading, navigate]);
 
-	const persistAuthSession = (loggedInUser, token) => {
+	const persistAuthSession = (loggedInUser, token, successMessage = "✅ Login successful!") => {
 		if (token && loggedInUser?.id) {
 			tokenManager.addToken(loggedInUser.id, loggedInUser.email, token, {
 				name: loggedInUser.name,
@@ -463,8 +463,14 @@ export default function GetStarted() {
 		}
 
 		setUser(loggedInUser);
+		setLoading(false);
 		setLoginData({ email: "", password: "" });
 		setLoginErrors({});
+		setRegisterData({ name: "", email: "", password: "", phone: "" });
+		setRegisterErrors({});
+		setShowRegisterModal(false);
+		setShowLoginModal(false);
+		toast.success(successMessage);
 	};
 
 	const navigateBasedOnRole = (userData) => {
@@ -494,8 +500,7 @@ export default function GetStarted() {
 
 		const loggedInUser = res.data.user;
 		const token = res.data.token;
-		persistAuthSession(loggedInUser, token);
-		toast.success(successMessage);
+		persistAuthSession(loggedInUser, token, successMessage);
 		return loggedInUser;
 	};
 
@@ -584,17 +589,13 @@ export default function GetStarted() {
 			}
 
 			const normalizedEmail = email.toLowerCase().trim();
-			setRegisterData({ name: "", email: "", password: "", phone: "" });
-			setRegisterErrors({});
 			setLoginData((prev) => ({ ...prev, email: normalizedEmail }));
-			setShowRegisterModal(false);
-			setShowLoginModal(false);
 
 			const registeredUser = res.data?.user;
 			const registrationToken = res.data?.token;
-			if (registeredUser && registrationToken) {
-				persistAuthSession(registeredUser, registrationToken);
-				navigateBasedOnRole(registeredUser);
+			if (registeredUser) {
+				persistAuthSession(registeredUser, registrationToken, "🎉 Account created! You’re now signed in.");
+				setTimeout(() => navigateBasedOnRole(registeredUser), 0);
 			} else {
 				const loggedInUser = await authenticateWithCredentials({
 					email: normalizedEmail,
