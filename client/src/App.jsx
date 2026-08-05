@@ -10,6 +10,7 @@ import toast from "react-hot-toast";
 import Navbar from "./components/navigation/Navbar";
 import SideNavbar from "./components/navigation/SideNavbar"; // ✅ Borrower sidebar
 import RightNavbar from "./components/navigation/RightNavbar"; // ✅ Right navbar
+import { SidebarContext } from "./context/SidebarContext";
 import TestUserSwitcher from "./components/TestUserSwitcher"; // ✅ Multi-user testing
 import Register from "./pages/Auth/Register";
 import Login from "./pages/Auth/Login";
@@ -72,6 +73,7 @@ axios.defaults.withCredentials = true;
 
 function AppContent() {
   const { user, darkMode, loading } = useContext(UserContext);
+  const { isMobile } = useContext(SidebarContext);
 
   // ✅ Initialize Zustand stores
   const initializeMobile = useSidebarStore((state) => state.initializeMobile);
@@ -422,7 +424,7 @@ function AppContent() {
               </Routes>
             </main>
 
-            {user && (user?.role === "borrower" || user?.role === "staff" || user?.role === "admin") && (
+            {user && !isMobile && (user?.role === "borrower" || user?.role === "staff" || user?.role === "admin") && (
               <RightNavbar />
             )}
           </div>
