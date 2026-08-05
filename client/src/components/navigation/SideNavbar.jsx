@@ -199,7 +199,7 @@ export default function SideNavbar({ role = "staff" }) {
         {/* Home removed — staff workflow streamlines to Manage Borrowing as landing */}
 
         {/* Navigation Items */}
-        <nav className={`flex-1 flex flex-col px-2 py-2 sm:px-3 sm:py-2 md:px-4 lg:px-4 space-y-2 sm:space-y-2 md:space-y-3 lg:space-y-3 ${leftSidebarCollapsed ? "lg:items-center lg:px-2" : ""}`}>
+        <nav className={`flex-1 flex flex-col ${leftSidebarCollapsed ? "items-center px-0 py-2 lg:items-center lg:px-2" : "px-2 py-2 sm:px-3 sm:py-2 md:px-4 lg:px-4"} space-y-2 sm:space-y-2 md:space-y-3 lg:space-y-3`}>
           {navItems.map((item) => {
             const Icon = item.icon;
             const active = isActive(item.path);
@@ -215,7 +215,7 @@ export default function SideNavbar({ role = "staff" }) {
                     setRightSidebarOpen(false);
                   }
                 }}
-                className={`flex items-center ${leftSidebarCollapsed ? "justify-center" : "justify-between"} rounded-lg text-[10px] sm:text-[11px] md:text-sm lg:text-sm font-medium transition-all duration-200 gap-1.5 sm:gap-2 ${
+                className={`flex items-center ${leftSidebarCollapsed ? "justify-center mx-auto" : "justify-between"} rounded-lg text-[10px] sm:text-[11px] md:text-sm lg:text-sm font-medium transition-all duration-200 gap-1.5 sm:gap-2 ${
                   leftSidebarCollapsed
                     ? "w-10 h-10 sm:w-12 sm:h-12 px-0 py-0"
                     : isMobile
