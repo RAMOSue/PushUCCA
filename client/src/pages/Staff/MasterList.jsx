@@ -22,6 +22,21 @@ export default function MasterList() {
   const dragStartRef = useRef(null);
   const previewRef = useRef(null);
   const [imageError, setImageError] = useState(null);
+  // Homepage slideshow aspect ratio (width / height). Default to 16:9 if not found.
+  const [homepageAspect, setHomepageAspect] = useState(16 / 9);
+
+  // Try to detect the actual homepage slideshow aspect from DOM on mount
+  useEffect(() => {
+    try {
+      const el = document.querySelector('[data-homepage-slideshow]') || document.querySelector('.getstarted-slideshow') || document.querySelector('#getstarted-slideshow');
+      if (el && el.getBoundingClientRect) {
+        const r = el.getBoundingClientRect();
+        if (r.width > 0 && r.height > 0) setHomepageAspect(r.width / r.height);
+      }
+    } catch (e) {
+      // ignore
+    }
+  }, []);
 
   // Modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
