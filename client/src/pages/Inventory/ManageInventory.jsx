@@ -221,6 +221,8 @@ export default function ManageInventory({ filterCategory, registerAddItemHandler
   const [selectedItemForQR, setSelectedItemForQR] = useState(null);
   const [formPanelOpen, setFormPanelOpen] = useState(false);
   const [activeItemId, setActiveItemId] = useState(null);
+  const [isMobileLayout, setIsMobileLayout] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const [divisions, setDivisions] = useState([]);
   const [divisionLoading, setDivisionLoading] = useState(false);
   const [imageEditorSource, setImageEditorSource] = useState(null);
@@ -243,6 +245,58 @@ export default function ManageInventory({ filterCategory, registerAddItemHandler
     () => items.find((item) => (item.uuid || item.id) === activeItemId),
     [activeItemId, items]
   );
+
+  const activeItemImage = useMemo(() => {
+    if (!activeItem) return null;
+    return activeItem.image_url?.startsWith('http')
+      ? activeItem.image_url
+      : activeItem.image_url
+      ? `${import.meta.env.VITE_API_URL || window.location.origin}${activeItem.image_url}`
+      : null;
+  }, [activeItem]);
+
+  const activeItemTotalQty = useMemo(() => {
+    if (!activeItem) return 0;
+    if (activeItem.category === 'costume' && activeItem.garment_type?.toLowerCase() !== 'accessory') {
+      return (activeItem.qty_small || 0) + (activeItem.qty_medium || 0) + (activeItem.qty_large || 0);
+    }
+    return activeItem.quantity || 0;
+  }, [activeItem]);
+
+  const handleSelectItem = (itemKey) => {
+    setActiveItemId(itemKey);
+    if (isMobileLayout) {
+      setDrawerOpen(true);
+    }
+  };
+
+  useEffect(() => {
+    const query = window.matchMedia('(max-width: 1279px)');
+    const updateMobileState = (event) => setIsMobileLayout(event.matches);
+
+    setIsMobileLayout(query.matches);
+    if (query.addEventListener) {
+      query.addEventListener('change', updateMobileState);
+      return () => query.removeEventListener('change', updateMobileState);
+    }
+    query.addListener(updateMobileState);
+    return () => query.removeListener(updateMobileState);
+  }, []);
+
+  useEffect(() => {
+    if (!isMobileLayout) {
+      setDrawerOpen(false);
+    }
+  }, [isMobileLayout]);
+
+  useEffect(() => {
+    if (!drawerOpen) return undefined;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = previousOverflow || '';
+    };
+  }, [drawerOpen]);
 
   /* ------------------------------------------------------------ */
   const rebuildIndigenousAndDanceMaps = useCallback((data) => {
@@ -1143,7 +1197,7 @@ export default function ManageInventory({ filterCategory, registerAddItemHandler
                       <button
                         key={itemKey}
                         type="button"
-                        onClick={() => setActiveItemId(itemKey)}
+                        onClick={() => handleSelectItem(itemKey)}
                         className={`w-full text-left px-3 py-2 flex items-center gap-3 transition ${isActiveRow ? 'bg-primary/5 dark:bg-blue-500/10' : 'bg-transparent hover:bg-surface-container-high dark:hover:bg-[#222]'}`}
                       >
                         <div className="flex-shrink-0 w-12 h-12 rounded-2xl overflow-hidden border border-outline-variant/20 dark:border-gray-700 bg-surface-container-high dark:bg-[#222]">
@@ -1168,7 +1222,7 @@ export default function ManageInventory({ filterCategory, registerAddItemHandler
               )}
             </div>
 
-            <div className="space-y-4">
+            <div className="hidden xl:block space-y-4">
             <div className="relative rounded-3xl border border-outline-variant/20 dark:border-gray-700 bg-surface-container-low dark:bg-[#1a1a1a] p-6 min-h-[420px]">
               {activeItem ? (
                 <>
@@ -1284,6 +1338,134 @@ export default function ManageInventory({ filterCategory, registerAddItemHandler
                   <Package className="w-12 h-12 mb-3" />
                   <p className="text-sm font-semibold mb-2">Select an item to view details</p>
                   <p className="text-xs">Use the list on the left to inspect inventory details and actions.</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className={`fixed inset-0 z-50 flex items-end justify-center transition-opacity duration-300 ${drawerOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}>
+        <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setDrawerOpen(false)} />
+        <div className={`relative w-full max-w-[780px] h-[calc(100%-1.5rem)] max-h-[calc(100%-1.5rem)] rounded-t-[28px] bg-surface dark:bg-[#111] border border-outline-variant/20 shadow-2xl overflow-hidden transform transition-transform duration-300 ${drawerOpen ? 'translate-y-0' : 'translate-y-full'}`}>
+          <div className="absolute right-4 top-4 z-20">
+            <button
+              type="button"
+              onClick={() => setDrawerOpen(false)}
+              className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-surface-container-high text-on-surface dark:bg-[#1f1f1f] dark:text-white shadow-sm shadow-black/10 transition hover:bg-surface-container-high/90"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+          <div className="h-full overflow-y-auto pt-5 pb-6 px-4 sm:px-5">
+            <div className="space-y-4">
+              {activeItem ? (
+                <>
+                  <div className="flex items-start gap-3">
+                    <div className="w-20 h-20 rounded-3xl overflow-hidden border border-outline-variant/20 bg-surface-container-high dark:bg-[#222]">
+                      {activeItemImage ? (
+                        <img src={activeItemImage} alt={activeItem.name} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-on-surface-variant dark:text-gray-400">
+                          <Package className="w-6 h-6" />
+                        </div>
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs uppercase tracking-[0.24em] text-on-surface-variant mb-1">Selected item</p>
+                      <h2 className="text-xl font-semibold text-on-surface dark:text-white line-clamp-2">{activeItem.name}</h2>
+                      <div className="mt-2 flex flex-wrap gap-2 text-sm text-on-surface-variant dark:text-gray-400">
+                        <span>{activeItem.category?.charAt(0).toUpperCase() + activeItem.category?.slice(1) || 'Item'}</span>
+                        <span className="h-1 w-1 rounded-full bg-on-surface-variant/40" />
+                        <span>{activeItem.units?.length ? 'In Stock' : 'Out of stock'}</span>
+                      </div>
+                      {getInventoryDivisionInfo(activeItem)?.division_name ? (
+                        <span className="mt-3 inline-flex items-center rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-[11px] font-medium text-primary dark:border-blue-400/20 dark:bg-blue-500/10 dark:text-blue-300">
+                          {getInventoryDivisionInfo(activeItem).division_name}
+                        </span>
+                      ) : null}
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => handleEdit(activeItem)}
+                      title="Edit"
+                      className="inline-flex items-center justify-center h-10 rounded-full border border-outline-variant/20 bg-surface-container-high px-4 text-sm font-semibold text-on-surface transition hover:bg-surface-container-high/90 dark:border-gray-700 dark:bg-[#222] dark:text-white"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedItemForQR(activeItem);
+                        setUnitModalOpen(true);
+                      }}
+                      title="View QR Codes"
+                      className="inline-flex items-center justify-center h-10 rounded-full border border-outline-variant/20 bg-surface-container-high px-4 text-sm font-semibold text-on-surface transition hover:bg-surface-container-high/90 dark:border-gray-700 dark:bg-[#222] dark:text-white"
+                    >
+                      QR Codes
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(activeItem.uuid)}
+                      title="Delete"
+                      className="inline-flex items-center justify-center h-10 rounded-full border border-error/20 bg-error/10 px-4 text-sm font-semibold text-error transition hover:bg-error/20 dark:border-red-900/30 dark:bg-red-900/10 dark:text-red-300"
+                    >
+                      Delete
+                    </button>
+                  </div>
+
+                  <div className="grid gap-4 mt-4 sm:grid-cols-2">
+                    <div className="rounded-3xl border border-outline-variant/20 bg-surface-container-high dark:border-gray-700 dark:bg-[#222] p-4">
+                      <p className="text-[10px] uppercase tracking-[0.22em] text-on-surface-variant mb-2">Quantity</p>
+                      <p className="text-lg font-semibold text-on-surface dark:text-white">{activeItemTotalQty}</p>
+                    </div>
+                    <div className="rounded-3xl border border-outline-variant/20 bg-surface-container-high dark:border-gray-700 dark:bg-[#222] p-4">
+                      <p className="text-[10px] uppercase tracking-[0.22em] text-on-surface-variant mb-2">Garment Type</p>
+                      <p className="text-lg font-semibold text-on-surface dark:text-white">{activeItem.garment_type || '—'}</p>
+                    </div>
+                    <div className="rounded-3xl border border-outline-variant/20 bg-surface-container-high dark:border-gray-700 dark:bg-[#222] p-4">
+                      <p className="text-[10px] uppercase tracking-[0.22em] text-on-surface-variant mb-2">Region</p>
+                      <p className="text-lg font-semibold text-on-surface dark:text-white">{activeItem.region || '—'}</p>
+                    </div>
+                    <div className="rounded-3xl border border-outline-variant/20 bg-surface-container-high dark:border-gray-700 dark:bg-[#222] p-4">
+                      <p className="text-[10px] uppercase tracking-[0.22em] text-on-surface-variant mb-2">Gender</p>
+                      <p className="text-lg font-semibold text-on-surface dark:text-white">{activeItem.gender || '—'}</p>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 space-y-4 text-sm text-on-surface dark:text-white">
+                    {activeItem.description && (
+                      <div className="rounded-3xl border border-outline-variant/20 dark:border-gray-700 bg-surface-container-high dark:bg-[#222] p-4">
+                        <p className="text-[10px] uppercase tracking-[0.18em] text-on-surface-variant mb-2">Notes</p>
+                        <p>{activeItem.description}</p>
+                      </div>
+                    )}
+                    {(activeItem.instrument_classification || activeItem.instrument_type) && (
+                      <div className="rounded-3xl border border-outline-variant/20 dark:border-gray-700 bg-surface-container-high dark:bg-[#222] p-4">
+                        {activeItem.instrument_classification && (
+                          <div className="mb-4">
+                            <p className="text-[10px] uppercase tracking-[0.18em] text-on-surface-variant mb-2">Classification</p>
+                            <p>{activeItem.instrument_classification}</p>
+                          </div>
+                        )}
+                        {activeItem.instrument_type && (
+                          <div>
+                            <p className="text-[10px] uppercase tracking-[0.18em] text-on-surface-variant mb-2">Instrument Type</p>
+                            <p>{activeItem.instrument_type}</p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <div className="h-full flex flex-col items-center justify-center text-center text-on-surface-variant dark:text-gray-400">
+                  <Package className="w-12 h-12 mb-3" />
+                  <p className="text-sm font-semibold mb-2">Select an item to view details</p>
+                  <p className="text-xs">Use the list to inspect inventory details and actions.</p>
                 </div>
               )}
             </div>
