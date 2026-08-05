@@ -305,7 +305,7 @@ export default function RightNavbar() {
       <aside
         className={`right-navbar flex h-full shrink-0 border-l border-outline-variant/10 bg-surface-container-low dark:border-[#2a2a2a] dark:bg-[#1f1f1f] shadow-2xl dark:shadow-[inset_-1px_0_0_rgba(255,255,255,0.05)] z-30 transition-all duration-250 ease-in-out ${
           isMobile
-            ? rightSidebarOpen ? "w-[190px] opacity-100 right-navbar-open" : "w-12 sm:w-14 opacity-100"
+            ? rightSidebarOpen ? "w-[190px] opacity-100 right-navbar-open" : "w-10 sm:w-12 opacity-100"
             : rightSidebarOpen ? "w-64 opacity-100" : "w-14 opacity-100"
         }`}
         style={{
