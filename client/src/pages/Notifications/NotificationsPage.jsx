@@ -19,12 +19,12 @@ export default function NotificationsPage() {
   const [selectedFilter, setSelectedFilter] = useState("all");
   const [profilePics, setProfilePics] = useState({}); // Cache profile pictures
 
-  // Ensure sidebar is open when viewing notifications
+  // Ensure sidebar is open when viewing notifications on desktop only
   useEffect(() => {
     if (!isMobile) {
       setSidebarOpen(true);
     }
-  }, [setSidebarOpen]);
+  }, [setSidebarOpen, isMobile]);
 
   useEffect(() => {
     fetchAllNotifications();
