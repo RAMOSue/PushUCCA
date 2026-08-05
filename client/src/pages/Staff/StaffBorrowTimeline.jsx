@@ -3,7 +3,7 @@
 import { useState, useEffect, useContext, useCallback } from "react"
 import axios from "axios"
 import toast from "react-hot-toast"
-import { Package, Hand } from "lucide-react"
+import { Package } from "lucide-react"
 import dayjs from "dayjs"
 import utc from "dayjs/plugin/utc"
 import timezone from "dayjs/plugin/timezone"
@@ -511,7 +511,6 @@ export default function StaffBorrowTimeline() {
                     {column.requests.map((req) => {
                       const isDeclinedReq = isDeclined(req)
                       const daysFromToday = getDaysFromToday(req.due_date)
-                      const statusMeta = getStatusMeta(req.status)
 
                       return (
                         <div
@@ -528,36 +527,47 @@ export default function StaffBorrowTimeline() {
                         >
                           <div className="flex items-start justify-between gap-2">
                             <div className="min-w-0">
-                              <div className="flex items-center gap-2">
-                                <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: statusMeta.dotColor }} />
-                                <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-on-surface-variant dark:text-gray-400">
+                              <div className="flex flex-col gap-1">
+                                <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-on-surface-variant dark:text-gray-400">
                                   {req.request_id || `REQ-${req.id}`}
                                 </p>
+                                <h3 className="text-sm font-semibold text-on-surface dark:text-white truncate">
+                                  {req.borrower_name || "Unknown borrower"}
+                                </h3>
                               </div>
-                              <h3 className="mt-2 text-sm font-semibold text-on-surface dark:text-white truncate">
-                                {req.borrower_name || "Unknown borrower"}
-                              </h3>
                             </div>
-                            <div className="flex items-center gap-1 text-on-surface-variant dark:text-gray-400">
-                              <Hand className="w-3.5 h-3.5" />
-                            </div>
+                            {!isMobile && (
+                              <div className="flex items-center gap-1 text-on-surface-variant dark:text-gray-400">
+                                <Hand className="w-3.5 h-3.5" />
+                              </div>
+                            )}
                           </div>
 
                           <div className="mt-3 space-y-2 text-xs text-on-surface-variant dark:text-gray-400">
-                            <div className="flex items-center justify-between">
-                              <span>Requested</span>
-                              <span className="font-medium text-on-surface dark:text-gray-200">
+                            <div className="grid grid-cols-[auto_1fr] gap-x-2 items-center">
+                              <span className="font-medium">Items:</span>
+                              <span className="font-medium text-on-surface dark:text-gray-200 text-right">
+                                {req.quantity || req.items?.length || 0}
+                              </span>
+                            </div>
+                            <div className="grid grid-cols-[auto_1fr] gap-x-2 items-center">
+                              <span className="font-medium">Requested:</span>
+                              <span className="font-medium text-on-surface dark:text-gray-200 text-right">
                                 {formatDate(req.request_date || req.created_at)}
                               </span>
                             </div>
-                            <div className="flex items-center justify-between">
-                              <span>Items</span>
-                              <span className="font-medium text-on-surface dark:text-gray-200">{req.quantity || req.items?.length || 0}</span>
-                            </div>
+                            {req.approved_at && (
+                              <div className="grid grid-cols-[auto_1fr] gap-x-2 items-center">
+                                <span className="font-medium">Borrowed:</span>
+                                <span className="font-medium text-on-surface dark:text-gray-200 text-right">
+                                  {formatDate(req.approved_at)}
+                                </span>
+                              </div>
+                            )}
                             {req.due_date && (
-                              <div className="flex items-center justify-between">
-                                <span>Due</span>
-                                <span className="font-medium text-on-surface dark:text-gray-200">
+                              <div className="grid grid-cols-[auto_1fr] gap-x-2 items-center">
+                                <span className="font-medium">Return:</span>
+                                <span className="font-medium text-on-surface dark:text-gray-200 text-right">
                                   {dayjs(req.due_date).tz("Asia/Manila").format("MMM DD, YYYY")}
                                 </span>
                               </div>
