@@ -1,18 +1,16 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { User } from 'lucide-react';
+import { User, Bell } from 'lucide-react';
 import { notificationService } from '../../services/notifications';
 
-const NotificationBadge = () => {
+const NotificationBadge = ({ isMobile = false }) => {
   const navigate = useNavigate();
   const [notificationCount, setNotificationCount] = useState(0);
   const [notificationList, setNotificationList] = useState([]);
   const [showDropdown, setShowDropdown] = useState(false);
   const [filterType, setFilterType] = useState("all");
   const [profilePics, setProfilePics] = useState({});
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
-
   // Fetch profile pictures for users
   const fetchProfilePic = async (userId) => {
     // Return cached pic if available
@@ -42,14 +40,14 @@ const NotificationBadge = () => {
   };
 
   // Track mobile viewport
+  // If parent passes isMobile prop, prefer it; otherwise keep legacy resize behavior
   useEffect(() => {
+    if (typeof isMobile === 'boolean') return;
     const handleResize = () => {
-      setIsMobile(window.innerWidth < 768);
+      // no-op: legacy path avoided when prop provided
     };
-
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
+    return () => {};
+  }, [isMobile]);
 
   // Initialize
   useEffect(() => {
@@ -187,19 +185,12 @@ const NotificationBadge = () => {
             setShowDropdown(!showDropdown);
           }
         }}
-        className="relative w-10 h-10 flex items-center justify-center rounded-full bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+        className={`${isMobile ? 'relative flex h-7 w-7 sm:h-8 sm:w-8' : 'relative w-10 h-10'} flex items-center justify-center rounded-full border border-slate-200 bg-slate-50 text-slate-700 transition hover:bg-slate-100`}
       >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          className="w-5 h-5 text-gray-700 dark:text-gray-300"
-          fill="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0a3 3 0 11-6 0h6z"/>
-        </svg>
+        <Bell className={`${isMobile ? 'h-4 w-4' : 'w-5 h-5'} text-gray-700 dark:text-gray-300`} />
 
         {notificationCount > 0 && (
-          <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 dark:bg-red-600 rounded-full"></span>
+          <span className={`absolute ${isMobile ? '-top-1 -right-1' : 'top-1 right-1'} min-w-[18px] h-4 px-1.5 rounded-full bg-red-500 dark:bg-red-600 text-[10px] font-bold text-white flex items-center justify-center`}>{notificationCount > 99 ? '99+' : notificationCount}</span>
         )}
       </button>
 
