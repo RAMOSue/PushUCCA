@@ -125,7 +125,7 @@ export default function SideNavbar({ role = "staff" }) {
       <aside
         className={`left-sidebar sticky left-0 top-0 h-screen shrink-0 border-r border-outline-variant/20 bg-surface-container-low dark:border-[#2a2a2a] dark:bg-[#1f1f1f] shadow-lg dark:shadow-none z-30 transition-all duration-300 ease-in-out ${
           isMobile
-            ? leftSidebarCollapsed ? "w-12" : "w-[190px] max-w-[75vw] left-sidebar-open"
+            ? leftSidebarCollapsed ? "w-10 sm:w-12" : "w-[190px] max-w-[75vw] left-sidebar-open"
             : leftSidebarCollapsed ? "w-16" : "w-64"
         }`}
         style={{
@@ -199,7 +199,7 @@ export default function SideNavbar({ role = "staff" }) {
         {/* Home removed — staff workflow streamlines to Manage Borrowing as landing */}
 
         {/* Navigation Items */}
-        <nav className={`flex-1 flex flex-col px-2 py-2 sm:px-3 sm:py-2 md:px-4 lg:px-4 space-y-1 sm:space-y-1.5 md:space-y-2 lg:space-y-2 ${leftSidebarCollapsed ? "lg:items-center lg:px-2" : ""}`}>
+        <nav className={`flex-1 flex flex-col px-2 py-2 sm:px-3 sm:py-2 md:px-4 lg:px-4 space-y-2 sm:space-y-2 md:space-y-3 lg:space-y-3 ${leftSidebarCollapsed ? "lg:items-center lg:px-2" : ""}`}>
           {navItems.map((item) => {
             const Icon = item.icon;
             const active = isActive(item.path);
@@ -215,9 +215,9 @@ export default function SideNavbar({ role = "staff" }) {
                     setRightSidebarOpen(false);
                   }
                 }}
-                className={`flex items-center justify-between rounded-lg text-[10px] sm:text-[11px] md:text-sm lg:text-sm font-medium transition-all duration-200 gap-1.5 sm:gap-2 ${
+                className={`flex items-center ${leftSidebarCollapsed ? "justify-center" : "justify-between"} rounded-lg text-[10px] sm:text-[11px] md:text-sm lg:text-sm font-medium transition-all duration-200 gap-1.5 sm:gap-2 ${
                   leftSidebarCollapsed
-                    ? "lg:w-10 lg:h-10 lg:justify-center lg:px-0 lg:py-0"
+                    ? "w-10 h-10 sm:w-12 sm:h-12 px-0 py-0"
                     : isMobile
                     ? "px-2 sm:px-2 py-2"
                     : "px-2.5 sm:px-3 md:px-4 lg:px-4 py-2 sm:py-2 md:py-2.5 lg:py-3"
@@ -227,7 +227,7 @@ export default function SideNavbar({ role = "staff" }) {
                     : "text-on-surface-variant dark:text-gray-400 hover:bg-surface-container-highest dark:hover:bg-[#2a2a2a] hover:text-on-surface dark:hover:text-white"
                 }`}
               >
-                <div className={`flex items-center ${leftSidebarCollapsed ? "lg:justify-center" : "gap-1.5 sm:gap-2 flex-1 min-w-0"}`}>
+                <div className={`flex items-center ${leftSidebarCollapsed ? "justify-center" : "gap-1.5 sm:gap-2 flex-1 min-w-0"}`}>
                   <Icon className={`${leftSidebarCollapsed ? "w-4 h-4 sm:w-4 sm:h-4" : "w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-4.5 md:h-4.5 lg:w-5 lg:h-5"} flex-shrink-0`} />
                   {!leftSidebarCollapsed && (
                     <span className="text-[8px] sm:text-[9px] md:text-[10px] lg:text-[10px] uppercase tracking-[0.16em] font-semibold truncate">{item.label}</span>
