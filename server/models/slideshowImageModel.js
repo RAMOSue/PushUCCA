@@ -24,7 +24,7 @@ class SlideshowImageModel {
 
   // Create new slideshow image
   static async create(title, description, imagePath, imageFilename, fileSize, mimeType, createdBy) {
-    if (!title) throw new Error("Title is required");
+    // Title may be empty; ensure imagePath is present
     if (!imagePath) throw new Error("Image path is required");
 
     const result = await pool.query(

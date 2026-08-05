@@ -114,21 +114,15 @@ const createImage = async (req, res) => {
 
     const { title, description } = req.body;
 
-    // Validate required fields
-    if (!title || !title.trim()) {
-      // Delete uploaded file since validation failed
-      if (req.file.path && fs.existsSync(req.file.path)) {
-        fs.unlinkSync(req.file.path);
-      }
-      return res.status(400).json({ error: "Image title is required" });
-    }
+    // Allow missing title — fall back to original filename or empty string
+    const safeTitle = title && title.trim() ? title.trim() : (req.file.originalname ? req.file.originalname : "");
 
     // Create relative path for image_url (stored in DB)
     const imagePath = `/uploads/slideshow/${req.file.filename}`;
 
     // Create image record in database
     const image = await SlideshowImageModel.create(
-      title.trim(),
+      safeTitle,
       description ? description.trim() : null,
       imagePath,
       req.file.filename,
