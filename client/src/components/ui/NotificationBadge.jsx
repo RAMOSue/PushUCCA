@@ -178,7 +178,8 @@ const NotificationBadge = ({ isMobile = false }) => {
     <div className="relative">
       {/* 🔔 Bell */}
       <button
-        onClick={() => {
+        onClick={(e) => {
+          e.stopPropagation();
           if (isMobile) {
             navigate('/notifications');
           } else {
@@ -186,6 +187,8 @@ const NotificationBadge = ({ isMobile = false }) => {
           }
         }}
         className={`${isMobile ? 'relative flex h-7 w-7 sm:h-8 sm:w-8' : 'relative w-10 h-10'} flex items-center justify-center rounded-full border border-slate-200 bg-slate-50 text-slate-700 transition hover:bg-slate-100`}
+        aria-label="Notifications"
+        type="button"
       >
         <Bell className={`${isMobile ? 'h-4 w-4' : 'w-5 h-5'} text-gray-700 dark:text-gray-300`} />
 

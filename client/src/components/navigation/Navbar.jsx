@@ -25,10 +25,10 @@ const PublicBrand = () => (
 
 function GlobalSearchBar({ value, onChange, onClear, placeholder = "Search", compact = false }) {
   return (
-    <div className={`relative flex items-center h-full min-w-0 flex-1 ${compact ? 'max-w-[220px]' : 'max-w-xs'}`}>
-      <Search className={`absolute left-3 ${compact ? 'h-3.5 w-3.5' : 'h-4 w-4'} text-gray-500 dark:text-gray-400`} />
+    <div className={`relative flex items-center h-full min-w-0 flex-1 ${compact ? 'max-w-[140px] sm:max-w-[200px]' : 'max-w-xs'}`}>
+      <Search className={`absolute left-3 ${compact ? 'h-3 w-3' : 'h-4 w-4'} text-gray-500 dark:text-gray-400`} />
       <input
-        className={`w-full ${compact ? 'h-8' : 'h-9'} rounded-lg border border-slate-200 bg-white pl-9 pr-9 ${compact ? 'text-sm' : 'text-sm'} text-slate-700 placeholder-slate-400 shadow-sm outline-none transition focus:border-[#FBBC38] focus:ring-2 focus:ring-[#FBBC38]/20 dark:border-slate-700 dark:bg-[#1f1f1f] dark:text-slate-100 dark:placeholder-slate-500`}
+        className={`w-full ${compact ? 'h-8 text-sm' : 'h-9'} rounded-lg border border-slate-200 bg-white pl-9 pr-9 text-sm text-slate-700 placeholder-slate-400 shadow-sm outline-none transition focus:border-[#FBBC38] focus:ring-2 focus:ring-[#FBBC38]/20 dark:border-slate-700 dark:bg-[#1f1f1f] dark:text-slate-100 dark:placeholder-slate-500`}
         placeholder={placeholder}
         type="text"
         value={value}
@@ -41,7 +41,7 @@ function GlobalSearchBar({ value, onChange, onClear, placeholder = "Search", com
           title="Clear search"
           type="button"
         >
-          <X className={`${compact ? 'h-3.5 w-3.5' : 'h-4 w-4'}`} />
+          <X className={`${compact ? 'h-3 w-3' : 'h-4 w-4'}`} />
         </button>
       )}
     </div>
@@ -366,7 +366,7 @@ export default function Navbar() {
           </div>
 
           <div className="flex items-center gap-1.5 sm:gap-2 md:gap-3">
-            <div className={`${isMobile ? 'block w-36 sm:w-44' : 'block w-24 sm:w-32 md:w-48 lg:w-72'}`}>
+            <div className={`${isMobile ? 'block w-[140px] sm:w-40' : 'block w-24 sm:w-32 md:w-48 lg:w-72'}`}>
               <GlobalSearchBar
                 compact={isMobile}
                 value={globalSearchQuery}
