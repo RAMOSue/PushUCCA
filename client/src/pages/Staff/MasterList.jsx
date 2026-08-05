@@ -48,6 +48,8 @@ export default function MasterList() {
   const [zoom, setZoom] = useState(1);
   const [imageBaseSize, setImageBaseSize] = useState({ width: 0, height: 0 });
   const [isDragging, setIsDragging] = useState(false);
+  const [mirrored, setMirrored] = useState(false);
+  const [previewMode, setPreviewMode] = useState(false);
   const dragStartRef = useRef(null);
   const previewRef = useRef(null);
   const [imageError, setImageError] = useState(null);
@@ -328,6 +330,7 @@ export default function MasterList() {
       setImageFile(file);
       setImageOffset({ x: 0, y: 0 });
       setZoom(1);
+      setMirrored(false);
       setImageBaseSize({ width: 0, height: 0 });
       const reader = new FileReader();
       reader.onload = (evt) => setImagePreview(evt.target.result);
@@ -680,16 +683,16 @@ export default function MasterList() {
                         pointerY: e.clientY,
                         offsetX: imageOffset.x,
                         offsetY: imageOffset.y,
+                        mirroredAtStart: mirrored,
                       };
                     }}
                     onPointerMove={(e) => {
                       if (!isDragging || !dragStartRef.current) return;
                       const deltaX = e.clientX - dragStartRef.current.pointerX;
                       const deltaY = e.clientY - dragStartRef.current.pointerY;
-                      setImageOffset({
-                        x: dragStartRef.current.offsetX + deltaX,
-                        y: dragStartRef.current.offsetY + deltaY,
-                      });
+                      const effectiveDeltaX = dragStartRef.current.mirroredAtStart ? -deltaX : deltaX;
+                      const newOffsets = updateBoundsOffset(dragStartRef.current.offsetX + effectiveDeltaX, dragStartRef.current.offsetY + deltaY);
+                      setImageOffset(newOffsets);
                     }}
                     onPointerUp={() => setIsDragging(false)}
                     onPointerLeave={() => setIsDragging(false)}
@@ -697,9 +700,14 @@ export default function MasterList() {
                     <img
                       src={imagePreview}
                       alt="Preview"
-                      className="absolute inset-0 w-full h-full object-cover transition-transform duration-150"
+                      onLoad={handlePreviewImageLoad}
+                      className="absolute transition-transform duration-150"
                       style={{
-                        transform: `translate(${imageOffset.x}px, ${imageOffset.y}px) scale(${zoom})`,
+                        width: imageBaseSize.width ? `${imageBaseSize.width}px` : "100%",
+                        height: imageBaseSize.height ? `${imageBaseSize.height}px` : "100%",
+                        left: "50%",
+                        top: "50%",
+                        transform: `translate(-50%,-50%) translate(${imageOffset.x}px, ${imageOffset.y}px) scale(${zoom}) scaleX(${mirrored ? -1 : 1})`,
                         cursor: isDragging ? "grabbing" : "grab",
                       }}
                     />
@@ -731,11 +739,39 @@ export default function MasterList() {
                   >
                     +
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => setMirrored((m) => !m)}
+                    className="px-3 py-2 rounded-lg border border-outline-variant/30 dark:border-gray-700 bg-slate-50 dark:bg-[#161616] text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#222] transition"
+                    title="Mirror"
+                  >
+                    ⇋
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setImageOffset({ x: 0, y: 0 });
+                      setZoom(1);
+                      setMirrored(false);
+                    }}
+                    className="px-3 py-2 rounded-lg border border-outline-variant/30 dark:border-gray-700 bg-slate-50 dark:bg-[#161616] text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#222] transition"
+                    title="Reset"
+                  >
+                    Reset
+                  </button>
                 </div>
               </div>
 
               {/* Action Buttons */}
               <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setPreviewMode(true)}
+                  disabled={!imageFile}
+                  className="px-4 py-2 bg-slate-100 dark:bg-[#222] text-slate-900 dark:text-gray-200 rounded-lg font-semibold text-sm hover:bg-slate-200 dark:hover:bg-[#2a2a2a] disabled:opacity-50 transition"
+                >
+                  Preview
+                </button>
                 <button
                   type="submit"
                   disabled={uploadingImage || !imageFile}
@@ -750,12 +786,45 @@ export default function MasterList() {
                     setImagePreview(null);
                     setImageOffset({ x: 0, y: 0 });
                     setZoom(1);
+                    setMirrored(false);
                   }}
                   disabled={uploadingImage}
                   className="flex-1 px-4 py-2 bg-slate-200 dark:bg-[#222] text-slate-900 dark:text-gray-300 rounded-lg font-semibold text-sm hover:bg-slate-300 dark:hover:bg-[#2a2a2a] disabled:opacity-50 transition"
                 >
                   Cancel
                 </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Preview Modal (non-destructive) */}
+        {previewMode && imagePreview && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white dark:bg-[#0d0d0d] rounded-2xl shadow-2xl max-w-3xl w-full p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white">Slideshow Preview</h3>
+                <button onClick={() => setPreviewMode(false)} className="p-1 rounded hover:bg-slate-100 dark:hover:bg-[#111]"><X className="w-5 h-5 text-slate-600 dark:text-gray-400" /></button>
+              </div>
+              <div className="w-full aspect-[3/1] rounded-2xl overflow-hidden bg-slate-100 dark:bg-[#111] mb-4">
+                <div className="relative w-full h-full">
+                  <img
+                    src={imagePreview}
+                    alt="Final Preview"
+                    className="absolute transition-transform duration-150"
+                    style={{
+                      width: imageBaseSize.width ? `${imageBaseSize.width}px` : "100%",
+                      height: imageBaseSize.height ? `${imageBaseSize.height}px` : "100%",
+                      left: "50%",
+                      top: "50%",
+                      transform: `translate(-50%,-50%) translate(${imageOffset.x}px, ${imageOffset.y}px) scale(${zoom}) scaleX(${mirrored ? -1 : 1})`,
+                    }}
+                  />
+                </div>
+              </div>
+              <div className="flex gap-2 justify-end">
+                <button onClick={() => setPreviewMode(false)} className="px-4 py-2 rounded-lg bg-slate-200 dark:bg-[#222]">Back</button>
+                <button onClick={handleImageUpload} className="px-4 py-2 rounded-lg bg-primary text-white">Confirm & Upload</button>
               </div>
             </div>
           </div>
