@@ -49,7 +49,7 @@ export default function MasterList() {
   const [imageBaseSize, setImageBaseSize] = useState({ width: 0, height: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [mirrored, setMirrored] = useState(false);
-  const [previewMode, setPreviewMode] = useState(false);
+  const [naturalSize, setNaturalSize] = useState({ width: 0, height: 0 });
   const dragStartRef = useRef(null);
   const previewRef = useRef(null);
   const [imageError, setImageError] = useState(null);
@@ -371,12 +371,59 @@ export default function MasterList() {
       ? { width: container.height * imageAspect, height: container.height }
       : { width: container.width, height: container.width / imageAspect };
     setImageBaseSize(baseSize);
+    setNaturalSize({ width: naturalWidth, height: naturalHeight });
     setImageOffset((prev) => updateBoundsOffset(prev.x, prev.y));
+  };
+
+  // Create cropped blob matching the visible crop frame
+  const getCroppedBlob = async () => {
+    if (!previewRef.current || !imagePreview || !naturalSize.width || !imageBaseSize.width) return null;
+    const container = previewRef.current.getBoundingClientRect();
+    const displayWidth = imageBaseSize.width * zoom;
+    const displayHeight = imageBaseSize.height * zoom;
+    const imgLeft = container.width / 2 - displayWidth / 2 + imageOffset.x;
+    const imgTop = container.height / 2 - displayHeight / 2 + imageOffset.y;
+
+    const srcX = (0 - imgLeft) * (naturalSize.width / displayWidth);
+    const srcY = (0 - imgTop) * (naturalSize.height / displayHeight);
+    const srcW = container.width * (naturalSize.width / displayWidth);
+    const srcH = container.height * (naturalSize.height / displayHeight);
+
+    const sx = Math.max(0, srcX);
+    const sy = Math.max(0, srcY);
+    const sw = Math.max(1, Math.min(naturalSize.width - sx, srcW));
+    const sh = Math.max(1, Math.min(naturalSize.height - sy, srcH));
+
+    // Create image element to draw from
+    const img = await new Promise((resolve, reject) => {
+      const i = new Image();
+      i.onload = () => resolve(i);
+      i.onerror = reject;
+      i.src = imagePreview;
+    });
+
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(sw);
+    canvas.height = Math.round(sh);
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return null;
+
+    if (mirrored) {
+      ctx.save();
+      ctx.translate(canvas.width, 0);
+      ctx.scale(-1, 1);
+      ctx.drawImage(img, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
+      ctx.restore();
+    } else {
+      ctx.drawImage(img, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
+    }
+
+    return await new Promise((resolve) => canvas.toBlob((b) => resolve(b), "image/jpeg", 0.9));
   };
 
   // Handle image upload
   const handleImageUpload = async (e) => {
-    e.preventDefault();
+    if (e && e.preventDefault) e.preventDefault();
     
     // Validation
     if (!imageFile) {
@@ -405,7 +452,14 @@ export default function MasterList() {
       setUploadingImage(true);
       setImageError(null);
       const formData = new FormData();
-      formData.append("image", imageFile);
+      // create cropped blob matching visible area; fallback to original file
+      const croppedBlob = await getCroppedBlob();
+      if (croppedBlob) {
+        const filename = imageFile?.name ? `cropped_${imageFile.name}` : "cropped.jpg";
+        formData.append("image", croppedBlob, filename);
+      } else {
+        formData.append("image", imageFile);
+      }
 
       const res = await axios.post(`${currentTab.endpoint}`, formData, {
         headers: { "Content-Type": "multipart/form-data" },
@@ -766,18 +820,11 @@ export default function MasterList() {
               <div className="flex gap-2 pt-2">
                 <button
                   type="button"
-                  onClick={() => setPreviewMode(true)}
-                  disabled={!imageFile}
-                  className="px-4 py-2 bg-slate-100 dark:bg-[#222] text-slate-900 dark:text-gray-200 rounded-lg font-semibold text-sm hover:bg-slate-200 dark:hover:bg-[#2a2a2a] disabled:opacity-50 transition"
-                >
-                  Preview
-                </button>
-                <button
-                  type="submit"
+                  onClick={handleImageUpload}
                   disabled={uploadingImage || !imageFile}
                   className="flex-1 px-4 py-2 bg-primary dark:bg-blue-600 text-white rounded-lg font-semibold text-sm hover:bg-primary/90 dark:hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
                 >
-                  {uploadingImage ? "Uploading..." : "Upload"}
+                  {uploadingImage ? "Uploading..." : "Save"}
                 </button>
                 <button
                   type="button"
@@ -793,38 +840,6 @@ export default function MasterList() {
                 >
                   Cancel
                 </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Preview Modal (non-destructive) */}
-        {previewMode && imagePreview && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white dark:bg-[#0d0d0d] rounded-2xl shadow-2xl max-w-3xl w-full p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-bold text-slate-900 dark:text-white">Slideshow Preview</h3>
-                <button onClick={() => setPreviewMode(false)} className="p-1 rounded hover:bg-slate-100 dark:hover:bg-[#111]"><X className="w-5 h-5 text-slate-600 dark:text-gray-400" /></button>
-              </div>
-              <div className="w-full aspect-[3/1] rounded-2xl overflow-hidden bg-slate-100 dark:bg-[#111] mb-4">
-                <div className="relative w-full h-full">
-                  <img
-                    src={imagePreview}
-                    alt="Final Preview"
-                    className="absolute transition-transform duration-150"
-                    style={{
-                      width: imageBaseSize.width ? `${imageBaseSize.width}px` : "100%",
-                      height: imageBaseSize.height ? `${imageBaseSize.height}px` : "100%",
-                      left: "50%",
-                      top: "50%",
-                      transform: `translate(-50%,-50%) translate(${imageOffset.x}px, ${imageOffset.y}px) scale(${zoom}) scaleX(${mirrored ? -1 : 1})`,
-                    }}
-                  />
-                </div>
-              </div>
-              <div className="flex gap-2 justify-end">
-                <button onClick={() => setPreviewMode(false)} className="px-4 py-2 rounded-lg bg-slate-200 dark:bg-[#222]">Back</button>
-                <button onClick={handleImageUpload} className="px-4 py-2 rounded-lg bg-primary text-white">Confirm & Upload</button>
               </div>
             </div>
           </div>
