@@ -430,23 +430,23 @@ export default function StaffBorrowTimeline() {
   return (
     <PageLayout>
       <div className="bg-surface dark:bg-[#171717] transition-colors duration-300">
-        <div className="px-4 pt-3 pb-4 md:px-6 lg:px-8 md:pt-4 bg-surface dark:bg-[#171717]">
-          <div className="flex flex-col gap-2">
-            <div>
+        <div className="px-4 py-3 md:px-6 lg:px-8 md:py-4 bg-surface dark:bg-[#171717]">
+          {!isMobile && (
+            <div className="mb-3">
               <h1 className="text-xl sm:text-2xl font-semibold text-on-surface dark:text-white">
                 Borrow Timeline
               </h1>
             </div>
-          </div>
+          )}
           {isMobile && (
-            <div className="mt-3 mb-3 border-b border-outline-variant/20 dark:border-gray-700">
+            <div className="border-b border-outline-variant/20 dark:border-gray-700">
               <div className="grid grid-cols-5 text-center">
                 {[
-                  { key: "pending", label: "Pending" },
-                  { key: "approved", label: "In Use" },
-                  { key: "pending_return", label: "Pending Return" },
-                  { key: "returned", label: "Returned" },
-                  { key: "declined", label: "Declined" },
+                  { key: "pending", label: ["Pending"] },
+                  { key: "approved", label: ["In Use"] },
+                  { key: "pending_return", label: ["Pending", "Return"] },
+                  { key: "returned", label: ["Returned"] },
+                  { key: "declined", label: ["Declined"] },
                 ].map((tab) => (
                   <button
                     key={tab.key}
@@ -456,9 +456,13 @@ export default function StaffBorrowTimeline() {
                       activeMobileStatus === tab.key
                         ? "text-primary"
                         : "text-on-surface-variant dark:text-gray-400 hover:text-on-surface dark:hover:text-white"
-                    } whitespace-nowrap`}
+                    } whitespace-normal`}
                   >
-                    <span className="block">{tab.label}</span>
+                    {tab.label.map((line, index) => (
+                      <span key={index} className="block leading-tight">
+                        {line}
+                      </span>
+                    ))}
                     <span className={`mt-1 block h-0.5 w-full ${activeMobileStatus === tab.key ? "bg-primary" : "bg-transparent"}`} />
                   </button>
                 ))}
@@ -536,47 +540,13 @@ export default function StaffBorrowTimeline() {
                                 </h3>
                               </div>
                             </div>
-                            {!isMobile && (
-                              <div className="flex items-center gap-1 text-on-surface-variant dark:text-gray-400">
-                                <Hand className="w-3.5 h-3.5" />
-                              </div>
-                            )}
-                          </div>
-
-                          <div className="mt-3 space-y-2 text-xs text-on-surface-variant dark:text-gray-400">
-                            <div className="grid grid-cols-[auto_1fr] gap-x-2 items-center">
-                              <span className="font-medium">Items:</span>
-                              <span className="font-medium text-on-surface dark:text-gray-200 text-right">
-                                {req.quantity || req.items?.length || 0}
-                              </span>
-                            </div>
-                            <div className="grid grid-cols-[auto_1fr] gap-x-2 items-center">
-                              <span className="font-medium">Requested:</span>
-                              <span className="font-medium text-on-surface dark:text-gray-200 text-right">
-                                {formatDate(req.request_date || req.created_at)}
-                              </span>
-                            </div>
-                            {req.approved_at && (
-                              <div className="grid grid-cols-[auto_1fr] gap-x-2 items-center">
-                                <span className="font-medium">Borrowed:</span>
-                                <span className="font-medium text-on-surface dark:text-gray-200 text-right">
-                                  {formatDate(req.approved_at)}
-                                </span>
-                              </div>
-                            )}
-                            {req.due_date && (
-                              <div className="grid grid-cols-[auto_1fr] gap-x-2 items-center">
-                                <span className="font-medium">Return:</span>
-                                <span className="font-medium text-on-surface dark:text-gray-200 text-right">
-                                  {dayjs(req.due_date).tz("Asia/Manila").format("MMM DD, YYYY")}
-                                </span>
-                              </div>
-                            )}
                           </div>
 
                           {req.items?.length > 0 && (
-                            <div className="mt-3 rounded-lg border border-outline-variant/20 dark:border-gray-700 bg-surface-container-low/70 dark:bg-[#222] p-2">
-                              <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-on-surface-variant dark:text-gray-400">Items</p>
+                            <div className={`mt-3 rounded-lg border border-outline-variant/20 dark:border-gray-700 bg-surface-container-low/70 dark:bg-[#222] p-2 ${isMobile ? "pb-2" : ""}`}>
+                              {!isMobile && (
+                                <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-on-surface-variant dark:text-gray-400">Items</p>
+                              )}
                               <div className="mt-2 space-y-1.5">
                                 {req.items.slice(0, 3).map((item, idx) => (
                                   <div key={idx} className="flex items-center justify-between gap-2 text-xs">
@@ -598,6 +568,31 @@ export default function StaffBorrowTimeline() {
                               </div>
                             </div>
                           )}
+
+                          <div className={`mt-3 ${isMobile ? "space-y-1 text-[10px]" : "space-y-2 text-xs"} text-on-surface-variant dark:text-gray-400`}>
+                            <div className="grid grid-cols-[auto_1fr] gap-x-2 items-center">
+                              <span className="font-medium">Requested:</span>
+                              <span className="font-medium text-on-surface dark:text-gray-200 text-right">
+                                {formatDate(req.request_date || req.created_at)}
+                              </span>
+                            </div>
+                            {req.approved_at && (
+                              <div className="grid grid-cols-[auto_1fr] gap-x-2 items-center">
+                                <span className="font-medium">Borrowed:</span>
+                                <span className="font-medium text-on-surface dark:text-gray-200 text-right">
+                                  {formatDate(req.approved_at)}
+                                </span>
+                              </div>
+                            )}
+                            {req.due_date && (
+                              <div className="grid grid-cols-[auto_1fr] gap-x-2 items-center">
+                                <span className="font-medium">Due Date:</span>
+                                <span className="font-medium text-on-surface dark:text-gray-200 text-right">
+                                  {dayjs(req.due_date).tz("Asia/Manila").format("MMM DD, YYYY")}
+                                </span>
+                              </div>
+                            )}
+                          </div>
 
                           {isDeclinedReq && req.return_decline_reason && (
                             <div className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-2 text-[11px] text-rose-700 dark:border-rose-800 dark:bg-rose-900/20 dark:text-rose-300">
