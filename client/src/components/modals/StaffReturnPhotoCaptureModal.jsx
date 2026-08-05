@@ -245,7 +245,7 @@ export default function StaffReturnPhotoCaptureModal({
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg max-w-2xl w-full max-h-screen overflow-y-auto shadow-2xl">
+      <div className="bg-white rounded-lg w-full max-w-[calc(100vw-32px)] max-h-screen overflow-y-auto shadow-2xl">
         <div className="p-0">
           {/* Main Content */}
         <div className="p-6 space-y-4">
@@ -306,7 +306,7 @@ export default function StaffReturnPhotoCaptureModal({
                 />
               </div>
 
-              <div className="flex gap-2">
+              <div className="flex flex-col gap-2 sm:flex-row">
                 <button
                   onClick={retakePhoto}
                   className="flex-1 bg-gray-600 hover:bg-gray-700 text-white py-2 rounded-lg font-medium transition flex items-center justify-center gap-2"
@@ -334,7 +334,7 @@ export default function StaffReturnPhotoCaptureModal({
                 </h3>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 {photos.map((photo, index) => (
                   <div key={index} className="relative group">
                     <img
@@ -370,18 +370,18 @@ export default function StaffReturnPhotoCaptureModal({
         </div>
         </div>
         {/* Footer */}
-        <div className="sticky bottom-0 bg-gray-50 border-t px-6 py-4 flex gap-3">
+        <div className="sticky bottom-0 bg-gray-50 border-t px-6 py-4 flex flex-col gap-3 sm:flex-row">
           <button
             onClick={onClose}
             disabled={isSubmitting}
-            className="flex-1 px-4 py-2 border border-gray-300 hover:bg-gray-100 text-gray-700 rounded-lg font-medium transition disabled:opacity-50"
+            className="w-full sm:flex-1 px-4 py-2 border border-gray-300 hover:bg-gray-100 text-gray-700 rounded-lg font-medium transition disabled:opacity-50"
           >
             Cancel
           </button>
           <button
             onClick={handleSubmit}
             disabled={isSubmitting || photos.length === 0}
-            className="flex-1 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white py-2 rounded-lg font-medium transition flex items-center justify-center gap-2"
+            className="w-full sm:flex-1 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white py-2 rounded-lg font-medium transition flex items-center justify-center gap-2"
           >
             {isSubmitting ? (
               <>

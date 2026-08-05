@@ -513,8 +513,8 @@ export default function StaffBorrowTimeline() {
               <p className="text-on-surface-variant dark:text-gray-400 text-xs mt-2">No borrow requests to review</p>
             </div>
           ) : (
-            <div className="overflow-x-auto pb-1">
-              <div className="grid grid-cols-5 gap-2.5 xl:gap-3 min-w-[980px]">
+            <div className="pb-1">
+              <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 xl:gap-3">
                 {groupedRequests.map((column) => (
                   <div
                     key={column.key}
@@ -637,24 +637,24 @@ export default function StaffBorrowTimeline() {
                             </div>
                           )}
 
-                          <div className="mt-3 flex items-center justify-between gap-2">
+                          <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                             <div className="text-[10px] font-medium text-on-surface-variant dark:text-gray-400">
                               {daysFromToday === 0 ? "Due today" : daysFromToday > 0 ? `Due in ${daysFromToday}d` : `Overdue ${Math.abs(daysFromToday)}d`}
                             </div>
-                            <div className="flex items-center gap-1.5">
+                            <div className="flex flex-wrap items-center gap-2 justify-end">
                               {req.status === "pending" && (
                                 <>
                                   <button
                                     onClick={() => handleApprove(req.id, true)}
                                     disabled={actionLoading[req.id]}
-                                    className="rounded-md bg-primary px-2.5 py-1.5 text-[11px] font-semibold text-on-primary transition hover:bg-primary/90 disabled:opacity-50"
+                                    className="w-full sm:w-auto rounded-md bg-primary px-2.5 py-1.5 text-[11px] font-semibold text-on-primary transition hover:bg-primary/90 disabled:opacity-50"
                                   >
                                     {actionLoading[req.id] ? "..." : "Approve"}
                                   </button>
                                   <button
                                     onClick={() => handleDecline(req.id)}
                                     disabled={actionLoading[req.id]}
-                                    className="rounded-md border border-outline-variant/30 px-2.5 py-1.5 text-[11px] font-semibold text-on-surface dark:text-white transition hover:bg-surface-container-high"
+                                    className="w-full sm:w-auto rounded-md border border-outline-variant/30 px-2.5 py-1.5 text-[11px] font-semibold text-on-surface dark:text-white transition hover:bg-surface-container-high"
                                   >
                                     {actionLoading[req.id] ? "..." : "Decline"}
                                   </button>
@@ -665,7 +665,7 @@ export default function StaffBorrowTimeline() {
                                 <button
                                   onClick={() => handleManualReturn(req)}
                                   disabled={actionLoading[`manual-${req.id}`]}
-                                  className="rounded-md bg-primary px-2.5 py-1.5 text-[11px] font-semibold text-on-primary transition hover:bg-primary/90 disabled:opacity-50"
+                                  className="w-full sm:w-auto rounded-md bg-primary px-2.5 py-1.5 text-[11px] font-semibold text-on-primary transition hover:bg-primary/90 disabled:opacity-50"
                                 >
                                   {actionLoading[`manual-${req.id}`] ? "..." : "Receive"}
                                 </button>
@@ -676,14 +676,14 @@ export default function StaffBorrowTimeline() {
                                   <button
                                     onClick={() => handleApproveReturn(req)}
                                     disabled={actionLoading[req.id]}
-                                    className="rounded-md bg-primary px-2.5 py-1.5 text-[11px] font-semibold text-on-primary transition hover:bg-primary/90 disabled:opacity-50"
+                                    className="w-full sm:w-auto rounded-md bg-primary px-2.5 py-1.5 text-[11px] font-semibold text-on-primary transition hover:bg-primary/90 disabled:opacity-50"
                                   >
                                     {actionLoading[req.id] ? "..." : "Approve"}
                                   </button>
                                   <button
                                     onClick={() => handleDeclineReturn(req)}
                                     disabled={actionLoading[`decline-${req.id}`]}
-                                    className="rounded-md border border-outline-variant/30 px-2.5 py-1.5 text-[11px] font-semibold text-on-surface dark:text-white transition hover:bg-surface-container-high"
+                                    className="w-full sm:w-auto rounded-md border border-outline-variant/30 px-2.5 py-1.5 text-[11px] font-semibold text-on-surface dark:text-white transition hover:bg-surface-container-high"
                                   >
                                     {actionLoading[`decline-${req.id}`] ? "..." : "Decline"}
                                   </button>
