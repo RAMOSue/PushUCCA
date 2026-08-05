@@ -47,6 +47,7 @@ export default function MasterList() {
   const [imageOffset, setImageOffset] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
   const [imageBaseSize, setImageBaseSize] = useState({ width: 0, height: 0 });
+  const [fitByHeight, setFitByHeight] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [mirrored, setMirrored] = useState(false);
   const [naturalSize, setNaturalSize] = useState({ width: 0, height: 0 });
@@ -370,6 +371,8 @@ export default function MasterList() {
     const baseSize = imageAspect > containerAspect
       ? { width: container.height * imageAspect, height: container.height }
       : { width: container.width, height: container.width / imageAspect };
+    // Record whether the image should be sized by height (so we set only height in CSS)
+    setFitByHeight(imageAspect > containerAspect);
     setImageBaseSize(baseSize);
     setNaturalSize({ width: naturalWidth, height: naturalHeight });
     setImageOffset((prev) => updateBoundsOffset(prev.x, prev.y));
@@ -758,8 +761,9 @@ export default function MasterList() {
                         onLoad={handlePreviewImageLoad}
                         className="absolute transition-transform duration-150"
                         style={{
-                          width: imageBaseSize.width ? `${imageBaseSize.width}px` : "100%",
-                          height: imageBaseSize.height ? `${imageBaseSize.height}px` : "100%",
+                          ...(fitByHeight
+                            ? { height: imageBaseSize.height ? `${imageBaseSize.height}px` : "100%", width: "auto" }
+                            : { width: imageBaseSize.width ? `${imageBaseSize.width}px` : "100%", height: "auto" }),
                           left: "50%",
                           top: "50%",
                           transform: `translate(-50%,-50%) translate(${imageOffset.x}px, ${imageOffset.y}px) scale(${zoom}) scaleX(${mirrored ? -1 : 1})`,
