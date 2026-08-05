@@ -430,17 +430,17 @@ export default function StaffBorrowTimeline() {
   return (
     <PageLayout>
       <div className="bg-surface dark:bg-[#171717] transition-colors duration-300">
-        <div className="px-4 py-4 md:px-6 lg:px-8 bg-surface dark:bg-[#171717]">
-          <div className="flex flex-col gap-3">
+        <div className="px-4 pt-3 pb-4 md:px-6 lg:px-8 md:pt-4 bg-surface dark:bg-[#171717]">
+          <div className="flex flex-col gap-2">
             <div>
-              <h1 className="text-2xl font-semibold text-on-surface dark:text-white">
+              <h1 className="text-xl sm:text-2xl font-semibold text-on-surface dark:text-white">
                 Borrow Timeline
               </h1>
             </div>
           </div>
           {isMobile && (
-            <div className="mt-4 mb-3 overflow-hidden rounded-2xl border border-outline-variant/20 bg-surface-container-low dark:border-gray-700 dark:bg-[#1d1d1d]">
-              <div className="grid grid-cols-5 gap-1">
+            <div className="mt-3 mb-3 border-b border-outline-variant/20 dark:border-gray-700">
+              <div className="grid grid-cols-5 text-center">
                 {[
                   { key: "pending", label: "Pending" },
                   { key: "approved", label: "In Use" },
@@ -452,13 +452,14 @@ export default function StaffBorrowTimeline() {
                     key={tab.key}
                     type="button"
                     onClick={() => setActiveMobileStatus(tab.key)}
-                    className={`min-w-0 px-2 py-2 text-[10px] leading-tight font-semibold text-center transition rounded-none ${
+                    className={`min-w-0 px-1 py-2 text-[10px] leading-tight font-semibold text-center transition ${
                       activeMobileStatus === tab.key
-                        ? "bg-primary text-on-primary"
+                        ? "text-primary"
                         : "text-on-surface-variant dark:text-gray-400 hover:text-on-surface dark:hover:text-white"
-                    } ${activeMobileStatus === tab.key ? "shadow-sm" : "bg-transparent"} whitespace-normal break-words`}
+                    } whitespace-nowrap`}
                   >
-                    {tab.label}
+                    <span className="block">{tab.label}</span>
+                    <span className={`mt-1 block h-0.5 w-full ${activeMobileStatus === tab.key ? "bg-primary" : "bg-transparent"}`} />
                   </button>
                 ))}
               </div>
@@ -539,9 +540,6 @@ export default function StaffBorrowTimeline() {
                             </div>
                             <div className="flex items-center gap-1 text-on-surface-variant dark:text-gray-400">
                               <Hand className="w-3.5 h-3.5" />
-                              <span className={`rounded-full px-2 py-1 text-[10px] font-semibold ${statusMeta.badgeClass}`}>
-                                {statusMeta.title}
-                              </span>
                             </div>
                           </div>
 
