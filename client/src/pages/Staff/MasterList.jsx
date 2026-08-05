@@ -725,7 +725,7 @@ export default function MasterList() {
 
               {/* Image Preview */}
               {imagePreview && (
-                <div className="w-full aspect-[3/1] bg-slate-100 dark:bg-[#222] rounded-2xl overflow-hidden border border-outline-variant/20 dark:border-gray-700">
+                <div className="w-full h-[320px] sm:h-[460px] md:h-[560px] lg:h-[660px] bg-slate-100 dark:bg-[#222] rounded-2xl overflow-hidden border border-outline-variant/20 dark:border-gray-700">
                   <div
                     ref={previewRef}
                     className="relative w-full h-full cursor-grab group"
