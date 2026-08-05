@@ -396,7 +396,7 @@ export default function MasterList() {
 
     // Create image element to draw from
     const img = await new Promise((resolve, reject) => {
-      const i = new Image();
+      const i = document.createElement("img");
       i.onload = () => resolve(i);
       i.onerror = reject;
       i.src = imagePreview;
@@ -648,7 +648,7 @@ export default function MasterList() {
           >
             {/* Image Container - Clickable */}
             <div
-              className="aspect-square bg-surface-container-high dark:bg-[#1a1a1a] overflow-hidden cursor-pointer"
+              className="aspect-[3/1] bg-surface-container-high dark:bg-[#1a1a1a] overflow-hidden cursor-pointer"
               onClick={() => setSelectedImage(image)}
             >
               <img
