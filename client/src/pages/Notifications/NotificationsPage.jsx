@@ -10,7 +10,7 @@ import toast from "react-hot-toast";
 
 export default function NotificationsPage() {
   const { user } = useContext(UserContext);
-  const { setSidebarOpen } = useContext(SidebarContext);
+  const { setSidebarOpen, isMobile } = useContext(SidebarContext);
   const navigate = useNavigate();
 
   const [notifications, setNotifications] = useState([]);
@@ -21,7 +21,9 @@ export default function NotificationsPage() {
 
   // Ensure sidebar is open when viewing notifications
   useEffect(() => {
-    setSidebarOpen(true);
+    if (!isMobile) {
+      setSidebarOpen(true);
+    }
   }, [setSidebarOpen]);
 
   useEffect(() => {
