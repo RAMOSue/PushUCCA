@@ -3,13 +3,14 @@
 import { useState, useEffect, useContext, useCallback } from "react"
 import axios from "axios"
 import toast from "react-hot-toast"
-import { Search, ChevronRight, Package, Hand } from "lucide-react"
+import { Package, Hand } from "lucide-react"
 import dayjs from "dayjs"
 import utc from "dayjs/plugin/utc"
 import timezone from "dayjs/plugin/timezone"
 import PageLayout from "../../components/layout/PageLayout"
 import { UserContext } from "../../../context/userContext"
 import { BorrowingContext } from "../../../context/borrowingContext"
+import { SidebarContext } from "../../context/SidebarContext"
 import { notificationService } from "../../services/notifications"
 import StaffReturnPhotoCaptureModal from "../../components/modals/StaffReturnPhotoCaptureModal"
 import { getInventoryDivisionInfo } from "../../utils/inventoryDivisionStorage"
@@ -22,15 +23,14 @@ export default function StaffBorrowTimeline() {
   const { user } = useContext(UserContext)
   const { refreshAfterReturn } = useContext(BorrowingContext)
   const { selectedDivision, globalSearchQuery } = useSidebarStore()
+  const { isMobile } = useContext(SidebarContext)
 
   // ========== STATE MANAGEMENT ==========
   const [requests, setRequests] = useState([])
   const [loading, setLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState({})
   const [groupedRequests, setGroupedRequests] = useState([])
-  const [filter, setFilter] = useState("all")
-  const [filterDropdownOpen, setFilterDropdownOpen] = useState(false)
-  const [filterHovering, setFilterHovering] = useState(false)
+  const [activeMobileStatus, setActiveMobileStatus] = useState("pending")
   const [borrowerProfiles, setBorrowerProfiles] = useState({})
   const [dueDates] = useState({})
   const [draggedRequest, setDraggedRequest] = useState(null)
@@ -159,7 +159,8 @@ export default function StaffBorrowTimeline() {
 
   // ========== FILTERING & GROUPING ==========
   useEffect(() => {
-    let filtered = filter === "all" ? requests : requests.filter((r) => r.status === filter)
+    const activeFilter = isMobile ? activeMobileStatus : "all"
+    let filtered = activeFilter === "all" ? requests : requests.filter((r) => r.status === activeFilter)
 
     const normalizedSelectedDivision = selectedDivision?.toString().trim().toLowerCase()
     if (normalizedSelectedDivision && normalizedSelectedDivision !== "all") {
@@ -189,7 +190,7 @@ export default function StaffBorrowTimeline() {
     }
 
     setGroupedRequests(groupAndSortRequests(filtered))
-  }, [filter, requests, globalSearchQuery, selectedDivision])
+  }, [activeMobileStatus, isMobile, requests, globalSearchQuery, selectedDivision])
 
   const groupAndSortRequests = (filtered) => {
     const columns = [
@@ -430,79 +431,39 @@ export default function StaffBorrowTimeline() {
     <PageLayout>
       <div className="bg-surface dark:bg-[#171717] transition-colors duration-300">
         <div className="px-4 py-4 md:px-6 lg:px-8 bg-surface dark:bg-[#171717]">
-          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div className="flex flex-col gap-3">
             <div>
               <h1 className="text-2xl font-semibold text-on-surface dark:text-white">
                 Borrow Timeline
               </h1>
-              <p className="text-xs text-on-surface-variant dark:text-gray-400 mt-1">
-                Drag cards to move requests through the workflow.
-              </p>
-            </div>
-
-            <div className="flex flex-col gap-3 md:flex-row md:items-center">
-              <div
-                className="relative bg-surface-container-low dark:bg-[#222] rounded-lg border border-outline-variant/20 dark:border-gray-700 shadow-sm transition-colors"
-                onMouseEnter={() => setFilterHovering(true)}
-                onMouseLeave={() => setFilterHovering(false)}
-              >
-                <button
-                  onClick={() => setFilterDropdownOpen(!filterDropdownOpen)}
-                  className="px-3 py-2.5 flex items-center justify-between gap-2 hover:bg-surface-container-high dark:hover:bg-[#2a2a2a] transition-colors text-left whitespace-nowrap min-w-[145px]"
-                >
-                  <span className="text-xs font-medium text-on-surface dark:text-white">
-                    <span className="text-on-surface-variant dark:text-gray-400">Status:</span>{" "}
-                    <span className="font-bold text-primary capitalize">{filter}</span>
-                  </span>
-                  <ChevronRight
-                    className={`w-3.5 h-3.5 text-on-surface-variant dark:text-gray-400 transition-transform duration-300 flex-shrink-0 ${
-                      filterDropdownOpen || filterHovering ? "rotate-90" : ""
-                    }`}
-                  />
-                </button>
-
-                <div
-                  className={`absolute top-full right-0 mt-1 bg-surface-container-low dark:bg-[#222] rounded-lg border border-outline-variant/20 dark:border-gray-700 overflow-hidden transition-all duration-300 ease-in-out z-20 ${
-                    filterDropdownOpen || filterHovering ? "max-h-96 opacity-100 visible" : "max-h-0 opacity-0 invisible"
-                  }`}
-                >
-                  <div className="px-3 py-2 space-y-1">
-                    {[
-                      { value: "all", label: "All", count: requests.filter((r) => ["pending", "approved", "pending_return", "returned", "declined"].includes(r.status)).length },
-                      { value: "pending", label: "Pending", count: requests.filter((r) => r.status === "pending").length },
-                      { value: "approved", label: "In Use", count: requests.filter((r) => r.status === "approved").length },
-                      { value: "pending_return", label: "Pending Return", count: requests.filter((r) => r.status === "pending_return").length },
-                      { value: "returned", label: "Returned", count: requests.filter((r) => r.status === "returned").length },
-                      { value: "declined", label: "Declined", count: requests.filter((r) => r.status === "declined").length },
-                    ].map((option) => (
-                      <label
-                        key={option.value}
-                        className="flex items-center gap-2 px-2 py-1.5 hover:bg-surface-container-lowest dark:hover:bg-[#1a1a1a] rounded-lg cursor-pointer transition-colors"
-                      >
-                        <input
-                          type="radio"
-                          name="filter"
-                          value={option.value}
-                          checked={filter === option.value}
-                          onChange={(e) => {
-                            setFilter(e.target.value)
-                            setFilterDropdownOpen(false)
-                          }}
-                          className="w-3.5 h-3.5 accent-primary flex-shrink-0"
-                        />
-                        <span className="text-xs font-medium text-on-surface dark:text-white flex-1">
-                          {option.label}
-                        </span>
-                        <span className="text-xs font-semibold bg-surface-container-lowest dark:bg-[#1a1a1a] px-1.5 py-0.5 rounded text-on-surface-variant dark:text-gray-400">
-                          {option.count}
-                        </span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              </div>
             </div>
           </div>
+          {isMobile && (
+            <div className="mt-4 mb-3 overflow-hidden rounded-2xl border border-outline-variant/20 bg-surface-container-low dark:border-gray-700 dark:bg-[#1d1d1d]">
+              <div className="grid grid-cols-5 gap-1">
+                {[
+                  { key: "pending", label: "Pending" },
+                  { key: "approved", label: "In Use" },
+                  { key: "pending_return", label: "Pending Return" },
+                  { key: "returned", label: "Returned" },
+                  { key: "declined", label: "Declined" },
+                ].map((tab) => (
+                  <button
+                    key={tab.key}
+                    type="button"
+                    onClick={() => setActiveMobileStatus(tab.key)}
+                    className={`min-w-0 px-2 py-2 text-[10px] leading-tight font-semibold text-center transition rounded-none ${
+                      activeMobileStatus === tab.key
+                        ? "bg-primary text-on-primary"
+                        : "text-on-surface-variant dark:text-gray-400 hover:text-on-surface dark:hover:text-white"
+                    } ${activeMobileStatus === tab.key ? "shadow-sm" : "bg-transparent"} whitespace-normal break-words`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="px-4 pb-4 md:px-6 lg:px-8 bg-surface dark:bg-[#171717]">
@@ -515,7 +476,7 @@ export default function StaffBorrowTimeline() {
           ) : (
             <div className="pb-1">
               <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 xl:gap-3">
-                {groupedRequests.map((column) => (
+                {(isMobile ? groupedRequests.filter((column) => column.key === activeMobileStatus) : groupedRequests).map((column) => (
                   <div
                     key={column.key}
                     className={`min-w-0 rounded-2xl border border-outline-variant/20 dark:border-gray-700 bg-surface-container-low/70 dark:bg-[#1d1d1d] shadow-sm transition ${
@@ -538,7 +499,6 @@ export default function StaffBorrowTimeline() {
                           <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: column.dotColor }} />
                           <h2 className="text-sm font-semibold text-on-surface dark:text-white">{column.title}</h2>
                         </div>
-                        <p className="text-[11px] text-on-surface-variant dark:text-gray-400 mt-1">{column.description}</p>
                       </div>
                       <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${column.badgeClass}`}>
                         {column.requests.length}
