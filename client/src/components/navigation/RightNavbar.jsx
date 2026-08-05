@@ -320,7 +320,7 @@ export default function RightNavbar() {
         <div
           className="flex h-full flex-col transition-all duration-250 ease-in-out"
           style={{
-            width: rightSidebarOpen ? (isMobile ? "190px" : "256px") : (isMobile ? "48px" : "56px"),
+            width: rightSidebarOpen ? (isMobile ? "190px" : "256px") : (isMobile ? "40px" : "56px"),
             flexShrink: 0,
             pointerEvents: "auto",
           }}

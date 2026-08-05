@@ -1,22 +1,81 @@
 // client/src/pages/Staff/MasterList.jsx
 import { useState, useEffect, useContext, useRef } from "react";
 import { UserContext } from "../../../context/userContext";
+import axios from "axios";
+import toast from "react-hot-toast";
+import PageLayout from "../../components/layout/PageLayout";
+import {
+  Plus,
+  Edit2,
+  Trash2,
+  X,
+  Search,
+  ChevronLeft,
+  ChevronRight,
+  Filter,
+  Settings,
+  Database,
+  Package,
+  Layers,
+  Clock,
+  BookOpen,
+  Shield,
+  Tag,
+  AlertCircle,
+  CheckCircle,
+  Eye,
+  EyeOff,
+  Image,
+  Upload,
+  Users,
+} from "lucide-react";
 
 export default function MasterList() {
-  // Homepage slideshow aspect ratio (width / height). Default to 16:9 if not found.
-  const [homepageAspect, setHomepageAspect] = useState(16 / 9);
+  const { user } = useContext(UserContext);
+  const [activeTab, setActiveTab] = useState("units"); // units, positions, terms, rules, events, categories, settings, slideshow
+  const [loading, setLoading] = useState(false);
+  const [dataList, setDataList] = useState([]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filterStatus, setFilterStatus] = useState("all");
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
-  // Try to detect the actual homepage slideshow aspect from DOM on mount
-  useEffect(() => {
+  // Image upload state
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [imagePreview, setImagePreview] = useState(null);
+  const [imageFile, setImageFile] = useState(null);
+  const [imageOffset, setImageOffset] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [imageBaseSize, setImageBaseSize] = useState({ width: 0, height: 0 });
+  const [fitByHeight, setFitByHeight] = useState(false);
+  const [homepageAspect, setHomepageAspect] = useState(null);
+
+  // Measure the actual homepage slideshow aspect ratio by creating a temporary full-width element
+  const computeHomepageAspect = () => {
     try {
-      const el = document.querySelector('[data-homepage-slideshow]') || document.querySelector('.getstarted-slideshow') || document.querySelector('#getstarted-slideshow');
-      if (el && el.getBoundingClientRect) {
-        const r = el.getBoundingClientRect();
-        if (r.width > 0 && r.height > 0) setHomepageAspect(r.width / r.height);
-      }
-    } catch (e) {
-      // ignore
+      const el = document.createElement('div');
+      el.className = 'relative w-full h-[320px] sm:h-[460px] md:h-[560px] lg:h-[660px]';
+      el.style.position = 'absolute';
+      el.style.left = '-9999px';
+      el.style.top = '-9999px';
+      document.body.appendChild(el);
+      const rect = el.getBoundingClientRect();
+      const aspect = rect.width && rect.height ? rect.width / rect.height : null;
+      document.body.removeChild(el);
+      return aspect;
+    } catch (err) {
+      return null;
     }
+  };
+
+  useEffect(() => {
+    const updateAspect = () => {
+      const a = computeHomepageAspect();
+      if (a) setHomepageAspect(a);
+    };
+    updateAspect();
+    window.addEventListener('resize', updateAspect);
+    return () => window.removeEventListener('resize', updateAspect);
   }, []);
 
   // Apply homepage aspect to preview container so crop frame matches exactly
@@ -41,7 +100,6 @@ export default function MasterList() {
   // Modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
-  const [editingExistingId, setEditingExistingId] = useState(null);
   const [formData, setFormData] = useState({});
 
   // Image viewer modal state
@@ -427,27 +485,27 @@ export default function MasterList() {
   const handleImageUpload = async (e) => {
     if (e && e.preventDefault) e.preventDefault();
     
-    // Validation: require either a selected file (new upload) or an editingExistingId (editing existing image)
-    if (!imageFile && !editingExistingId) {
+    // Validation
+    if (!imageFile) {
       setImageError("Please select an image file");
       toast.error("Please select an image file");
       return;
     }
 
-    // If a new file is provided, validate size/type
-    if (imageFile) {
-      const maxSize = 5 * 1024 * 1024;
-      if (imageFile.size > maxSize) {
-        setImageError("Image size must be less than 5MB");
-        toast.error("Image size must be less than 5MB");
-        return;
-      }
-      const allowedTypes = ["image/jpeg", "image/png", "image/gif", "image/webp"];
-      if (!allowedTypes.includes(imageFile.type)) {
-        setImageError("Only JPG, PNG, GIF, and WEBP images are allowed");
-        toast.error("Only JPG, PNG, GIF, and WEBP images are allowed");
-        return;
-      }
+    // File size validation (5MB)
+    const maxSize = 5 * 1024 * 1024;
+    if (imageFile.size > maxSize) {
+      setImageError("Image size must be less than 5MB");
+      toast.error("Image size must be less than 5MB");
+      return;
+    }
+
+    // File type validation
+    const allowedTypes = ["image/jpeg", "image/png", "image/gif", "image/webp"];
+    if (!allowedTypes.includes(imageFile.type)) {
+      setImageError("Only JPG, PNG, GIF, and WEBP images are allowed");
+      toast.error("Only JPG, PNG, GIF, and WEBP images are allowed");
+      return;
     }
 
     try {
@@ -457,50 +515,22 @@ export default function MasterList() {
       // create cropped blob matching visible area; fallback to original file
       const croppedBlob = await getCroppedBlob();
       if (croppedBlob) {
-        const filename = imageFile?.name ? `cropped_${imageFile.name}` : `edited_${Date.now()}.jpg`;
+        const filename = imageFile?.name ? `cropped_${imageFile.name}` : "cropped.jpg";
         formData.append("image", croppedBlob, filename);
-      } else if (imageFile) {
+      } else {
         formData.append("image", imageFile);
       }
 
-      if (editingExistingId) {
-        // Replacement flow: upload new image, preserve display_order, delete old image
-        const oldImage = dataList.find((i) => String(i.id) === String(editingExistingId));
-        const order = oldImage ? oldImage.display_order || dataList.indexOf(oldImage) + 1 : null;
-        const res = await axios.post(`${currentTab.endpoint}`, formData, {
-          headers: { "Content-Type": "multipart/form-data" },
-        });
-        const created = res.data;
-        if (order !== null && created && created.id) {
-          try {
-            await axios.put(`${currentTab.endpoint}/${created.id}`, { display_order: order });
-          } catch (err) {
-            console.error('Failed to set display_order on replacement image', err);
-          }
-        }
-        try {
-          await axios.delete(`${currentTab.endpoint}/${editingExistingId}`);
-        } catch (err) {
-          console.error('Failed to delete old image after replacement', err);
-        }
-        toast.success("✅ Image updated successfully");
-        setEditingExistingId(null);
-        setImageFile(null);
-        setImagePreview(null);
-        setImageOffset({ x: 0, y: 0 });
-        setZoom(1);
-        fetchData();
-      } else {
-        const res = await axios.post(`${currentTab.endpoint}`, formData, {
-          headers: { "Content-Type": "multipart/form-data" },
-        });
-        toast.success("✅ Image uploaded successfully");
-        setImageFile(null);
-        setImagePreview(null);
-        setImageOffset({ x: 0, y: 0 });
-        setZoom(1);
-        fetchData();
-      }
+      const res = await axios.post(`${currentTab.endpoint}`, formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+
+      toast.success("✅ Image uploaded successfully");
+      setImageFile(null);
+      setImagePreview(null);
+      setImageOffset({ x: 0, y: 0 });
+      setZoom(1);
+      fetchData();
     } catch (err) {
       const errorMsg = err.response?.data?.error || err.message || "Failed to upload image";
       console.error("Upload error:", err);
@@ -671,64 +701,43 @@ export default function MasterList() {
 
     return (
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
-        {dataList.map((image, idx) => (
+        {dataList.map((image) => (
           <div
             key={image.id}
-            draggable
-            onDragStart={(e) => {
-              e.dataTransfer.setData('text/plain', image.id);
-              e.dataTransfer.effectAllowed = 'move';
-            }}
-            onDragOver={(e) => e.preventDefault()}
-            onDrop={async (e) => {
-              e.preventDefault();
-              const draggedId = e.dataTransfer.getData('text/plain');
-              if (!draggedId || draggedId === String(image.id)) return;
-              const fromIndex = dataList.findIndex((i) => String(i.id) === String(draggedId));
-              const toIndex = dataList.findIndex((i) => i.id === image.id);
-              if (fromIndex === -1 || toIndex === -1) return;
-              const newList = [...dataList];
-              const [moved] = newList.splice(fromIndex, 1);
-              newList.splice(toIndex, 0, moved);
-              const imageOrders = newList.map((it, i) => ({ id: it.id, display_order: i + 1 }));
-              try {
-                await axios.post(`${currentTab.endpoint}/reorder`, { imageOrders });
-                setDataList(newList);
-                toast.success('Order updated');
-              } catch (err) {
-                console.error('Reorder error', err);
-                toast.error('Failed to save new order');
-                fetchData();
-              }
-            }}
             className="group relative bg-surface-container-low dark:bg-[#222] rounded-lg shadow-sm dark:shadow-black/40 border border-outline-variant/10 dark:border-gray-700 overflow-hidden hover:shadow-lg dark:hover:shadow-black/60 transition-shadow"
           >
-            {/* Image Container - Clickable; maintain exact homepage aspect */}
+            {/* Image Container - Clickable */}
             <div
-              className="relative bg-surface-container-high dark:bg-[#1a1a1a] overflow-hidden cursor-pointer"
+              className="aspect-[3/1] bg-surface-container-high dark:bg-[#1a1a1a] overflow-hidden cursor-pointer"
               onClick={() => setSelectedImage(image)}
-              style={{ paddingTop: homepageAspect ? `${100 / homepageAspect}%` : undefined }}
             >
               <img
                 src={image.image_url || image.imageUrl}
                 alt={image.title}
-                className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                style={{ position: 'absolute', top: 0, left: 0 }}
+                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
               />
             </div>
 
-            {/* Minimal overlay controls */}
-            <div className="absolute top-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-              <button
-                onClick={() => {
-                  if (window.confirm('Are you sure you want to delete this image?')) handleDeleteImage(image.id);
-                }}
-                className="p-2 bg-error dark:bg-red-600 text-white rounded-lg shadow-lg hover:bg-error/80 dark:hover:bg-red-700 transition-all duration-200"
-                title="Delete image"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
+            {/* Info Section */}
+            <div className="p-3 space-y-2">
+              <h3 className="font-semibold text-sm text-on-surface dark:text-white truncate">{image.title}</h3>
+              {image.description && (
+                <p className="text-xs text-on-surface-variant dark:text-gray-400 line-clamp-2">{image.description}</p>
+              )}
             </div>
+
+            {/* Delete Button - Show on Hover */}
+            <button
+              onClick={() => {
+                if (window.confirm("Are you sure you want to delete this image?")) {
+                  handleDeleteImage(image.id);
+                }
+              }}
+              className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 p-2 bg-error dark:bg-red-600 text-white rounded-lg shadow-lg hover:bg-error/80 dark:hover:bg-red-700 transition-all duration-200"
+              title="Delete image"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
           </div>
         ))}
       </div>
@@ -757,17 +766,16 @@ export default function MasterList() {
     return (
       <div className="mb-8">
         {/* Upload Form Modal State */}
-        {(imageFile || editingExistingId) && (
+        {imageFile && (
           <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
             <div className="bg-white dark:bg-[#1a1a1a] rounded-2xl shadow-2xl dark:shadow-black/60 max-w-6xl w-full max-h-[90vh] overflow-hidden p-6">
               {/* Modal Header */}
               <div className="flex items-center justify-between">
-                <h3 className="text-lg font-bold text-slate-900 dark:text-white">{editingExistingId ? 'Edit Image' : 'Upload Image'}</h3>
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white">Upload Image</h3>
                 <button
                   onClick={() => {
                     setImageFile(null);
                     setImagePreview(null);
-                    setEditingExistingId(null);
                   }}
                   className="p-1 hover:bg-slate-100 dark:hover:bg-[#222] rounded transition"
                 >
@@ -882,7 +890,7 @@ export default function MasterList() {
                     <button
                       type="button"
                       onClick={handleImageUpload}
-                      disabled={uploadingImage || (!imageFile && !editingExistingId)}
+                      disabled={uploadingImage || !imageFile}
                       className="flex-1 px-4 py-2 bg-primary dark:bg-blue-600 text-white rounded-lg font-semibold text-sm hover:bg-primary/90 dark:hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
                     >
                       {uploadingImage ? "Uploading..." : "Save"}
