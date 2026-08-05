@@ -723,123 +723,127 @@ export default function MasterList() {
                 </button>
               </div>
 
-              {/* Image Preview */}
-              {imagePreview && (
-                <div className="w-full h-[320px] sm:h-[460px] md:h-[560px] lg:h-[660px] bg-slate-100 dark:bg-[#222] rounded-2xl overflow-hidden border border-outline-variant/20 dark:border-gray-700">
-                  <div
-                    ref={previewRef}
-                    className="relative w-full h-full cursor-grab group"
-                    onPointerDown={(e) => {
-                      e.preventDefault();
-                      setIsDragging(true);
-                      dragStartRef.current = {
-                        pointerX: e.clientX,
-                        pointerY: e.clientY,
-                        offsetX: imageOffset.x,
-                        offsetY: imageOffset.y,
-                        mirroredAtStart: mirrored,
-                      };
-                    }}
-                    onPointerMove={(e) => {
-                      if (!isDragging || !dragStartRef.current) return;
-                      const deltaX = e.clientX - dragStartRef.current.pointerX;
-                      const deltaY = e.clientY - dragStartRef.current.pointerY;
-                      const effectiveDeltaX = dragStartRef.current.mirroredAtStart ? -deltaX : deltaX;
-                      const newOffsets = updateBoundsOffset(dragStartRef.current.offsetX + effectiveDeltaX, dragStartRef.current.offsetY + deltaY);
-                      setImageOffset(newOffsets);
-                    }}
-                    onPointerUp={() => setIsDragging(false)}
-                    onPointerLeave={() => setIsDragging(false)}
-                  >
-                    <img
-                      src={imagePreview}
-                      alt="Preview"
-                      onLoad={handlePreviewImageLoad}
-                      className="absolute transition-transform duration-150"
-                      style={{
-                        width: imageBaseSize.width ? `${imageBaseSize.width}px` : "100%",
-                        height: imageBaseSize.height ? `${imageBaseSize.height}px` : "100%",
-                        left: "50%",
-                        top: "50%",
-                        transform: `translate(-50%,-50%) translate(${imageOffset.x}px, ${imageOffset.y}px) scale(${zoom}) scaleX(${mirrored ? -1 : 1})`,
-                        cursor: isDragging ? "grabbing" : "grab",
+              <div className="flex flex-col md:flex-row gap-6">
+                {/* Left: large preview */}
+                {imagePreview && (
+                  <div className="w-full md:flex-1 bg-slate-100 dark:bg-[#222] rounded-2xl overflow-hidden border border-outline-variant/20 dark:border-gray-700">
+                    <div
+                      ref={previewRef}
+                      className="relative w-full h-[320px] sm:h-[460px] md:h-[560px] lg:h-[660px] cursor-grab group"
+                      onPointerDown={(e) => {
+                        e.preventDefault();
+                        setIsDragging(true);
+                        dragStartRef.current = {
+                          pointerX: e.clientX,
+                          pointerY: e.clientY,
+                          offsetX: imageOffset.x,
+                          offsetY: imageOffset.y,
+                          mirroredAtStart: mirrored,
+                        };
                       }}
-                    />
-                    <div className="pointer-events-none absolute inset-0 border-4 border-white/80 ring-1 ring-white/30 rounded-2xl" />
-                    <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/10" />
+                      onPointerMove={(e) => {
+                        if (!isDragging || !dragStartRef.current) return;
+                        const deltaX = e.clientX - dragStartRef.current.pointerX;
+                        const deltaY = e.clientY - dragStartRef.current.pointerY;
+                        const effectiveDeltaX = dragStartRef.current.mirroredAtStart ? -deltaX : deltaX;
+                        const newOffsets = updateBoundsOffset(dragStartRef.current.offsetX + effectiveDeltaX, dragStartRef.current.offsetY + deltaY);
+                        setImageOffset(newOffsets);
+                      }}
+                      onPointerUp={() => setIsDragging(false)}
+                      onPointerLeave={() => setIsDragging(false)}
+                    >
+                      <img
+                        src={imagePreview}
+                        alt="Preview"
+                        onLoad={handlePreviewImageLoad}
+                        className="absolute transition-transform duration-150"
+                        style={{
+                          width: imageBaseSize.width ? `${imageBaseSize.width}px` : "100%",
+                          height: imageBaseSize.height ? `${imageBaseSize.height}px` : "100%",
+                          left: "50%",
+                          top: "50%",
+                          transform: `translate(-50%,-50%) translate(${imageOffset.x}px, ${imageOffset.y}px) scale(${zoom}) scaleX(${mirrored ? -1 : 1})`,
+                          cursor: isDragging ? "grabbing" : "grab",
+                        }}
+                      />
+                      <div className="pointer-events-none absolute inset-0 border-4 border-white/80 ring-1 ring-white/30 rounded-2xl" />
+                      <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/10" />
+                    </div>
+                  </div>
+                )}
+
+                {/* Right: controls */}
+                <div className="w-full md:w-72 flex flex-col justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">Slideshow Crop Preview</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Drag the image behind the fixed frame and use zoom controls to choose the visible area.</p>
+
+                    <div className="flex items-center gap-2 mt-3">
+                      <button
+                        type="button"
+                        onClick={() => setZoom((prev) => Math.max(1, +(prev - 0.1).toFixed(2)))}
+                        disabled={zoom <= 1}
+                        className="px-3 py-2 rounded-lg border border-outline-variant/30 dark:border-gray-700 bg-slate-50 dark:bg-[#161616] text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#222] transition disabled:opacity-50"
+                      >
+                        -
+                      </button>
+                      <span className="text-sm text-on-surface dark:text-white">{Math.round(zoom * 100)}%</span>
+                      <button
+                        type="button"
+                        onClick={() => setZoom((prev) => Math.min(3, +(prev + 0.1).toFixed(2)))}
+                        className="px-3 py-2 rounded-lg border border-outline-variant/30 dark:border-gray-700 bg-slate-50 dark:bg-[#161616] text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#222] transition"
+                      >
+                        +
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setMirrored((m) => !m)}
+                        className="px-3 py-2 rounded-lg border border-outline-variant/30 dark:border-gray-700 bg-slate-50 dark:bg-[#161616] text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#222] transition"
+                        title="Mirror"
+                      >
+                        ⇋
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setImageOffset({ x: 0, y: 0 });
+                          setZoom(1);
+                          setMirrored(false);
+                        }}
+                        className="px-3 py-2 rounded-lg border border-outline-variant/30 dark:border-gray-700 bg-slate-50 dark:bg-[#161616] text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#222] transition"
+                        title="Reset"
+                      >
+                        Reset
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="flex gap-2 pt-2">
+                    <button
+                      type="button"
+                      onClick={handleImageUpload}
+                      disabled={uploadingImage || !imageFile}
+                      className="flex-1 px-4 py-2 bg-primary dark:bg-blue-600 text-white rounded-lg font-semibold text-sm hover:bg-primary/90 dark:hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                    >
+                      {uploadingImage ? "Uploading..." : "Save"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setImageFile(null);
+                        setImagePreview(null);
+                        setImageOffset({ x: 0, y: 0 });
+                        setZoom(1);
+                        setMirrored(false);
+                      }}
+                      disabled={uploadingImage}
+                      className="flex-1 px-4 py-2 bg-slate-200 dark:bg-[#222] text-slate-900 dark:text-gray-300 rounded-lg font-semibold text-sm hover:bg-slate-300 dark:hover:bg-[#2a2a2a] disabled:opacity-50 transition"
+                    >
+                      Cancel
+                    </button>
                   </div>
                 </div>
-              )}
-
-              <div className="grid grid-cols-[1fr_auto] gap-3 items-center pt-3">
-                <div>
-                  <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">Slideshow Crop Preview</p>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Drag the image behind the fixed frame and use zoom controls to choose the visible area.</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setZoom((prev) => Math.max(1, +(prev - 0.1).toFixed(2)))}
-                    disabled={zoom <= 1}
-                    className="px-3 py-2 rounded-lg border border-outline-variant/30 dark:border-gray-700 bg-slate-50 dark:bg-[#161616] text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#222] transition disabled:opacity-50"
-                  >
-                    -
-                  </button>
-                  <span className="text-sm text-on-surface dark:text-white">{Math.round(zoom * 100)}%</span>
-                  <button
-                    type="button"
-                    onClick={() => setZoom((prev) => Math.min(3, +(prev + 0.1).toFixed(2)))}
-                    className="px-3 py-2 rounded-lg border border-outline-variant/30 dark:border-gray-700 bg-slate-50 dark:bg-[#161616] text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#222] transition"
-                  >
-                    +
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setMirrored((m) => !m)}
-                    className="px-3 py-2 rounded-lg border border-outline-variant/30 dark:border-gray-700 bg-slate-50 dark:bg-[#161616] text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#222] transition"
-                    title="Mirror"
-                  >
-                    ⇋
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setImageOffset({ x: 0, y: 0 });
-                      setZoom(1);
-                      setMirrored(false);
-                    }}
-                    className="px-3 py-2 rounded-lg border border-outline-variant/30 dark:border-gray-700 bg-slate-50 dark:bg-[#161616] text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#222] transition"
-                    title="Reset"
-                  >
-                    Reset
-                  </button>
-                </div>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={handleImageUpload}
-                  disabled={uploadingImage || !imageFile}
-                  className="flex-1 px-4 py-2 bg-primary dark:bg-blue-600 text-white rounded-lg font-semibold text-sm hover:bg-primary/90 dark:hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
-                >
-                  {uploadingImage ? "Uploading..." : "Save"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setImageFile(null);
-                    setImagePreview(null);
-                    setImageOffset({ x: 0, y: 0 });
-                    setZoom(1);
-                    setMirrored(false);
-                  }}
-                  disabled={uploadingImage}
-                  className="flex-1 px-4 py-2 bg-slate-200 dark:bg-[#222] text-slate-900 dark:text-gray-300 rounded-lg font-semibold text-sm hover:bg-slate-300 dark:hover:bg-[#2a2a2a] disabled:opacity-50 transition"
-                >
-                  Cancel
-                </button>
               </div>
             </div>
           </div>
