@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useContext, useCallback } from "react"
+import { useState, useEffect, useContext, useCallback, useRef } from "react"
 import axios from "axios"
 import toast from "react-hot-toast"
 import { Package } from "lucide-react"
@@ -33,8 +33,11 @@ export default function StaffBorrowTimeline() {
   const [activeMobileStatus, setActiveMobileStatus] = useState("pending")
   const [borrowerProfiles, setBorrowerProfiles] = useState({})
   const [dueDates] = useState({})
+  const [declineMessageIds, setDeclineMessageIds] = useState([])
+  const [fadeOutIds, setFadeOutIds] = useState([])
   const [draggedRequest, setDraggedRequest] = useState(null)
   const [dragOverColumn, setDragOverColumn] = useState(null)
+  const declineTimeoutsRef = useRef({})
 
   // Staff photo capture for manual return
   const [staffPhotoCaptureOpen, setStaffPhotoCaptureOpen] = useState(false)
@@ -174,7 +177,10 @@ export default function StaffBorrowTimeline() {
   // ========== FILTERING & GROUPING ==========
   useEffect(() => {
     const activeFilter = isMobile ? activeMobileStatus : "all"
-    let filtered = activeFilter === "all" ? requests : requests.filter((r) => r.status === activeFilter)
+    let filtered = requests
+    if (activeFilter !== "all") {
+      filtered = requests.filter((r) => r.status === activeFilter || (activeFilter === "pending" && r.status === "declined" && declineMessageIds.includes(r.id)))
+    }
 
     const normalizedSelectedDivision = selectedDivision?.toString().trim().toLowerCase()
     if (normalizedSelectedDivision && normalizedSelectedDivision !== "all") {
@@ -204,7 +210,20 @@ export default function StaffBorrowTimeline() {
     }
 
     setGroupedRequests(groupAndSortRequests(filtered))
-  }, [activeMobileStatus, isMobile, requests, globalSearchQuery, selectedDivision])
+  }, [activeMobileStatus, isMobile, requests, globalSearchQuery, selectedDivision, declineMessageIds])
+
+  useEffect(() => {
+    const validStatusKeys = ["pending", "approved", "pending_return", "returned"]
+    if (isMobile && !validStatusKeys.includes(activeMobileStatus)) {
+      setActiveMobileStatus("pending")
+    }
+  }, [isMobile, activeMobileStatus])
+
+  useEffect(() => {
+    return () => {
+      Object.values(declineTimeoutsRef.current).forEach(clearTimeout)
+    }
+  }, [])
 
   const groupAndSortRequests = (filtered) => {
     const columns = [
@@ -212,13 +231,15 @@ export default function StaffBorrowTimeline() {
       { key: "approved", title: "In Use", description: "Currently borrowed", badgeClass: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300", dotColor: "#22c55e", requests: [] },
       { key: "pending_return", title: "Pending Return", description: "Awaiting return verification", badgeClass: "bg-amber-500/15 text-amber-700 dark:text-amber-300", dotColor: "#f59e0b", requests: [] },
       { key: "returned", title: "Returned", description: "Return completed", badgeClass: "bg-sky-500/15 text-sky-700 dark:text-sky-300", dotColor: "#3b82f6", requests: [] },
-      { key: "declined", title: "Declined", description: "Request was rejected", badgeClass: "bg-rose-500/15 text-rose-700 dark:text-rose-300", dotColor: "#dc2626", requests: [] },
     ]
 
     const columnMap = new Map(columns.map((column) => [column.key, column]))
 
     for (const req of filtered) {
-      if (req.status === "pending") {
+      if (req.status === "declined") {
+        if (!declineMessageIds.includes(req.id)) continue
+        columnMap.get("pending").requests.push(req)
+      } else if (req.status === "pending") {
         columnMap.get("pending").requests.push(req)
       } else if (req.status === "approved") {
         columnMap.get("approved").requests.push(req)
@@ -226,8 +247,6 @@ export default function StaffBorrowTimeline() {
         columnMap.get("pending_return").requests.push(req)
       } else if (req.status === "returned") {
         columnMap.get("returned").requests.push(req)
-      } else if (req.status === "declined") {
-        columnMap.get("declined").requests.push(req)
       }
     }
 
@@ -301,7 +320,21 @@ export default function StaffBorrowTimeline() {
         {},
         { withCredentials: true }
       )
+      setDeclineMessageIds((prev) => [...prev, id])
       toast.success("Request declined")
+
+      const hideTimeout = setTimeout(() => {
+        setFadeOutIds((prev) => [...prev, id])
+        const removeTimeout = setTimeout(() => {
+          setRequests((prev) => prev.filter((req) => req.id !== id))
+          setDeclineMessageIds((prev) => prev.filter((declinedId) => declinedId !== id))
+          setFadeOutIds((prev) => prev.filter((fadeId) => fadeId !== id))
+          delete declineTimeoutsRef.current[id]
+        }, 300)
+        declineTimeoutsRef.current[id] = removeTimeout
+      }, 3000)
+
+      declineTimeoutsRef.current[id] = hideTimeout
     } catch (err) {
       console.error("❌ Failed to decline:", err.message)
       setRequests(originalRequests)
@@ -408,10 +441,6 @@ export default function StaffBorrowTimeline() {
       return
     }
 
-    if (targetStatus === "declined" && draggedRequest.status === "pending") {
-      await handleDecline(draggedRequest.id)
-      return
-    }
 
     if (targetStatus === "returned" && draggedRequest.status === "approved") {
       handleManualReturn(draggedRequest)
@@ -454,13 +483,12 @@ export default function StaffBorrowTimeline() {
           )}
           {isMobile && (
             <div className="border-b border-outline-variant/20 dark:border-gray-700">
-              <div className="grid grid-cols-5 text-center">
+              <div className="grid grid-cols-4 text-center">
                 {[
                   { key: "pending", label: ["Pending"] },
                   { key: "approved", label: ["In Use"] },
                   { key: "pending_return", label: ["Pending", "Return"] },
                   { key: "returned", label: ["Returned"] },
-                  { key: "declined", label: ["Declined"] },
                 ].map((tab) => (
                   <button
                     key={tab.key}
@@ -494,7 +522,7 @@ export default function StaffBorrowTimeline() {
             </div>
           ) : (
             <div className="pb-1">
-              <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 xl:gap-3">
+              <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 xl:gap-3">
                 {(isMobile ? groupedRequests.filter((column) => column.key === activeMobileStatus) : groupedRequests).map((column) => (
                   <div
                     key={column.key}
@@ -528,6 +556,8 @@ export default function StaffBorrowTimeline() {
                   <div className="max-h-[70vh] overflow-y-auto p-3 space-y-3">
                     {column.requests.map((req) => {
                       const isDeclinedReq = isDeclined(req)
+                      const isDeclineFeedback = declineMessageIds.includes(req.id)
+                      const isFadingOut = fadeOutIds.includes(req.id)
                       const daysFromToday = getDaysFromToday(req.due_date)
 
                       return (
@@ -539,9 +569,9 @@ export default function StaffBorrowTimeline() {
                             setDraggedRequest(null)
                             setDragOverColumn(null)
                           }}
-                          className={`rounded-xl border border-outline-variant/20 dark:border-gray-700 bg-surface-container-lowest dark:bg-[#171717] p-3 shadow-sm transition ${
+                          className={`rounded-xl border border-outline-variant/20 dark:border-gray-700 bg-surface-container-lowest dark:bg-[#171717] p-3 shadow-sm transition-all duration-300 ${
                             draggedRequest?.id === req.id ? "opacity-60 scale-[0.99]" : "hover:-translate-y-0.5 hover:shadow-md"
-                          }`}
+                          } ${isFadingOut ? "opacity-0 scale-95" : ""}`}
                         >
                           <div className="flex items-start justify-between gap-2">
                             <div className="min-w-0">
@@ -583,6 +613,12 @@ export default function StaffBorrowTimeline() {
                             </div>
                           )}
 
+                          {isDeclineFeedback && (
+                            <div className="mt-3 rounded-lg border border-surface-variant/30 bg-surface dark:bg-[#1f1f1f] px-3 py-2 text-xs font-medium text-on-surface-variant dark:text-gray-400">
+                              You declined this request.
+                            </div>
+                          )}
+
                           <div className="mt-2 space-y-1 text-[11px] leading-4 text-on-surface-variant dark:text-gray-400">
                             <div className="grid grid-cols-[auto_1fr] gap-x-2 items-center">
                               <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-on-surface-variant dark:text-gray-400">Requested:</span>
@@ -607,6 +643,12 @@ export default function StaffBorrowTimeline() {
                               </div>
                             )}
                           </div>
+
+                                      {isDeclineFeedback && (
+                            <div className="mt-3 rounded-lg border border-surface-variant/30 bg-surface dark:bg-[#1f1f1f] px-3 py-2 text-xs font-medium text-on-surface-variant dark:text-gray-400">
+                              You declined this request.
+                            </div>
+                          )}
 
                           {isDeclinedReq && req.return_decline_reason && (
                             <div className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-2 text-[11px] text-rose-700 dark:border-rose-800 dark:bg-rose-900/20 dark:text-rose-300">
