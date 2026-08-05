@@ -109,7 +109,7 @@ export default function SideNavbar({ role = "staff" }) {
       <aside
         className={`left-sidebar sticky left-0 top-0 h-screen shrink-0 border-r border-outline-variant/20 bg-surface-container-low dark:border-[#2a2a2a] dark:bg-[#1f1f1f] shadow-lg dark:shadow-none z-30 transition-all duration-300 ease-in-out ${
           isMobile
-            ? sidebarOpen ? "w-[220px] max-w-[78vw]" : "w-0"
+            ? leftSidebarCollapsed ? "w-16" : "w-[220px] max-w-[78vw]"
             : leftSidebarCollapsed ? "w-16" : "w-64"
         }`}
         style={{

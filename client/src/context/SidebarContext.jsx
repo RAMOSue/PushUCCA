@@ -16,9 +16,12 @@ export function SidebarProvider({ children }) {
   const [leftSidebarCollapsed, setLeftSidebarCollapsedState] = useState(() => {
     try {
       const saved = localStorage.getItem("leftSidebarCollapsed");
-      return saved !== null ? JSON.parse(saved) : false;
+      if (saved !== null) {
+        return JSON.parse(saved);
+      }
+      return window.innerWidth < 1024;
     } catch {
-      return false;
+      return window.innerWidth < 1024;
     }
   });
 
@@ -31,7 +34,7 @@ export function SidebarProvider({ children }) {
     }
   });
 
-  const [isMobile, setIsMobile] = useState(false);
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 1024);
 
   const sidebarOpen = !leftSidebarCollapsed;
 

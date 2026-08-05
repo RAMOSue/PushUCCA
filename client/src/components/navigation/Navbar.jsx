@@ -3,11 +3,12 @@ import { useContext, useEffect, useState, useRef } from "react";
 import { UserContext } from "../../../context/userContext";
 import { BorrowingContext } from "../../../context/borrowingContext";
 import { LoginModalContext } from "../../../context/LoginModalContext";
+import { SidebarContext } from "../../context/SidebarContext";
 import { useSidebarStore, DIVISION_OPTIONS } from "../../../context/sidebarStore";
 import axios from "axios";
 import tokenManager from "../../utils/tokenManager";
 import { INACTIVITY_CONFIG } from "../../config/inactivityConfig";
-import { Home, LogOut, Camera, BookOpen, ShoppingCart, Smartphone, X, User, ChevronDown, Settings, Search, Calendar } from "lucide-react";
+import { Home, LogOut, Camera, BookOpen, ShoppingCart, Smartphone, X, User, ChevronDown, Settings, Search, Calendar, Menu } from "lucide-react";
 import NotificationBadge from "../ui/NotificationBadge";
 import { notificationService } from "../../services/notifications";
 import Logo from "../../assets/Logo.png";
@@ -51,6 +52,7 @@ export default function Navbar() {
   const { user, setUser, loading } = useContext(UserContext);
   const { cart } = useContext(BorrowingContext);
   const { openLoginModal } = useContext(LoginModalContext);
+  const { sidebarOpen, setSidebarOpen, rightSidebarOpen, setRightSidebarOpen, isMobile } = useContext(SidebarContext);
   const { selectedDivision, setSelectedDivision, globalSearchQuery, setGlobalSearchQuery } = useSidebarStore();
   const location = useLocation();
   const navigate = useNavigate();
@@ -322,6 +324,21 @@ export default function Navbar() {
       <header className="sticky top-0 z-40 border-b border-slate-200 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.04)] transition-all duration-300 ease-in-out h-12 sm:h-14 md:h-16">
         <div className="flex h-full items-center justify-between gap-2 px-2 py-2 sm:px-3 sm:py-3 md:px-6">
           <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                setSidebarOpen((prev) => !prev);
+                if (isMobile && rightSidebarOpen) {
+                  setRightSidebarOpen(false);
+                }
+              }}
+              className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-slate-50 text-slate-700 transition hover:bg-slate-100 lg:hidden"
+              title={sidebarOpen ? "Close menu" : "Open menu"}
+              aria-label={sidebarOpen ? "Close menu" : "Open menu"}
+            >
+              <Menu className="h-5 w-5" />
+            </button>
+
             <div className="flex min-w-0 flex-col">
               <div className="flex items-center leading-none text-[15px] font-black tracking-[-0.08em] sm:text-[17px] md:text-[20px]">
                 <span className="text-[#004aad]">Du</span>
