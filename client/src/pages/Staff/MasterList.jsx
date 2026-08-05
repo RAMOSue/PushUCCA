@@ -1,5 +1,5 @@
 // client/src/pages/Staff/MasterList.jsx
-import { useState, useEffect, useContext } from "react";
+import { useState, useEffect, useContext, useRef } from "react";
 import { UserContext } from "../../../context/userContext";
 import axios from "axios";
 import toast from "react-hot-toast";
@@ -44,8 +44,12 @@ export default function MasterList() {
   const [uploadingImage, setUploadingImage] = useState(false);
   const [imagePreview, setImagePreview] = useState(null);
   const [imageFile, setImageFile] = useState(null);
-  const [imageTitle, setImageTitle] = useState("");
-  const [imageDescription, setImageDescription] = useState("");
+  const [imageOffset, setImageOffset] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [imageBaseSize, setImageBaseSize] = useState({ width: 0, height: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const dragStartRef = useRef(null);
+  const previewRef = useRef(null);
   const [imageError, setImageError] = useState(null);
 
   // Modal state
@@ -322,10 +326,49 @@ export default function MasterList() {
     const file = e.target.files[0];
     if (file) {
       setImageFile(file);
+      setImageOffset({ x: 0, y: 0 });
+      setZoom(1);
+      setImageBaseSize({ width: 0, height: 0 });
       const reader = new FileReader();
       reader.onload = (evt) => setImagePreview(evt.target.result);
       reader.readAsDataURL(file);
     }
+  };
+
+  const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
+
+  const getPreviewBounds = () => {
+    if (!previewRef.current || !imagePreview) return null;
+    const container = previewRef.current.getBoundingClientRect();
+    if (!imageBaseSize.width || !imageBaseSize.height) return null;
+    const displayWidth = imageBaseSize.width * zoom;
+    const displayHeight = imageBaseSize.height * zoom;
+    const maxX = Math.max(0, (displayWidth - container.width) / 2);
+    const maxY = Math.max(0, (displayHeight - container.height) / 2);
+    return { maxX, maxY };
+  };
+
+  const updateBoundsOffset = (x, y) => {
+    const bounds = getPreviewBounds();
+    if (!bounds) return { x, y };
+    return {
+      x: clamp(x, -bounds.maxX, bounds.maxX),
+      y: clamp(y, -bounds.maxY, bounds.maxY),
+    };
+  };
+
+  const handlePreviewImageLoad = (e) => {
+    if (!previewRef.current) return;
+    const container = previewRef.current.getBoundingClientRect();
+    const naturalWidth = e.target.naturalWidth;
+    const naturalHeight = e.target.naturalHeight;
+    const imageAspect = naturalWidth / naturalHeight;
+    const containerAspect = container.width / container.height;
+    const baseSize = imageAspect > containerAspect
+      ? { width: container.height * imageAspect, height: container.height }
+      : { width: container.width, height: container.width / imageAspect };
+    setImageBaseSize(baseSize);
+    setImageOffset((prev) => updateBoundsOffset(prev.x, prev.y));
   };
 
   // Handle image upload
@@ -336,12 +379,6 @@ export default function MasterList() {
     if (!imageFile) {
       setImageError("Please select an image file");
       toast.error("Please select an image file");
-      return;
-    }
-    
-    if (!imageTitle.trim()) {
-      setImageError("Please enter an image title");
-      toast.error("Please enter an image title");
       return;
     }
 
@@ -366,8 +403,6 @@ export default function MasterList() {
       setImageError(null);
       const formData = new FormData();
       formData.append("image", imageFile);
-      formData.append("title", imageTitle.trim());
-      formData.append("description", imageDescription.trim());
 
       const res = await axios.post(`${currentTab.endpoint}`, formData, {
         headers: { "Content-Type": "multipart/form-data" },
@@ -376,8 +411,8 @@ export default function MasterList() {
       toast.success("✅ Image uploaded successfully");
       setImageFile(null);
       setImagePreview(null);
-      setImageTitle("");
-      setImageDescription("");
+      setImageOffset({ x: 0, y: 0 });
+      setZoom(1);
       fetchData();
     } catch (err) {
       const errorMsg = err.response?.data?.error || err.message || "Failed to upload image";
@@ -624,8 +659,6 @@ export default function MasterList() {
                   onClick={() => {
                     setImageFile(null);
                     setImagePreview(null);
-                    setImageTitle("");
-                    setImageDescription("");
                   }}
                   className="p-1 hover:bg-slate-100 dark:hover:bg-[#222] rounded transition"
                 >
@@ -635,67 +668,95 @@ export default function MasterList() {
 
               {/* Image Preview */}
               {imagePreview && (
-                <div className="w-full aspect-square bg-slate-100 dark:bg-[#222] rounded-lg overflow-hidden">
-                  <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
+                <div className="w-full aspect-[3/1] bg-slate-100 dark:bg-[#222] rounded-2xl overflow-hidden border border-outline-variant/20 dark:border-gray-700">
+                  <div
+                    ref={previewRef}
+                    className="relative w-full h-full cursor-grab group"
+                    onPointerDown={(e) => {
+                      e.preventDefault();
+                      setIsDragging(true);
+                      dragStartRef.current = {
+                        pointerX: e.clientX,
+                        pointerY: e.clientY,
+                        offsetX: imageOffset.x,
+                        offsetY: imageOffset.y,
+                      };
+                    }}
+                    onPointerMove={(e) => {
+                      if (!isDragging || !dragStartRef.current) return;
+                      const deltaX = e.clientX - dragStartRef.current.pointerX;
+                      const deltaY = e.clientY - dragStartRef.current.pointerY;
+                      setImageOffset({
+                        x: dragStartRef.current.offsetX + deltaX,
+                        y: dragStartRef.current.offsetY + deltaY,
+                      });
+                    }}
+                    onPointerUp={() => setIsDragging(false)}
+                    onPointerLeave={() => setIsDragging(false)}
+                  >
+                    <img
+                      src={imagePreview}
+                      alt="Preview"
+                      className="absolute inset-0 w-full h-full object-cover transition-transform duration-150"
+                      style={{
+                        transform: `translate(${imageOffset.x}px, ${imageOffset.y}px) scale(${zoom})`,
+                        cursor: isDragging ? "grabbing" : "grab",
+                      }}
+                    />
+                    <div className="pointer-events-none absolute inset-0 border-4 border-white/80 ring-1 ring-white/30 rounded-2xl" />
+                    <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/10" />
+                  </div>
                 </div>
               )}
 
-              <form onSubmit={handleImageUpload} className="space-y-3">
-                {/* Title Input */}
+              <div className="grid grid-cols-[1fr_auto] gap-3 items-center pt-3">
                 <div>
-                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                    Image Title <span className="text-error">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={imageTitle}
-                    onChange={(e) => setImageTitle(e.target.value)}
-                    placeholder="e.g., Cultural Festival 2024"
-                    maxLength="100"
-                    className="w-full px-3 py-2 border border-outline-variant/30 dark:border-gray-700 rounded-lg dark:bg-[#2a2a2a] dark:text-white dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary text-sm"
-                    disabled={uploadingImage}
-                    autoFocus
-                  />
+                  <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">Slideshow Crop Preview</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Drag the image behind the fixed frame and use zoom controls to choose the visible area.</p>
                 </div>
-
-                {/* Description Input */}
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Description</label>
-                  <textarea
-                    value={imageDescription}
-                    onChange={(e) => setImageDescription(e.target.value)}
-                    placeholder="Optional description"
-                    maxLength="200"
-                    rows="2"
-                    className="w-full px-3 py-2 border border-outline-variant/30 dark:border-gray-700 rounded-lg dark:bg-[#2a2a2a] dark:text-white dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary text-sm resize-none"
-                    disabled={uploadingImage}
-                  />
-                </div>
-
-                {/* Action Buttons */}
-                <div className="flex gap-2 pt-2">
-                  <button
-                    type="submit"
-                    disabled={uploadingImage || !imageTitle}
-                    className="flex-1 px-4 py-2 bg-primary dark:bg-blue-600 text-white rounded-lg font-semibold text-sm hover:bg-primary/90 dark:hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
-                  >
-                    {uploadingImage ? "Uploading..." : "Upload"}
-                  </button>
+                <div className="flex items-center gap-2">
                   <button
                     type="button"
-                    onClick={() => {
-                      setImageFile(null);
-                      setImagePreview(null);
-                      setImageTitle("");
-                      setImageDescription("");
-                    }}
-                    disabled={uploadingImage}
-                    className="flex-1 px-4 py-2 bg-slate-200 dark:bg-[#222] text-slate-900 dark:text-gray-300 rounded-lg font-semibold text-sm hover:bg-slate-300 dark:hover:bg-[#2a2a2a] disabled:opacity-50 transition"
+                    onClick={() => setZoom((prev) => Math.max(1, +(prev - 0.1).toFixed(2)))}
+                    disabled={zoom <= 1}
+                    className="px-3 py-2 rounded-lg border border-outline-variant/30 dark:border-gray-700 bg-slate-50 dark:bg-[#161616] text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#222] transition disabled:opacity-50"
                   >
-                    Cancel
+                    -
+                  </button>
+                  <span className="text-sm text-on-surface dark:text-white">{Math.round(zoom * 100)}%</span>
+                  <button
+                    type="button"
+                    onClick={() => setZoom((prev) => Math.min(3, +(prev + 0.1).toFixed(2)))}
+                    className="px-3 py-2 rounded-lg border border-outline-variant/30 dark:border-gray-700 bg-slate-50 dark:bg-[#161616] text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#222] transition"
+                  >
+                    +
                   </button>
                 </div>
-              </form>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="submit"
+                  disabled={uploadingImage || !imageFile}
+                  className="flex-1 px-4 py-2 bg-primary dark:bg-blue-600 text-white rounded-lg font-semibold text-sm hover:bg-primary/90 dark:hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                >
+                  {uploadingImage ? "Uploading..." : "Upload"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setImageFile(null);
+                    setImagePreview(null);
+                    setImageOffset({ x: 0, y: 0 });
+                    setZoom(1);
+                  }}
+                  disabled={uploadingImage}
+                  className="flex-1 px-4 py-2 bg-slate-200 dark:bg-[#222] text-slate-900 dark:text-gray-300 rounded-lg font-semibold text-sm hover:bg-slate-300 dark:hover:bg-[#2a2a2a] disabled:opacity-50 transition"
+                >
+                  Cancel
+                </button>
+              </div>
             </div>
           </div>
         )}
