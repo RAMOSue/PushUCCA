@@ -178,9 +178,9 @@ export default function RightNavbar() {
         title="QR Scanner"
         aria-label="QR Scanner"
         onClick={handleQRScannerClick}
-        className="group flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white/90 text-slate-700 shadow-sm transition-all duration-200 ease-in-out hover:bg-slate-100 hover:text-slate-900 active:scale-95 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 dark:hover:text-white sm:h-9 sm:w-9"
+        className="group flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 bg-white/90 text-slate-700 shadow-sm transition-all duration-200 ease-in-out hover:bg-slate-100 hover:text-slate-900 active:scale-95 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 dark:hover:text-white sm:h-8 sm:w-8"
       >
-        <QrCode className="h-3.5 w-3.5 transition-transform duration-200 ease-in-out group-hover:scale-110 sm:h-4 sm:w-4" />
+        <QrCode className="h-3 w-3 transition-transform duration-200 ease-in-out group-hover:scale-110 sm:h-3.5 sm:w-3.5" />
       </button>
 
       <button
@@ -188,9 +188,9 @@ export default function RightNavbar() {
         title="AI Scanner"
         aria-label="AI Scanner"
         onClick={handleInstrumentScannerClick}
-        className="group flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white/90 text-slate-700 shadow-sm transition-all duration-200 ease-in-out hover:bg-slate-100 hover:text-slate-900 active:scale-95 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 dark:hover:text-white sm:h-9 sm:w-9"
+        className="group flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 bg-white/90 text-slate-700 shadow-sm transition-all duration-200 ease-in-out hover:bg-slate-100 hover:text-slate-900 active:scale-95 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 dark:hover:text-white sm:h-8 sm:w-8"
       >
-        <Camera className="h-3.5 w-3.5 transition-transform duration-200 ease-in-out group-hover:scale-110 sm:h-4 sm:w-4" />
+        <Camera className="h-3 w-3 transition-transform duration-200 ease-in-out group-hover:scale-110 sm:h-3.5 sm:w-3.5" />
       </button>
     </div>
   );
@@ -220,6 +220,21 @@ export default function RightNavbar() {
 
           aside.right-navbar::-webkit-scrollbar-thumb:hover {
             background: rgba(255, 255, 255, 0.2);
+          }
+        }
+        @media (max-width: 390px) {
+          aside.right-navbar.right-navbar-open {
+            width: 180px !important;
+          }
+        }
+        @media (max-width: 360px) {
+          aside.right-navbar.right-navbar-open {
+            width: 170px !important;
+          }
+        }
+        @media (max-width: 330px) {
+          aside.right-navbar.right-navbar-open {
+            width: 160px !important;
           }
         }
 
@@ -290,7 +305,7 @@ export default function RightNavbar() {
       <aside
         className={`right-navbar flex h-full shrink-0 border-l border-outline-variant/10 bg-surface-container-low dark:border-[#2a2a2a] dark:bg-[#1f1f1f] shadow-2xl dark:shadow-[inset_-1px_0_0_rgba(255,255,255,0.05)] z-30 transition-all duration-250 ease-in-out ${
           isMobile
-            ? rightSidebarOpen ? "w-[220px] sm:w-[240px] opacity-100" : "w-12 sm:w-14 opacity-100"
+            ? rightSidebarOpen ? "w-[190px] opacity-100 right-navbar-open" : "w-12 sm:w-14 opacity-100"
             : rightSidebarOpen ? "w-64 opacity-100" : "w-14 opacity-100"
         }`}
         style={{
@@ -305,7 +320,7 @@ export default function RightNavbar() {
         <div
           className="flex h-full flex-col transition-all duration-250 ease-in-out"
           style={{
-            width: rightSidebarOpen ? (isMobile ? "220px" : "256px") : (isMobile ? "48px" : "56px"),
+            width: rightSidebarOpen ? (isMobile ? "190px" : "256px") : (isMobile ? "48px" : "56px"),
             flexShrink: 0,
             pointerEvents: "auto",
           }}

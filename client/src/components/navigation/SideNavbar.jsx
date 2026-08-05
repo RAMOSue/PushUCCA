@@ -103,13 +103,29 @@ export default function SideNavbar({ role = "staff" }) {
                         box-shadow 220ms ease-in-out;
           }
         }
+        @media (max-width: 390px) {
+          aside.left-sidebar.left-sidebar-open {
+            width: 180px !important;
+            max-width: 75vw !important;
+          }
+        }
+        @media (max-width: 360px) {
+          aside.left-sidebar.left-sidebar-open {
+            width: 170px !important;
+          }
+        }
+        @media (max-width: 330px) {
+          aside.left-sidebar.left-sidebar-open {
+            width: 160px !important;
+          }
+        }
       `}</style>
 
       {/* Sidebar */}
       <aside
         className={`left-sidebar sticky left-0 top-0 h-screen shrink-0 border-r border-outline-variant/20 bg-surface-container-low dark:border-[#2a2a2a] dark:bg-[#1f1f1f] shadow-lg dark:shadow-none z-30 transition-all duration-300 ease-in-out ${
           isMobile
-            ? leftSidebarCollapsed ? "w-16" : "w-[220px] max-w-[78vw]"
+            ? leftSidebarCollapsed ? "w-16" : "w-[190px] max-w-[75vw] left-sidebar-open"
             : leftSidebarCollapsed ? "w-16" : "w-64"
         }`}
         style={{
@@ -129,7 +145,7 @@ export default function SideNavbar({ role = "staff" }) {
           }
         `}</style>
 
-        <div className={`sticky top-0 z-10 border-b border-outline-variant/20 bg-surface-container-low dark:border-[#2a2a2a] dark:bg-[#1f1f1f] transition-all duration-300 ${leftSidebarCollapsed ? "px-2 py-2 sm:px-2 sm:py-3" : "px-2 py-2 sm:px-3 sm:py-3"}`}>
+        <div className={`sticky top-0 z-10 border-b border-outline-variant/20 bg-surface-container-low dark:border-[#2a2a2a] dark:bg-[#1f1f1f] transition-all duration-300 ${leftSidebarCollapsed ? "px-2 py-2 sm:px-2 sm:py-3" : "px-2 py-2 sm:px-2 sm:py-2"}`}>
           {leftSidebarCollapsed ? (
             <div
               className="relative flex h-10 w-full items-center justify-center"
@@ -202,6 +218,8 @@ export default function SideNavbar({ role = "staff" }) {
                 className={`flex items-center justify-between rounded-lg text-[10px] sm:text-[11px] md:text-sm lg:text-sm font-medium transition-all duration-200 gap-1.5 sm:gap-2 ${
                   leftSidebarCollapsed
                     ? "lg:w-10 lg:h-10 lg:justify-center lg:px-0 lg:py-0"
+                    : isMobile
+                    ? "px-2 sm:px-2 py-2"
                     : "px-2.5 sm:px-3 md:px-4 lg:px-4 py-2 sm:py-2 md:py-2.5 lg:py-3"
                 } ${
                   active
