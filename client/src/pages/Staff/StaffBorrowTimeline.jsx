@@ -61,6 +61,20 @@ export default function StaffBorrowTimeline() {
     return diffDays
   }
 
+  const getLateReturnInfo = (request) => {
+    if (!request.due_date || !request.returned_at) return null
+
+    const due = dayjs(request.due_date).tz("Asia/Manila").startOf("day")
+    const returned = dayjs(request.returned_at).tz("Asia/Manila").startOf("day")
+    const lateDays = returned.diff(due, "day")
+
+    if (lateDays > 0) {
+      return `Late Return: ${lateDays} day${lateDays === 1 ? "" : "s"}`
+    }
+
+    return "Returned on Time"
+  }
+
   const getStatusMeta = (status) => {
     const meta = {
       pending: {
@@ -569,25 +583,25 @@ export default function StaffBorrowTimeline() {
                             </div>
                           )}
 
-                          <div className={`mt-3 ${isMobile ? "space-y-1 text-[10px]" : "space-y-2 text-xs"} text-on-surface-variant dark:text-gray-400`}>
+                          <div className="mt-2 space-y-1 text-[11px] leading-4 text-on-surface-variant dark:text-gray-400">
                             <div className="grid grid-cols-[auto_1fr] gap-x-2 items-center">
-                              <span className="font-medium">Requested:</span>
-                              <span className="font-medium text-on-surface dark:text-gray-200 text-right">
+                              <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-on-surface-variant dark:text-gray-400">Requested:</span>
+                              <span className="text-[11px] font-medium text-on-surface dark:text-gray-200 text-right">
                                 {formatDate(req.request_date || req.created_at)}
                               </span>
                             </div>
                             {req.approved_at && (
                               <div className="grid grid-cols-[auto_1fr] gap-x-2 items-center">
-                                <span className="font-medium">Borrowed:</span>
-                                <span className="font-medium text-on-surface dark:text-gray-200 text-right">
+                                <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-on-surface-variant dark:text-gray-400">Borrowed:</span>
+                                <span className="text-[11px] font-medium text-on-surface dark:text-gray-200 text-right">
                                   {formatDate(req.approved_at)}
                                 </span>
                               </div>
                             )}
                             {req.due_date && (
                               <div className="grid grid-cols-[auto_1fr] gap-x-2 items-center">
-                                <span className="font-medium">Due Date:</span>
-                                <span className="font-medium text-on-surface dark:text-gray-200 text-right">
+                                <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-on-surface-variant dark:text-gray-400">Due Date:</span>
+                                <span className="text-[11px] font-medium text-on-surface dark:text-gray-200 text-right">
                                   {dayjs(req.due_date).tz("Asia/Manila").format("MMM DD, YYYY")}
                                 </span>
                               </div>
@@ -601,9 +615,16 @@ export default function StaffBorrowTimeline() {
                           )}
 
                           <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                            <div className="text-[10px] font-medium text-on-surface-variant dark:text-gray-400">
-                              {daysFromToday === 0 ? "Due today" : daysFromToday > 0 ? `Due in ${daysFromToday}d` : `Overdue ${Math.abs(daysFromToday)}d`}
-                            </div>
+                            {req.status !== "declined" && req.status !== "returned" && (
+                              <div className="text-[10px] font-medium text-on-surface-variant dark:text-gray-400">
+                                {daysFromToday === 0 ? "Due today" : daysFromToday > 0 ? `Due in ${daysFromToday}d` : `Overdue ${Math.abs(daysFromToday)}d`}
+                              </div>
+                            )}
+                            {req.status === "returned" && (
+                              <div className="text-[10px] font-medium text-on-surface-variant dark:text-gray-400">
+                                {getLateReturnInfo(req)}
+                              </div>
+                            )}
                             <div className="flex flex-wrap items-center gap-2 justify-end">
                               {req.status === "pending" && (
                                 <>
