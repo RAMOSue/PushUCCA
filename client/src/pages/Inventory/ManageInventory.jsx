@@ -205,7 +205,7 @@ const getCroppedImageFile = async (imageSrc, { frameSize, zoom, rotation, flipHo
 };
 
 /* -------------------------------------------------------------- */
-export default function ManageInventory({ filterCategory, registerAddItemHandler }) {
+export default function ManageInventory({ filterCategory, registerAddItemHandler, manageFilterCategory, setManageFilterCategory, onAddItemRequest }) {
   const { selectedDivision, globalSearchQuery } = useSidebarStore();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -1099,6 +1099,26 @@ export default function ManageInventory({ filterCategory, registerAddItemHandler
         <div className="pb-6">
           <div className="grid gap-4 xl:grid-cols-[38%_62%]">
             <div className="rounded-3xl overflow-hidden border border-outline-variant/20 dark:border-gray-700 bg-surface-container-low dark:bg-[#1a1a1a] shadow-sm shadow-black/5 xl:max-h-[calc(100vh-220px)] xl:overflow-y-auto">
+              <div className="flex items-center justify-end gap-2 border-b border-outline-variant/20 dark:border-gray-700 bg-surface-container-low dark:bg-[#1a1a1a] px-3 py-3 sm:hidden">
+                <select
+                  value={manageFilterCategory || 'all'}
+                  onChange={(e) => setManageFilterCategory?.(e.target.value === 'all' ? null : e.target.value)}
+                  className="min-w-[110px] rounded-full border border-outline-variant/20 bg-surface-container-low dark:bg-[#222] px-3 py-1.5 text-[11px] text-on-surface dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/20"
+                >
+                  <option value="all">Filter</option>
+                  <option value="costume">Costumes</option>
+                  <option value="instrument">Instruments</option>
+                  <option value="accessories">Accessories</option>
+                </select>
+                <button
+                  type="button"
+                  onClick={() => onAddItemRequest?.()}
+                  className="inline-flex items-center gap-1 rounded-full bg-primary px-3 py-1.5 text-[11px] font-semibold text-white shadow-sm shadow-primary/10 hover:bg-primary/90 transition"
+                >
+                  <span className="text-xs leading-none">+</span>
+                  Add Item
+                </button>
+              </div>
               {filteredItems.length === 0 ? (
                 <div className="py-16 text-center">
                   <Package className="w-12 h-12 text-on-surface-variant/30 dark:text-gray-700 mx-auto mb-4" />

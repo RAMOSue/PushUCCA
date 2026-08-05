@@ -55,7 +55,7 @@ export default function InventoryTabs() {
             </div>
 
             {activeTab === 'manage' && (
-              <div className="flex items-center gap-3">
+              <div className="hidden sm:flex items-center gap-3">
                 <select
                   value={manageFilterCategory || 'all'}
                   onChange={(e) => setManageFilterCategory(e.target.value === 'all' ? null : e.target.value)}
@@ -87,7 +87,9 @@ export default function InventoryTabs() {
             {activeTab === 'manage' ? (
               <ManageInventory
                 filterCategory={manageFilterCategory}
+                setManageFilterCategory={setManageFilterCategory}
                 registerAddItemHandler={(handler) => { addItemHandlerRef.current = handler; }}
+                onAddItemRequest={() => addItemHandlerRef.current?.()}
               />
             ) : (
               <AvailableItems />
