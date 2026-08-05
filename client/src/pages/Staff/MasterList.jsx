@@ -48,6 +48,48 @@ export default function MasterList() {
   const [zoom, setZoom] = useState(1);
   const [imageBaseSize, setImageBaseSize] = useState({ width: 0, height: 0 });
   const [fitByHeight, setFitByHeight] = useState(false);
+  const [homepageAspect, setHomepageAspect] = useState(null);
+
+  // Measure the actual homepage slideshow aspect ratio by creating a temporary full-width element
+  const computeHomepageAspect = () => {
+    try {
+      const el = document.createElement('div');
+      el.className = 'relative w-full h-[320px] sm:h-[460px] md:h-[560px] lg:h-[660px]';
+      el.style.position = 'absolute';
+      el.style.left = '-9999px';
+      el.style.top = '-9999px';
+      document.body.appendChild(el);
+      const rect = el.getBoundingClientRect();
+      const aspect = rect.width && rect.height ? rect.width / rect.height : null;
+      document.body.removeChild(el);
+      return aspect;
+    } catch (err) {
+      return null;
+    }
+  };
+
+  useEffect(() => {
+    const updateAspect = () => {
+      const a = computeHomepageAspect();
+      if (a) setHomepageAspect(a);
+    };
+    updateAspect();
+    window.addEventListener('resize', updateAspect);
+    return () => window.removeEventListener('resize', updateAspect);
+  }, []);
+
+  // Apply homepage aspect to preview container so crop frame matches exactly
+  useEffect(() => {
+    const applyPreviewHeight = () => {
+      if (!homepageAspect || !previewRef.current) return;
+      const previewWidth = previewRef.current.getBoundingClientRect().width;
+      const desiredHeight = previewWidth / homepageAspect;
+      previewRef.current.style.height = `${Math.round(desiredHeight)}px`;
+    };
+    applyPreviewHeight();
+    window.addEventListener('resize', applyPreviewHeight);
+    return () => window.removeEventListener('resize', applyPreviewHeight);
+  }, [homepageAspect]);
   const [isDragging, setIsDragging] = useState(false);
   const [mirrored, setMirrored] = useState(false);
   const [naturalSize, setNaturalSize] = useState({ width: 0, height: 0 });
@@ -344,9 +386,11 @@ export default function MasterList() {
   const getPreviewBounds = () => {
     if (!previewRef.current || !imagePreview) return null;
     const container = previewRef.current.getBoundingClientRect();
-    if (!imageBaseSize.width || !imageBaseSize.height) return null;
-    const displayWidth = imageBaseSize.width * zoom;
-    const displayHeight = imageBaseSize.height * zoom;
+    const imgEl = previewRef.current.querySelector('img');
+    if (!imgEl) return null;
+    const imgRect = imgEl.getBoundingClientRect();
+    const displayWidth = imgRect.width;
+    const displayHeight = imgRect.height;
     const maxX = Math.max(0, (displayWidth - container.width) / 2);
     const maxY = Math.max(0, (displayHeight - container.height) / 2);
     return { maxX, maxY };
@@ -375,22 +419,35 @@ export default function MasterList() {
     setFitByHeight(imageAspect > containerAspect);
     setImageBaseSize(baseSize);
     setNaturalSize({ width: naturalWidth, height: naturalHeight });
+    // If we measured the homepage aspect, size the preview container to match that aspect
+    if (homepageAspect && previewRef.current) {
+      const previewWidth = previewRef.current.getBoundingClientRect().width;
+      const desiredHeight = previewWidth / homepageAspect;
+      previewRef.current.style.height = `${Math.round(desiredHeight)}px`;
+      // recompute base size after adjusting container height
+      const containerAfter = previewRef.current.getBoundingClientRect();
+      const containerAspectAfter = containerAfter.width / containerAfter.height;
+      const baseSizeAfter = imageAspect > containerAspectAfter
+        ? { width: containerAfter.height * imageAspect, height: containerAfter.height }
+        : { width: containerAfter.width, height: containerAfter.width / imageAspect };
+      setImageBaseSize(baseSizeAfter);
+    }
     setImageOffset((prev) => updateBoundsOffset(prev.x, prev.y));
   };
 
   // Create cropped blob matching the visible crop frame
   const getCroppedBlob = async () => {
-    if (!previewRef.current || !imagePreview || !naturalSize.width || !imageBaseSize.width) return null;
+    if (!previewRef.current || !imagePreview || !naturalSize.width) return null;
     const container = previewRef.current.getBoundingClientRect();
-    const displayWidth = imageBaseSize.width * zoom;
-    const displayHeight = imageBaseSize.height * zoom;
-    const imgLeft = container.width / 2 - displayWidth / 2 + imageOffset.x;
-    const imgTop = container.height / 2 - displayHeight / 2 + imageOffset.y;
+    const imgEl = previewRef.current.querySelector('img');
+    if (!imgEl) return null;
+    const imgRect = imgEl.getBoundingClientRect();
 
-    const srcX = (0 - imgLeft) * (naturalSize.width / displayWidth);
-    const srcY = (0 - imgTop) * (naturalSize.height / displayHeight);
-    const srcW = container.width * (naturalSize.width / displayWidth);
-    const srcH = container.height * (naturalSize.height / displayHeight);
+    // Map container coordinates to image natural pixels using rendered image rect
+    const srcX = (container.left - imgRect.left) * (naturalSize.width / imgRect.width);
+    const srcY = (container.top - imgRect.top) * (naturalSize.height / imgRect.height);
+    const srcW = container.width * (naturalSize.width / imgRect.width);
+    const srcH = container.height * (naturalSize.height / imgRect.height);
 
     const sx = Math.max(0, srcX);
     const sy = Math.max(0, srcY);
@@ -711,7 +768,7 @@ export default function MasterList() {
         {/* Upload Form Modal State */}
         {imageFile && (
           <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-            <div className="bg-white dark:bg-[#1a1a1a] rounded-2xl shadow-2xl dark:shadow-black/60 max-w-6xl w-full max-h-[90vh] overflow-y-auto p-6">
+            <div className="bg-white dark:bg-[#1a1a1a] rounded-2xl shadow-2xl dark:shadow-black/60 max-w-6xl w-full max-h-[90vh] overflow-hidden p-6">
               {/* Modal Header */}
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-bold text-slate-900 dark:text-white">Upload Image</h3>
@@ -777,7 +834,13 @@ export default function MasterList() {
                 )}
 
                 {/* Right: controls */}
-                <div className="w-full md:w-72 flex flex-col justify-between">
+                <div
+                  className="w-full md:w-72 flex flex-col justify-between"
+                  style={{
+                    maxHeight: previewRef.current ? `${previewRef.current.getBoundingClientRect().height}px` : 'auto',
+                    overflowY: 'auto',
+                  }}
+                >
                   <div>
                     <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">Slideshow Crop Preview</p>
                     <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Drag the image behind the fixed frame and use zoom controls to choose the visible area.</p>
