@@ -9,7 +9,7 @@ import { Package, ClipboardList, RefreshCw, Calendar, Users, Box, LogOut, PanelL
 export default function SideNavbar({ role = "staff" }) {
   const { user, setUser, loading } = useContext(UserContext);
   const { cart } = useContext(BorrowingContext);
-  const { sidebarOpen, setSidebarOpen, leftSidebarCollapsed, setLeftSidebarCollapsed, isMobile } = useContext(SidebarContext);
+  const { sidebarOpen, setSidebarOpen, leftSidebarCollapsed, setLeftSidebarCollapsed, rightSidebarOpen, setRightSidebarOpen, isMobile } = useContext(SidebarContext);
   const location = useLocation();
   const navigate = useNavigate();
   const [showCollapsedToggle, setShowCollapsedToggle] = useState(false);
@@ -109,7 +109,7 @@ export default function SideNavbar({ role = "staff" }) {
       <aside
         className={`left-sidebar sticky left-0 top-0 h-screen shrink-0 border-r border-outline-variant/20 bg-surface-container-low dark:border-[#2a2a2a] dark:bg-[#1f1f1f] shadow-lg dark:shadow-none z-30 transition-all duration-300 ease-in-out ${
           isMobile
-            ? "w-[220px] max-w-[78vw]"
+            ? sidebarOpen ? "w-[220px] max-w-[78vw]" : "w-0"
             : leftSidebarCollapsed ? "w-16" : "w-64"
         }`}
         style={{
@@ -162,7 +162,12 @@ export default function SideNavbar({ role = "staff" }) {
 
               <button
                 type="button"
-                onClick={() => setLeftSidebarCollapsed(true)}
+                onClick={() => {
+                  setLeftSidebarCollapsed(true);
+                  if (isMobile) {
+                    setRightSidebarOpen(false);
+                  }
+                }}
                 className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-slate-200 bg-white/80 text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 sm:h-8 sm:w-8"
                 title="Collapse sidebar"
                 aria-label="Collapse sidebar"
@@ -191,6 +196,7 @@ export default function SideNavbar({ role = "staff" }) {
                 onClick={() => {
                   if (isMobile) {
                     setSidebarOpen(false);
+                    setRightSidebarOpen(false);
                   }
                 }}
                 className={`flex items-center justify-between rounded-lg text-[10px] sm:text-[11px] md:text-sm lg:text-sm font-medium transition-all duration-200 gap-1.5 sm:gap-2 ${
@@ -222,7 +228,10 @@ export default function SideNavbar({ role = "staff" }) {
       {sidebarOpen && isMobile && (
         <div
           className="fixed inset-0 bg-black/50 z-40 top-16"
-          onClick={() => setSidebarOpen(false)}
+          onClick={() => {
+            setSidebarOpen(false);
+            setRightSidebarOpen(false);
+          }}
         />
       )}
     </>

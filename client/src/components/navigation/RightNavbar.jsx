@@ -8,7 +8,7 @@ import axios from "axios";
 import "react-calendar/dist/Calendar.css";
 
 export default function RightNavbar() {
-  const { rightSidebarOpen, setRightSidebarOpen, isMobile } = useContext(SidebarContext);
+  const { rightSidebarOpen, setRightSidebarOpen, setSidebarOpen, isMobile } = useContext(SidebarContext);
   const { user } = useContext(UserContext);
   const navigate = useNavigate();
   const location = useLocation();
@@ -377,7 +377,12 @@ export default function RightNavbar() {
           <div className="mt-auto flex justify-end p-2">
             <button
               type="button"
-              onClick={() => setRightSidebarOpen((prev) => !prev)}
+              onClick={() => {
+                setRightSidebarOpen((prev) => !prev);
+                if (isMobile) {
+                  setSidebarOpen(false);
+                }
+              }}
               className="group flex h-7 w-7 items-center justify-center rounded-md border border-slate-200 bg-white/90 text-slate-700 shadow-sm transition-all duration-200 ease-in-out hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 sm:h-8 sm:w-8"
               title={rightSidebarOpen ? "Collapse right sidebar" : "Expand right sidebar"}
               aria-label={rightSidebarOpen ? "Collapse right sidebar" : "Expand right sidebar"}
