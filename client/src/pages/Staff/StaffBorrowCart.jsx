@@ -6,7 +6,6 @@ import { BorrowingContext } from "../../../context/borrowingContext";
 import { UserContext } from "../../../context/userContext";
 import BorrowPhotoCaptureModal from "../../components/modals/BorrowPhotoCaptureModal";
 import PageLayout from "../../components/layout/PageLayout";
-import SideNavbar from "../../components/navigation/SideNavbar";
 import { Plus, Minus, Trash2, ArrowLeft, Calendar, ShoppingBag } from "lucide-react";
 import { getInventoryDivisionInfo } from "../../utils/inventoryDivisionStorage";
 
@@ -441,9 +440,6 @@ export default function StaffBorrowCart() {
 
   return (
     <div className="min-h-screen dark:bg-[#171717]">
-      {/* Side Navigation Bar */}
-      <SideNavbar role="staff" />
-
       {/* Main content with dynamic responsive margins */}
       <PageLayout>
       {/* Camera Capture Modal */}
