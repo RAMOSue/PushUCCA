@@ -1098,16 +1098,15 @@ export default function MasterList() {
     <PageLayout>
       <div className="min-h-screen bg-surface dark:bg-[#171717]">
         {/* Header */}
-        <div className="px-6 md:px-8 lg:px-12 pt-8 pb-3">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div className="px-3 sm:px-4 md:px-5 lg:px-4 pt-3 pb-2">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
-              <h1 className="text-3xl md:text-4xl font-bold text-on-surface dark:text-white mb-2">Master List</h1>
-              <p className="text-on-surface-variant dark:text-gray-400 text-sm">Centralized configuration hub for the organization</p>
+              <h1 className="text-2xl md:text-3xl font-bold text-on-surface dark:text-white">Master List</h1>
             </div>
             {activeTab !== "slideshow" && (
               <button
                 onClick={() => openModal()}
-                className="flex items-center gap-2 px-6 py-2.5 bg-primary dark:bg-blue-600 text-white rounded-lg font-semibold text-sm shadow-lg shadow-primary/20 dark:shadow-blue-600/20 hover:scale-[0.98] transition-all"
+                className="flex items-center justify-center gap-2 px-4 py-2 bg-primary dark:bg-blue-600 text-white rounded-lg font-semibold text-sm shadow-sm shadow-primary/20 dark:shadow-blue-600/20 hover:scale-[0.98] transition-all"
               >
                 <Plus className="w-4 h-4" />
                 New Entry
@@ -1117,31 +1116,39 @@ export default function MasterList() {
         </div>
 
         {/* Tabs */}
-        <div className="px-6 md:px-8 lg:px-12 flex flex-nowrap gap-1 border-b border-outline-variant/20 dark:border-gray-700 pb-2 mt-2 overflow-x-auto">
-          {Object.entries(tabs).map(([key, tab]) => (
-            <button
-              key={key}
-              onClick={() => {
-                setActiveTab(key);
-                setCurrentPage(1);
-                setSearchTerm("");
-              }}
-              className={`flex items-center gap-1 px-2.5 py-1 rounded-lg font-medium text-xs whitespace-nowrap transition-all ${
-                activeTab === key
-                  ? "text-primary dark:text-blue-400"
-                  : "text-slate-700 dark:text-gray-300 hover:text-primary dark:hover:text-blue-400 bg-transparent"
-              }`}
-            >
-              {getTabIcon(key)}
-              {tab.title.split(" ")[0]}
-            </button>
-          ))}
+        <div className="border-b border-outline-variant/20 dark:border-gray-700 mt-1">
+          <div className="flex w-full overflow-x-auto">
+            {Object.entries(tabs).map(([key, tab]) => {
+              const isActive = activeTab === key;
+              return (
+                <button
+                  key={key}
+                  onClick={() => {
+                    setActiveTab(key);
+                    setCurrentPage(1);
+                    setSearchTerm("");
+                  }}
+                  className={`flex-1 min-w-[110px] flex items-center justify-center gap-1 px-2 py-2.5 text-xs sm:text-sm font-medium whitespace-nowrap transition-all ${
+                    isActive
+                      ? "text-primary dark:text-blue-400"
+                      : "text-slate-700 dark:text-gray-300 hover:text-primary dark:hover:text-blue-400"
+                  }`}
+                >
+                  <span className="flex items-center gap-1">
+                    {getTabIcon(key)}
+                    {tab.title.split(" ")[0]}
+                  </span>
+                  {isActive && (
+                    <span className="absolute bottom-0 left-0 h-0.5 w-full bg-primary dark:bg-blue-400" />
+                  )}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
-       
-
         {/* Content - Table or Image Gallery */}
-        <div className="px-6 md:px-8 lg:px-12 mt-3">
+        <div className="px-3 sm:px-4 md:px-5 lg:px-4 mt-3">
           {activeTab === "slideshow" ? (
             <>
               {/* Image Upload Form */}
@@ -1164,7 +1171,7 @@ export default function MasterList() {
 
         {/* Pagination */}
         {totalPages > 1 && (
-          <div className="px-6 md:px-8 lg:px-12 mt-3">
+          <div className="px-3 sm:px-4 md:px-5 lg:px-4 mt-3">
             {activeTab === "positions" ? (
               <>
                 <div className="flex items-center gap-3 mb-4">
