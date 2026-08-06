@@ -105,7 +105,10 @@ export default function GetStarted() {
 	const [pendingSlide, setPendingSlide] = useState(0);
 	const [isTransitioning, setIsTransitioning] = useState(false);
 	const [slideshowLoading, setSlideshowLoading] = useState(true);
-	const [slideshowTransitionDuration] = useState(7.2);
+	const [slideshowTransitionDuration] = useState(10.8);
+	const [slideshowAutoAdvanceDelay] = useState(12000);
+	const swipeTimeoutRef = useRef(null);
+	const autoplayTimeoutRef = useRef(null);
 
 	const [searchTerm, setSearchTerm] = useState("");
 	const [selectedFilters, setSelectedFilters] = useState({
@@ -294,28 +297,54 @@ export default function GetStarted() {
 
 	// ✅ SLIDESHOW: Auto-transition effect with a cinematic gradient wipe
 	useEffect(() => {
-		if (slideImages.length <= 1) return;
+		return () => {
+			if (autoplayTimeoutRef.current) {
+				window.clearTimeout(autoplayTimeoutRef.current);
+			}
+			if (swipeTimeoutRef.current) {
+				window.clearTimeout(swipeTimeoutRef.current);
+			}
+		};
+	}, []);
 
-		const interval = window.setInterval(() => {
-			if (isTransitioning) return;
+	useEffect(() => {
+		if (slideImages.length <= 1) return;
+		if (isTransitioning) return;
+
+		autoplayTimeoutRef.current = window.setTimeout(() => {
 			const nextSlide = (currentSlide + 1) % slideImages.length;
 			setPendingSlide(nextSlide);
 			setIsTransitioning(true);
-		}, 10000);
+		}, slideshowAutoAdvanceDelay);
 
-		return () => window.clearInterval(interval);
-	}, [slideImages.length, currentSlide, isTransitioning]);
+		return () => {
+			if (autoplayTimeoutRef.current) {
+				window.clearTimeout(autoplayTimeoutRef.current);
+				autoplayTimeoutRef.current = null;
+			}
+		};
+	}, [slideImages.length, currentSlide, isTransitioning, slideshowAutoAdvanceDelay]);
 
 	useEffect(() => {
 		if (!isTransitioning) return;
 
-		const timeoutId = window.setTimeout(() => {
+		if (swipeTimeoutRef.current) {
+			window.clearTimeout(swipeTimeoutRef.current);
+		}
+
+		swipeTimeoutRef.current = window.setTimeout(() => {
 			setCurrentSlide(pendingSlide);
 			setIsTransitioning(false);
+			swipeTimeoutRef.current = null;
 		}, slideshowTransitionDuration * 1000);
 
-		return () => window.clearTimeout(timeoutId);
-	}, [isTransitioning, pendingSlide]);
+		return () => {
+			if (swipeTimeoutRef.current) {
+				window.clearTimeout(swipeTimeoutRef.current);
+				swipeTimeoutRef.current = null;
+			}
+		};
+	}, [isTransitioning, pendingSlide, slideshowTransitionDuration]);
 
 	const scrollToSection = (sectionId) => {
 		const target = document.getElementById(sectionId);
@@ -702,41 +731,44 @@ export default function GetStarted() {
 			{slideImages.length > 0 ? (
 				<Section className="relative w-full h-[320px] sm:h-[460px] md:h-[560px] lg:h-[660px] overflow-hidden bg-[#001800]">
 						<div className="absolute inset-0">
-							<img
-								src={currentHeroImage?.imageUrl}
-								alt={currentHeroImage?.title || "Heritage slideshow"}
-								className="absolute inset-0 h-full w-full object-cover"
-							/>
-							{pendingHeroImage && (
-								<>
-									<img
-										src={pendingHeroImage.imageUrl}
-										alt={pendingHeroImage.title || "Heritage slideshow"}
-										className="absolute inset-0 h-full w-full object-cover"
-									/>
-									<motion.img
-										key={`${currentSlide}-${pendingSlide}`}
-										src={currentHeroImage?.imageUrl}
-										alt={currentHeroImage?.title || "Heritage slideshow"}
-										className="absolute inset-0 h-full w-full object-cover"
-										initial={false}
-										animate={{
-											WebkitMaskPosition: ["115% 0%", "-115% 0%"],
-											maskPosition: ["115% 0%", "-115% 0%"],
-										}}
-										transition={{ duration: slideshowTransitionDuration, ease: [0.22, 1, 0.36, 1] }}
-										style={{
-											WebkitMaskImage: "linear-gradient(90deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.04) 10%, rgba(0,0,0,0.16) 24%, rgba(0,0,0,0.42) 40%, rgba(0,0,0,0.74) 56%, rgba(0,0,0,0.42) 72%, rgba(0,0,0,0.16) 88%, rgba(0,0,0,0) 100%)",
-											maskImage: "linear-gradient(90deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.04) 10%, rgba(0,0,0,0.16) 24%, rgba(0,0,0,0.42) 40%, rgba(0,0,0,0.74) 56%, rgba(0,0,0,0.42) 72%, rgba(0,0,0,0.16) 88%, rgba(0,0,0,0) 100%)",
-											WebkitMaskSize: "320% 100%",
-											maskSize: "320% 100%",
-											WebkitMaskRepeat: "no-repeat",
-											maskRepeat: "no-repeat",
-										}}
-									/>
-								</>
-							)}
-						</div>
+						{pendingHeroImage ? (
+							<>
+								<img
+									src={pendingHeroImage.imageUrl}
+									alt={pendingHeroImage.title || "Heritage slideshow"}
+									className="absolute inset-0 h-full w-full object-cover"
+								/>
+								<motion.img
+									key={`${currentSlide}-${pendingSlide}`}
+									src={currentHeroImage?.imageUrl}
+									alt={currentHeroImage?.title || "Heritage slideshow"}
+									className="absolute inset-0 h-full w-full object-cover"
+									initial={false}
+									animate={{
+										WebkitMaskPosition: ["115% 0%", "-115% 0%"],
+										maskPosition: ["115% 0%", "-115% 0%"],
+									}}
+									transition={{ duration: slideshowTransitionDuration, ease: [0.22, 1, 0.36, 1] }}
+									style={{
+										WebkitMaskImage: "linear-gradient(90deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.04) 10%, rgba(0,0,0,0.16) 24%, rgba(0,0,0,0.42) 40%, rgba(0,0,0,0.74) 56%, rgba(0,0,0,0.42) 72%, rgba(0,0,0,0.16) 88%, rgba(0,0,0,0) 100%)",
+										maskImage: "linear-gradient(90deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.04) 10%, rgba(0,0,0,0.16) 24%, rgba(0,0,0,0.42) 40%, rgba(0,0,0,0.74) 56%, rgba(0,0,0,0.42) 72%, rgba(0,0,0,0.16) 88%, rgba(0,0,0,0) 100%)",
+										WebkitMaskSize: "320% 100%",
+										maskSize: "320% 100%",
+										WebkitMaskRepeat: "no-repeat",
+										maskRepeat: "no-repeat",
+									}}
+								/>
+							</>
+						) : (
+							currentHeroImage && (
+								<img
+									src={currentHeroImage.imageUrl}
+									alt={currentHeroImage.title || "Heritage slideshow"}
+									className="absolute inset-0 h-full w-full object-cover"
+								/>
+							)
+						)}
+					</div>
 
 					<motion.div
 						className="absolute inset-0 flex flex-col justify-center items-center sm:items-start text-center sm:text-left px-4 sm:px-8 md:px-14 lg:px-20 z-20"
