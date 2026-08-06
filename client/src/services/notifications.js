@@ -205,11 +205,22 @@ class NotificationService {
       typeof timestamp === "string" ? timestamp : new Date(timestamp).toISOString();
     const fallbackId = `${raw.title || raw.type || "notification"}-${normalizedTimestamp}`;
 
+    const sanitizeText = (value) => {
+      if (typeof value !== "string") return "";
+      const cleaned = value.trim();
+      if (!cleaned) return "";
+      if (/^notification$/i.test(cleaned)) return "";
+      return cleaned;
+    };
+
+    const title = sanitizeText(raw.title || raw.data?.title);
+    const message = sanitizeText(raw.message || raw.body || raw.data?.message || raw.data?.body);
+
     return {
       ...raw,
       id: raw.id ?? raw.notificationId ?? raw.data?.notificationId ?? fallbackId,
-      title: raw.title || raw.data?.title || "Notification",
-      message: raw.message || raw.body || "",
+      title,
+      message,
       data: raw.data || {},
       is_read: Boolean(raw.is_read),
       timestamp: normalizedTimestamp,

@@ -200,6 +200,31 @@ const NotificationBadge = ({ isMobile = false }) => {
     }, {});
   }, [filteredNotifications]);
 
+  const getNotificationDisplayText = (notification) => {
+    const message = notification?.message || notification?.body || notification?.data?.message || notification?.data?.body || '';
+    const title = notification?.title || notification?.data?.title || '';
+
+    if (typeof message === 'string' && message.trim()) {
+      return message.trim();
+    }
+
+    if (typeof title === 'string' && title.trim()) {
+      return title.trim();
+    }
+
+    return '';
+  };
+
+  const formatNotificationTime = (value) => {
+    const parsed = new Date(value || Date.now());
+    if (Number.isNaN(parsed.getTime())) return '';
+
+    return parsed.toLocaleTimeString([], {
+      hour: 'numeric',
+      minute: '2-digit',
+    });
+  };
+
   return (
     <div className="relative">
       {/* 🔔 Bell */}
@@ -230,33 +255,35 @@ const NotificationBadge = ({ isMobile = false }) => {
           {/* HEADER */}
           <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-gray-100 dark:border-gray-700 bg-white dark:bg-[#1f1f1f]">
             <h3 className="font-semibold text-gray-900 dark:text-white">Notifications</h3>
+          </div>
+
+          {/* FILTER TABS */}
+          <div className="flex items-center justify-between gap-3 px-4 py-2 text-sm border-b border-gray-100 dark:border-gray-700 bg-white dark:bg-[#1f1f1f]">
+            <div className="flex items-center gap-4">
+              {['all', 'unread'].map((type) => (
+                <button
+                  key={type}
+                  onClick={() => setFilterType(type)}
+                  className={`pb-1 transition-colors ${
+                    filterType === type
+                      ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400 font-medium'
+                      : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                  }`}
+                >
+                  {type === 'all' ? 'All' : type === 'unread' ? 'Unread' : 'Read'}
+                </button>
+              ))}
+            </div>
 
             <button
               onClick={() => {
                 setShowDropdown(false);
                 navigate('/notifications');
               }}
-              className="inline-flex items-center rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700 transition hover:bg-blue-100 dark:border-blue-900/60 dark:bg-blue-950/40 dark:text-blue-300"
+              className="text-xs font-medium text-blue-600 transition hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
             >
-              See all
+              See All
             </button>
-          </div>
-
-          {/* FILTER TABS */}
-          <div className="flex gap-4 px-4 py-2 text-sm border-b border-gray-100 dark:border-gray-700 bg-white dark:bg-[#1f1f1f]">
-            {['all', 'unread'].map((type) => (
-              <button
-                key={type}
-                onClick={() => setFilterType(type)}
-                className={`pb-1 transition-colors ${
-                  filterType === type
-                    ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400 font-medium'
-                    : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
-                }`}
-              >
-                {type === 'all' ? 'All' : type === 'unread' ? 'Unread' : 'Read'}
-              </button>
-            ))}
           </div>
 
           {/* LIST */}
@@ -278,14 +305,14 @@ const NotificationBadge = ({ isMobile = false }) => {
                       <button
                         key={notification.id}
                         onClick={() => handleNotificationClick(notification)}
-                        className={`w-full text-left px-4 py-3 hover:bg-gray-100 dark:hover:bg-gray-900 transition-colors border-b border-gray-100 dark:border-gray-700 ${
+                        className={`w-full text-left px-3 py-2.5 hover:bg-gray-100 dark:hover:bg-gray-900 transition-colors border-b border-gray-100 dark:border-gray-700 ${
                           !notification.is_read ? 'bg-blue-50 dark:bg-blue-900/20' : ''
                         }`}
                       >
-                        <div className="flex gap-3">
+                        <div className="flex gap-2.5">
 
                           {/* Avatar */}
-                          <div className="w-9 h-9 rounded-full bg-gray-300 dark:bg-gray-600 flex-shrink-0 overflow-hidden flex items-center justify-center">
+                          <div className="w-8 h-8 rounded-full bg-gray-300 dark:bg-gray-600 flex-shrink-0 overflow-hidden flex items-center justify-center">
                             {profilePics[notification.data?.borrowerId] ? (
                               <img
                                 src={profilePics[notification.data?.borrowerId]}
@@ -293,25 +320,22 @@ const NotificationBadge = ({ isMobile = false }) => {
                                 className="w-full h-full object-cover"
                               />
                             ) : (
-                              <User className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                              <User className="w-3.5 h-3.5 text-gray-500 dark:text-gray-400" />
                             )}
                           </div>
 
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm text-gray-800 dark:text-gray-200 leading-snug">
-                              <span className="font-semibold">
-                                {notification.title}
-                              </span>{" "}
-                              {notification.message}
+                            <p className="text-sm leading-snug text-gray-800 dark:text-gray-200">
+                              {getNotificationDisplayText(notification)}
                             </p>
 
-                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                              {new Date(notification.timestamp).toLocaleTimeString()}
+                            <p className="mt-1 text-[10px] text-gray-500 dark:text-gray-400">
+                              {formatNotificationTime(notification.timestamp)}
                             </p>
                           </div>
 
                           {!notification.is_read && (
-                            <div className="w-2 h-2 bg-blue-500 dark:bg-blue-400 rounded-full mt-2 flex-shrink-0"></div>
+                            <div className="mt-1.5 h-2 w-2 flex-shrink-0 rounded-full bg-blue-500 dark:bg-blue-400"></div>
                           )}
                         </div>
                       </button>
