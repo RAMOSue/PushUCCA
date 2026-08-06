@@ -720,15 +720,15 @@ export default function GetStarted() {
 										className="absolute inset-0 h-full w-full object-cover"
 										initial={false}
 										animate={{
-											WebkitMaskPosition: ["115% 0%", "-115% 0%"],
-											maskPosition: ["115% 0%", "-115% 0%"],
+											WebkitMaskPosition: ["-115% 0%", "115% 0%"],
+											maskPosition: ["-115% 0%", "115% 0%"],
 										}}
-										transition={{ duration: 4.8, ease: [0.22, 1, 0.36, 1] }}
+										transition={{ duration: 6.4, ease: [0.22, 1, 0.36, 1] }}
 										style={{
-											WebkitMaskImage: "linear-gradient(90deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.04) 10%, rgba(0,0,0,0.16) 24%, rgba(0,0,0,0.42) 40%, rgba(0,0,0,0.74) 56%, rgba(0,0,0,0.42) 72%, rgba(0,0,0,0.16) 86%, rgba(0,0,0,0) 100%)",
-											maskImage: "linear-gradient(90deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.04) 10%, rgba(0,0,0,0.16) 24%, rgba(0,0,0,0.42) 40%, rgba(0,0,0,0.74) 56%, rgba(0,0,0,0.42) 72%, rgba(0,0,0,0.16) 86%, rgba(0,0,0,0) 100%)",
-											WebkitMaskSize: "260% 100%",
-											maskSize: "260% 100%",
+											WebkitMaskImage: "linear-gradient(90deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.05) 12%, rgba(0,0,0,0.18) 24%, rgba(0,0,0,0.42) 40%, rgba(0,0,0,0.7) 56%, rgba(0,0,0,0.42) 72%, rgba(0,0,0,0.18) 88%, rgba(0,0,0,0) 100%)",
+											maskImage: "linear-gradient(90deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.05) 12%, rgba(0,0,0,0.18) 24%, rgba(0,0,0,0.42) 40%, rgba(0,0,0,0.7) 56%, rgba(0,0,0,0.42) 72%, rgba(0,0,0,0.18) 88%, rgba(0,0,0,0) 100%)",
+											WebkitMaskSize: "300% 100%",
+											maskSize: "300% 100%",
 											WebkitMaskRepeat: "no-repeat",
 											maskRepeat: "no-repeat",
 										}}
