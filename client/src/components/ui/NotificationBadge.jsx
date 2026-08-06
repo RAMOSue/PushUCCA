@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { User, Bell } from 'lucide-react';
@@ -11,11 +11,18 @@ const NotificationBadge = ({ isMobile = false }) => {
   const [showDropdown, setShowDropdown] = useState(false);
   const [filterType, setFilterType] = useState("all");
   const [profilePics, setProfilePics] = useState({});
+  const refreshTimerRef = useRef(null);
+  const profilePicsRef = useRef({});
+
+  useEffect(() => {
+    profilePicsRef.current = profilePics;
+  }, [profilePics]);
+
   // Fetch profile pictures for users
   const fetchProfilePic = async (userId) => {
     // Return cached pic if available
-    if (profilePics[userId]) {
-      return profilePics[userId];
+    if (profilePicsRef.current[userId] !== undefined) {
+      return profilePicsRef.current[userId];
     }
 
     try {
@@ -49,6 +56,35 @@ const NotificationBadge = ({ isMobile = false }) => {
     return () => {};
   }, [isMobile]);
 
+  const refreshNotifications = async (options = {}) => {
+    try {
+      const [list, count] = await Promise.all([
+        notificationService.getNotifications(),
+        notificationService.getUnreadCount(),
+      ]);
+
+      const normalized = notificationService.normalizeNotifications(list || []);
+      const unreadCount = normalized.filter((item) => !item.is_read).length;
+      const nextCount = Number(count) || unreadCount;
+
+      setNotificationList(normalized);
+      setNotificationCount(nextCount);
+
+      // Fetch profile pictures for all users in notifications
+      normalized.forEach((item) => {
+        if (item.data?.borrowerId) {
+          fetchProfilePic(item.data.borrowerId);
+        }
+      });
+
+      if (options.showToast && normalized[0] && !normalized[0].is_read) {
+        console.log('🔔 Refreshed notifications with latest item:', normalized[0]);
+      }
+    } catch (error) {
+      console.error('Notification refresh error:', error);
+    }
+  };
+
   // Initialize
   useEffect(() => {
     const initNotifications = async () => {
@@ -59,29 +95,7 @@ const NotificationBadge = ({ isMobile = false }) => {
           await notificationService.requestPermission();
         }
 
-        const [list, count] = await Promise.all([
-          notificationService.getNotifications(),
-          notificationService.getUnreadCount()
-        ]);
-
-        const normalized = (list || []).map((n) => ({
-          ...n,
-          timestamp:
-            n.created_at ||
-            n.data?.createdAt ||
-            n.data?.timestamp ||
-            new Date().toISOString()
-        }));
-
-        setNotificationList(normalized);
-        setNotificationCount(Number(count) || 0);
-
-        // Fetch profile pictures for all users in notifications
-        normalized.forEach((n) => {
-          if (n.data?.borrowerId) {
-            fetchProfilePic(n.data.borrowerId);
-          }
-        });
+        await refreshNotifications();
       } catch (error) {
         console.error('Notification init error:', error);
       }
@@ -93,8 +107,8 @@ const NotificationBadge = ({ isMobile = false }) => {
   // Click notification
   const handleNotificationClick = (notification) => {
     setNotificationList(prev =>
-      prev.map(n =>
-        n.id === notification.id ? { ...n, is_read: true } : n
+      prev.map(item =>
+        item.id === notification.id ? { ...item, is_read: true } : item
       )
     );
 
@@ -118,61 +132,73 @@ const NotificationBadge = ({ isMobile = false }) => {
       const incoming = event.data?.notification || event.data;
       if (!incoming) return;
 
-      const ts =
-        incoming.created_at ||
-        incoming.data?.createdAt ||
-        incoming.data?.timestamp ||
-        new Date().toISOString();
+      const newNotif = notificationService.normalizeNotification(incoming);
+      setNotificationList(prev => {
+        const merged = [newNotif, ...prev];
+        const unique = [];
+        const seen = new Set();
 
-      const newNotif = {
-        id: incoming.id || Date.now(),
-        title: incoming.title || 'Notification',
-        message: incoming.message || '',
-        data: incoming.data || {},
-        is_read: incoming.is_read || false,
-        timestamp: typeof ts === 'string' ? ts : new Date(ts).toISOString()
-      };
+        merged.forEach((item) => {
+          const key = item.id ? `id:${item.id}` : `sig:${item.title}|${item.message}|${item.timestamp}`;
+          if (seen.has(key)) return;
+          seen.add(key);
+          unique.push(item);
+        });
 
-      setNotificationList(prev => [newNotif, ...prev].slice(0, 50));
+        return unique.slice(0, 50);
+      });
       if (!newNotif.is_read) setNotificationCount(prev => prev + 1);
+
+      if (refreshTimerRef.current) {
+        clearTimeout(refreshTimerRef.current);
+      }
+      refreshTimerRef.current = setTimeout(() => {
+        refreshNotifications();
+      }, 600);
     };
 
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.addEventListener('message', handleNotification);
-    }
+    notificationService.setupMessageListener(handleNotification);
 
     const onUpdated = async () => {
-      const [list, count] = await Promise.all([
-        notificationService.getNotifications(),
-        notificationService.getUnreadCount()
-      ]);
-      setNotificationList(list || []);
-      setNotificationCount(Number(count) || 0);
-
-      // Fetch profile pictures for any new users
-      (list || []).forEach((n) => {
-        if (n.data?.borrowerId && !profilePics[n.data.borrowerId]) {
-          fetchProfilePic(n.data.borrowerId);
-        }
-      });
+      await refreshNotifications();
     };
 
     window.addEventListener('notifications:updated', onUpdated);
 
     return () => {
-      navigator.serviceWorker?.removeEventListener('message', handleNotification);
+      if (refreshTimerRef.current) {
+        clearTimeout(refreshTimerRef.current);
+      }
       window.removeEventListener('notifications:updated', onUpdated);
+      notificationService.removeMessageListener();
     };
   }, []);
 
-  // Filtered + limited (Facebook style: only few items)
-  const filteredNotifications = notificationList
-    .filter(n => {
-      if (filterType === 'unread') return !n.is_read;
-      if (filterType === 'read') return n.is_read;
-      return true;
-    })
-    .slice(0, 6);
+  const filteredNotifications = useMemo(() => {
+    return notificationList
+      .filter((item) => {
+        if (filterType === 'unread') return !item.is_read;
+        if (filterType === 'read') return item.is_read;
+        return true;
+      })
+      .slice(0, 6);
+  }, [filterType, notificationList]);
+
+  const groupedNotifications = useMemo(() => {
+    const today = new Date();
+    const todayLabel = today.toDateString();
+
+    return filteredNotifications.reduce((groups, item) => {
+      const rawDate = item.timestamp || item.created_at || new Date().toISOString();
+      const parsed = new Date(rawDate);
+      const section = parsed.toDateString() === todayLabel ? 'Today' : 'Earlier';
+      if (!groups[section]) {
+        groups[section] = [];
+      }
+      groups[section].push(item);
+      return groups;
+    }, {});
+  }, [filteredNotifications]);
 
   return (
     <div className="relative">
@@ -202,7 +228,7 @@ const NotificationBadge = ({ isMobile = false }) => {
         <div className="absolute right-0 mt-2 w-80 bg-white dark:bg-[#1f1f1f] rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 z-50 overflow-hidden">
 
           {/* HEADER */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 dark:border-gray-700 bg-white dark:bg-[#1f1f1f]">
+          <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-gray-100 dark:border-gray-700 bg-white dark:bg-[#1f1f1f]">
             <h3 className="font-semibold text-gray-900 dark:text-white">Notifications</h3>
 
             <button
@@ -210,9 +236,9 @@ const NotificationBadge = ({ isMobile = false }) => {
                 setShowDropdown(false);
                 navigate('/notifications');
               }}
-              className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 hover:underline transition-colors"
+              className="inline-flex items-center rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700 transition hover:bg-blue-100 dark:border-blue-900/60 dark:bg-blue-950/40 dark:text-blue-300"
             >
-              See Alls
+              See all
             </button>
           </div>
 
@@ -234,7 +260,7 @@ const NotificationBadge = ({ isMobile = false }) => {
           </div>
 
           {/* LIST */}
-          <div className="max-h-[400px] overflow-y-auto bg-white dark:bg-[#1f1f1f]">
+          <div className="max-h-[70vh] overflow-y-auto bg-white dark:bg-[#1f1f1f]">
 
             {filteredNotifications.length === 0 ? (
               <div className="px-4 py-4 text-sm text-gray-500 dark:text-gray-400">
@@ -242,52 +268,55 @@ const NotificationBadge = ({ isMobile = false }) => {
               </div>
             ) : (
               <>
-                {/* SECTION */}
-                <div className="px-4 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase bg-gray-50 dark:bg-[#272727]">
-                  Earlier
-                </div>
-
-                {filteredNotifications.map(notification => (
-                  <button
-                    key={notification.id}
-                    onClick={() => handleNotificationClick(notification)}
-                    className={`w-full text-left px-4 py-3 hover:bg-gray-100 dark:hover:bg-gray-900 transition-colors border-b border-gray-100 dark:border-gray-700 ${
-                      !notification.is_read ? 'bg-blue-50 dark:bg-blue-900/20' : ''
-                    }`}
-                  >
-                    <div className="flex gap-3">
-
-                      {/* Avatar */}
-                      <div className="w-9 h-9 rounded-full bg-gray-300 dark:bg-gray-600 flex-shrink-0 overflow-hidden flex items-center justify-center">
-                        {profilePics[notification.data?.borrowerId] ? (
-                          <img
-                            src={profilePics[notification.data?.borrowerId]}
-                            alt="User"
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <User className="w-4 h-4 text-gray-500 dark:text-gray-400" />
-                        )}
-                      </div>
-
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm text-gray-800 dark:text-gray-200 leading-snug">
-                          <span className="font-semibold">
-                            {notification.title}
-                          </span>{" "}
-                          {notification.message}
-                        </p>
-
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                          {new Date(notification.timestamp).toLocaleTimeString()}
-                        </p>
-                      </div>
-
-                      {!notification.is_read && (
-                        <div className="w-2 h-2 bg-blue-500 dark:bg-blue-400 rounded-full mt-2 flex-shrink-0"></div>
-                      )}
+                {(['Today', 'Earlier']).filter((section) => groupedNotifications[section]?.length).map((section) => (
+                  <div key={section}>
+                    <div className="px-4 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase bg-gray-50 dark:bg-[#272727]">
+                      {section}
                     </div>
-                  </button>
+
+                    {groupedNotifications[section].map((notification) => (
+                      <button
+                        key={notification.id}
+                        onClick={() => handleNotificationClick(notification)}
+                        className={`w-full text-left px-4 py-3 hover:bg-gray-100 dark:hover:bg-gray-900 transition-colors border-b border-gray-100 dark:border-gray-700 ${
+                          !notification.is_read ? 'bg-blue-50 dark:bg-blue-900/20' : ''
+                        }`}
+                      >
+                        <div className="flex gap-3">
+
+                          {/* Avatar */}
+                          <div className="w-9 h-9 rounded-full bg-gray-300 dark:bg-gray-600 flex-shrink-0 overflow-hidden flex items-center justify-center">
+                            {profilePics[notification.data?.borrowerId] ? (
+                              <img
+                                src={profilePics[notification.data?.borrowerId]}
+                                alt="User"
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <User className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                            )}
+                          </div>
+
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm text-gray-800 dark:text-gray-200 leading-snug">
+                              <span className="font-semibold">
+                                {notification.title}
+                              </span>{" "}
+                              {notification.message}
+                            </p>
+
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                              {new Date(notification.timestamp).toLocaleTimeString()}
+                            </p>
+                          </div>
+
+                          {!notification.is_read && (
+                            <div className="w-2 h-2 bg-blue-500 dark:bg-blue-400 rounded-full mt-2 flex-shrink-0"></div>
+                          )}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
                 ))}
               </>
             )}

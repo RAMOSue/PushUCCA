@@ -191,13 +191,56 @@ class NotificationService {
     }
   }
 
+  normalizeNotification(notification) {
+    const raw = notification || {};
+    const timestamp =
+      raw.timestamp ||
+      raw.created_at ||
+      raw.createdAt ||
+      raw.data?.createdAt ||
+      raw.data?.timestamp ||
+      new Date().toISOString();
+
+    const normalizedTimestamp =
+      typeof timestamp === "string" ? timestamp : new Date(timestamp).toISOString();
+    const fallbackId = `${raw.title || raw.type || "notification"}-${normalizedTimestamp}`;
+
+    return {
+      ...raw,
+      id: raw.id ?? raw.notificationId ?? raw.data?.notificationId ?? fallbackId,
+      title: raw.title || raw.data?.title || "Notification",
+      message: raw.message || raw.body || "",
+      data: raw.data || {},
+      is_read: Boolean(raw.is_read),
+      timestamp: normalizedTimestamp,
+    };
+  }
+
+  normalizeNotifications(notifications) {
+    const list = Array.isArray(notifications) ? notifications : [];
+    const deduped = [];
+    const seen = new Set();
+
+    list
+      .map((item) => this.normalizeNotification(item))
+      .filter(Boolean)
+      .forEach((item) => {
+        const key = item.id ? `id:${item.id}` : `sig:${item.title}|${item.message}|${item.timestamp}`;
+        if (seen.has(key)) return;
+        seen.add(key);
+        deduped.push(item);
+      });
+
+    return deduped.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+  }
+
   // Retrieve all notifications
   async getNotifications() {
     try {
       const response = await axios.get("/api/notifications", {
         withCredentials: true // ✅ CRITICAL: Ensure cookies are sent
       });
-      return response.data || [];
+      return this.normalizeNotifications(response.data || []);
     } catch (error) {
       // ✅ FIX: Gracefully handle 401 during OAuth initialization
       if (error.response?.status === 401) {
@@ -215,7 +258,10 @@ class NotificationService {
       const response = await axios.get("/api/notifications/unread-count", {
         withCredentials: true // ✅ CRITICAL: Ensure cookies are sent
       });
-      return response.data?.count || 0;
+      const payload = response.data || {};
+      const count = Number(payload.count ?? payload.unreadCount ?? 0);
+      const list = this.normalizeNotifications(Array.isArray(payload.notifications) ? payload.notifications : (Array.isArray(payload) ? payload : []));
+      return count > 0 ? count : list.filter((item) => !item.is_read).length;
     } catch (error) {
       // ✅ FIX: Gracefully handle 401 during OAuth initialization
       if (error.response?.status === 401) {
