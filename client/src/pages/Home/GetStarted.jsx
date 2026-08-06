@@ -106,7 +106,7 @@ export default function GetStarted() {
 	const [isTransitioning, setIsTransitioning] = useState(false);
 	const [slideshowLoading, setSlideshowLoading] = useState(true);
 	const [slideshowTransitionDuration] = useState(10.8);
-	const [slideshowAutoAdvanceDelay] = useState(12000);
+	const [slideshowAutoAdvanceDelay] = useState(10000);
 	const swipeTimeoutRef = useRef(null);
 	const autoplayTimeoutRef = useRef(null);
 
@@ -731,43 +731,39 @@ export default function GetStarted() {
 			{slideImages.length > 0 ? (
 				<Section className="relative w-full h-[320px] sm:h-[460px] md:h-[560px] lg:h-[660px] overflow-hidden bg-[#001800]">
 						<div className="absolute inset-0">
-						{pendingHeroImage ? (
-							<>
-								<img
-									src={pendingHeroImage.imageUrl}
-									alt={pendingHeroImage.title || "Heritage slideshow"}
-									className="absolute inset-0 h-full w-full object-cover"
-								/>
-								<motion.img
-									key={`${currentSlide}-${pendingSlide}`}
-									src={currentHeroImage?.imageUrl}
-									alt={currentHeroImage?.title || "Heritage slideshow"}
-									className="absolute inset-0 h-full w-full object-cover"
-									initial={false}
-									animate={{
-										WebkitMaskPosition: ["115% 0%", "-115% 0%"],
-										maskPosition: ["115% 0%", "-115% 0%"],
-									}}
-									transition={{ duration: slideshowTransitionDuration, ease: [0.22, 1, 0.36, 1] }}
-									style={{
-										WebkitMaskImage: "linear-gradient(90deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.04) 10%, rgba(0,0,0,0.16) 24%, rgba(0,0,0,0.42) 40%, rgba(0,0,0,0.74) 56%, rgba(0,0,0,0.42) 72%, rgba(0,0,0,0.16) 88%, rgba(0,0,0,0) 100%)",
-										maskImage: "linear-gradient(90deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.04) 10%, rgba(0,0,0,0.16) 24%, rgba(0,0,0,0.42) 40%, rgba(0,0,0,0.74) 56%, rgba(0,0,0,0.42) 72%, rgba(0,0,0,0.16) 88%, rgba(0,0,0,0) 100%)",
-										WebkitMaskSize: "320% 100%",
-										maskSize: "320% 100%",
-										WebkitMaskRepeat: "no-repeat",
-										maskRepeat: "no-repeat",
-									}}
-								/>
-							</>
-						) : (
-							currentHeroImage && (
-								<img
-									src={currentHeroImage.imageUrl}
-									alt={currentHeroImage.title || "Heritage slideshow"}
-									className="absolute inset-0 h-full w-full object-cover"
-								/>
-							)
+						<img
+							src={currentHeroImage?.imageUrl}
+							alt={currentHeroImage?.title || "Heritage slideshow"}
+							className="absolute inset-0 h-full w-full object-cover"
+						/>
+						{isTransitioning && pendingHeroImage && (
+							<img
+								src={pendingHeroImage.imageUrl}
+								alt={pendingHeroImage.title || "Heritage slideshow"}
+								className="absolute inset-0 h-full w-full object-cover"
+							/>
 						)}
+						{isTransitioning && pendingHeroImage ? (
+							<motion.img
+								src={currentHeroImage?.imageUrl}
+								alt={currentHeroImage?.title || "Heritage slideshow"}
+								className="absolute inset-0 h-full w-full object-cover"
+								initial={false}
+								animate={{
+									WebkitMaskPosition: ["115% 50%", "-115% 50%"],
+									maskPosition: ["115% 50%", "-115% 50%"],
+								}}
+								transition={{ duration: slideshowTransitionDuration, ease: [0.16, 1, 0.3, 1] }}
+								style={{
+									WebkitMaskImage: "linear-gradient(to left, rgba(0,0,0,0) 0%, rgba(0,0,0,0.08) 12%, rgba(0,0,0,0.24) 28%, rgba(0,0,0,0.72) 56%, rgba(0,0,0,1) 100%)",
+									maskImage: "linear-gradient(to left, rgba(0,0,0,0) 0%, rgba(0,0,0,0.08) 12%, rgba(0,0,0,0.24) 28%, rgba(0,0,0,0.72) 56%, rgba(0,0,0,1) 100%)",
+									WebkitMaskSize: "320% 100%",
+									maskSize: "320% 100%",
+									WebkitMaskRepeat: "no-repeat",
+									maskRepeat: "no-repeat",
+								}}
+							/>
+						) : null}
 					</div>
 
 					<motion.div
