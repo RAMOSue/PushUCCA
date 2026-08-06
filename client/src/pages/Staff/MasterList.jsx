@@ -787,17 +787,9 @@ export default function MasterList() {
             >
               <img
                 src={image.image_url || image.imageUrl}
-                alt={image.title}
+                alt=""
                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
               />
-            </div>
-
-            {/* Info Section */}
-            <div className="p-3 space-y-2">
-              <h3 className="font-semibold text-sm text-on-surface dark:text-white truncate">{image.title}</h3>
-              {image.description && (
-                <p className="text-xs text-on-surface-variant dark:text-gray-400 line-clamp-2">{image.description}</p>
-              )}
             </div>
 
             {/* Delete Button - Show on Hover */}
