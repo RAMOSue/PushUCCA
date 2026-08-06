@@ -163,6 +163,13 @@ const updateImage = async (req, res) => {
     if (description !== undefined) updateData.description = description;
     if (display_order !== undefined) updateData.display_order = display_order;
 
+    if (req.file) {
+      updateData.image_url = `/uploads/slideshow/${req.file.filename}`;
+      updateData.image_filename = req.file.filename;
+      updateData.file_size = req.file.size;
+      updateData.mime_type = req.file.mimetype;
+    }
+
     const image = await SlideshowImageModel.update(id, updateData);
     if (!image) return res.status(404).json({ error: "Image not found" });
 
@@ -172,6 +179,14 @@ const updateImage = async (req, res) => {
       message: "Image updated successfully"
     });
   } catch (err) {
+    if (req.file && req.file.path && fs.existsSync(req.file.path)) {
+      try {
+        fs.unlinkSync(req.file.path);
+      } catch (deleteErr) {
+        console.error("Error deleting uploaded replacement file:", deleteErr);
+      }
+    }
+
     console.error("Update slideshow image error:", err);
     res.status(400).json({ error: err.message });
   }

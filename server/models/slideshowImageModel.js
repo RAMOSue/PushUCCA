@@ -37,7 +37,7 @@ class SlideshowImageModel {
   }
 
   // Update slideshow image
-  static async update(id, { title, description, display_order }) {
+  static async update(id, { title, description, display_order, image_url, image_filename, file_size, mime_type }) {
     const updates = [];
     const values = [];
     let paramCount = 1;
@@ -54,23 +54,50 @@ class SlideshowImageModel {
       updates.push(`display_order = $${paramCount++}`);
       values.push(display_order);
     }
+    if (image_url !== undefined) {
+      updates.push(`image_url = $${paramCount++}`);
+      values.push(image_url);
+    }
+    if (image_filename !== undefined) {
+      updates.push(`image_filename = $${paramCount++}`);
+      values.push(image_filename);
+    }
+    if (file_size !== undefined) {
+      updates.push(`file_size = $${paramCount++}`);
+      values.push(file_size);
+    }
+    if (mime_type !== undefined) {
+      updates.push(`mime_type = $${paramCount++}`);
+      values.push(mime_type);
+    }
 
-    // Always update updated_at
     updates.push(`updated_at = CURRENT_TIMESTAMP`);
     values.push(id);
 
-    if (updates.length === 1) {
-      // Only updated_at changed
-      const result = await pool.query(
-        `UPDATE slideshow_images SET updated_at = CURRENT_TIMESTAMP WHERE id = $1 RETURNING *`,
-        values
-      );
-      return result.rows[0];
+    const query = `UPDATE slideshow_images SET ${updates.join(", ")} WHERE id = $${paramCount} RETURNING id, title, description, image_url, image_filename, file_size, mime_type, display_order, created_at, updated_at`;
+    const result = await pool.query(query, values);
+    const updatedImage = result.rows[0];
+
+    if (!updatedImage || image_filename === undefined) {
+      return updatedImage;
     }
 
-    const query = `UPDATE slideshow_images SET ${updates.join(", ")} WHERE id = $${paramCount} RETURNING id, title, description, image_url, display_order, created_at`;
-    const result = await pool.query(query, values);
-    return result.rows[0];
+    const previousImage = await this.getById(id);
+    if (!previousImage || !previousImage.image_filename || previousImage.image_filename === image_filename) {
+      return updatedImage;
+    }
+
+    const uploadDir = path.join(__dirname, "../uploads/slideshow");
+    const filePath = path.join(uploadDir, previousImage.image_filename);
+    try {
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
+    } catch (err) {
+      console.error(`Error deleting old slideshow file ${filePath}:`, err.message);
+    }
+
+    return updatedImage;
   }
 
   // Delete slideshow image (also delete file from disk)
@@ -84,7 +111,7 @@ class SlideshowImageModel {
 
     // Delete file from disk if it exists
     if (image.image_filename) {
-      const uploadDir = path.join(__dirname, "../uploads");
+      const uploadDir = path.join(__dirname, "../uploads/slideshow");
       const filePath = path.join(uploadDir, image.image_filename);
       try {
         if (fs.existsSync(filePath)) {
@@ -101,25 +128,28 @@ class SlideshowImageModel {
 
   // Reorder images by updating display_order
   static async reorder(imageOrders) {
-    // imageOrders should be array of { id, display_order }
-    const updates = [];
-    const values = [];
+    if (!Array.isArray(imageOrders) || imageOrders.length === 0) return [];
 
-    for (let i = 0; i < imageOrders.length; i++) {
-      const { id, display_order } = imageOrders[i];
-      updates.push(`UPDATE slideshow_images SET display_order = $${i * 2 + 1} WHERE id = $${i * 2 + 2}`);
-      values.push(display_order, id);
-    }
+    const normalizedOrders = imageOrders.map((image, index) => ({
+      id: image.id,
+      display_order: index,
+    }));
 
-    if (updates.length === 0) return [];
-
-    // Execute all updates
+    const client = await pool.connect();
     try {
-      const query = updates.join("; ") + ";";
-      await pool.query(query, values);
+      await client.query("BEGIN");
+
+      for (const { id, display_order } of normalizedOrders) {
+        await client.query("UPDATE slideshow_images SET display_order = $1 WHERE id = $2", [display_order, id]);
+      }
+
+      await client.query("COMMIT");
       return this.getAll();
     } catch (err) {
+      await client.query("ROLLBACK");
       throw new Error(`Reorder failed: ${err.message}`);
+    } finally {
+      client.release();
     }
   }
 }

@@ -151,6 +151,7 @@ export default function MasterList() {
   const [viewerMenuOpen, setViewerMenuOpen] = useState(false);
   const [draggedImageId, setDraggedImageId] = useState(null);
   const [savingOrder, setSavingOrder] = useState(false);
+  const [editingSlideshowImageId, setEditingSlideshowImageId] = useState(null);
 
   // Tab configuration with API endpoints and form fields
   const tabs = {
@@ -417,6 +418,7 @@ export default function MasterList() {
   const handleImageSelect = (e) => {
     const file = e.target.files[0];
     if (file) {
+      setEditingSlideshowImageId(null);
       setImageFile(file);
       setImageOffset({ x: 0, y: 0 });
       setZoom(1);
@@ -568,12 +570,16 @@ export default function MasterList() {
         formData.append("image", imageFile);
       }
 
-      const res = await axios.post(`${currentTab.endpoint}`, formData, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
+      const isEditingExistingImage = Boolean(editingSlideshowImageId);
+      const endpoint = isEditingExistingImage
+        ? `${currentTab.endpoint}/${editingSlideshowImageId}`
+        : `${currentTab.endpoint}`;
+      const response = isEditingExistingImage
+        ? await axios.put(endpoint, formData, { headers: { "Content-Type": "multipart/form-data" } })
+        : await axios.post(endpoint, formData, { headers: { "Content-Type": "multipart/form-data" } });
 
-      if (res?.data?.id) {
-        writeStoredSlideshowState(res.data.id, {
+      if (response?.data?.id) {
+        writeStoredSlideshowState(response.data.id, {
           sourcePreview: imagePreview,
           fileName: imageFile.name,
           fileType: imageFile.type,
@@ -583,11 +589,13 @@ export default function MasterList() {
         });
       }
 
-      toast.success("✅ Image uploaded successfully");
+      toast.success(isEditingExistingImage ? "✅ Image updated successfully" : "✅ Image uploaded successfully");
+      setEditingSlideshowImageId(null);
       setImageFile(null);
       setImagePreview(null);
       setImageOffset({ x: 0, y: 0 });
       setZoom(1);
+      setMirrored(false);
       fetchData();
     } catch (err) {
       const errorMsg = err.response?.data?.error || err.message || "Failed to upload image";
@@ -834,6 +842,7 @@ export default function MasterList() {
 
     setSelectedImage(null);
     setViewerMenuOpen(false);
+    setEditingSlideshowImageId(imageId || null);
     setImageError(null);
     setImageOffset({ x: 0, y: 0 });
     setZoom(1);
@@ -913,9 +922,12 @@ export default function MasterList() {
             <div className="bg-white dark:bg-[#1a1a1a] rounded-2xl shadow-2xl dark:shadow-black/60 max-w-6xl w-full max-h-[90vh] overflow-hidden p-6">
               {/* Modal Header */}
               <div className="flex items-center justify-between">
-                <h3 className="text-lg font-bold text-slate-900 dark:text-white">Upload Image</h3>
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white">
+                  {editingSlideshowImageId ? "Update Image" : "Upload Image"}
+                </h3>
                 <button
                   onClick={() => {
+                    setEditingSlideshowImageId(null);
                     setImageFile(null);
                     setImagePreview(null);
                   }}
@@ -1040,6 +1052,7 @@ export default function MasterList() {
                     <button
                       type="button"
                       onClick={() => {
+                        setEditingSlideshowImageId(null);
                         setImageFile(null);
                         setImagePreview(null);
                         setImageOffset({ x: 0, y: 0 });

@@ -77,7 +77,7 @@ router.delete("/positions/:positionId/permissions/:permissionName", ensureAuth, 
 router.get("/slideshow-images", getAllImages); // Public - no auth needed for viewing
 router.get("/slideshow-images/:id", getImageById);
 router.post("/slideshow-images", ensureAuth, staffOrAdmin, slideshowUpload.single("image"), createImage);
-router.put("/slideshow-images/:id", ensureAuth, staffOrAdmin, updateImage);
+router.put("/slideshow-images/:id", ensureAuth, staffOrAdmin, slideshowUpload.single("image"), updateImage);
 router.delete("/slideshow-images/:id", ensureAuth, staffOrAdmin, deleteImage);
 router.post("/slideshow-images/reorder", ensureAuth, staffOrAdmin, reorderImages);
 

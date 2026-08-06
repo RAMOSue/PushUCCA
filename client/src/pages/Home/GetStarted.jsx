@@ -276,7 +276,9 @@ export default function GetStarted() {
 				setSlideshowLoading(true);
 				const res = await axios.get(`${import.meta.env.VITE_API_URL || window.location.origin}/api/master-list/slideshow-images`);
 				const images = Array.isArray(res.data) ? res.data : [];
-				setSlideImages(images.length > 0 ? images : culturalNarratives);
+				const orderedImages = [...images]
+					.sort((a, b) => (Number(a.display_order ?? 0) - Number(b.display_order ?? 0)) || (Number(a.id ?? 0) - Number(b.id ?? 0)));
+				setSlideImages(orderedImages.length > 0 ? orderedImages : culturalNarratives);
 			} catch (err) {
 				console.error("Failed to fetch slideshow images:", err);
 				setSlideImages(culturalNarratives);
