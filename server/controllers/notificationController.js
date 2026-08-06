@@ -23,6 +23,12 @@ setInterval(() => {
   }
 }, 30 * 1000);
 
+const isPushEnabledForEnvironment = () => {
+  const env = (process.env.NODE_ENV || "").toLowerCase();
+  const isProductionLike = env === "production" || process.env.RENDER === "true" || process.env.VERCEL === "true";
+  return isProductionLike || process.env.PUSH_NOTIFICATIONS_ENABLED === "true";
+};
+
 const notificationController = {
   /**
    * ✅ Save a new push subscription from the client
@@ -187,6 +193,22 @@ const notificationController = {
         );
         // Notification stays in DB with is_delivered=false for later retry
         return { success: false, queued: true, notificationId };
+      }
+
+      if (!isPushEnabledForEnvironment()) {
+        console.log(`🚫 Push notifications disabled for environment ${process.env.NODE_ENV || "unknown"}; skipping delivery for notification ${notificationId}`);
+        await db.query(
+          `UPDATE notifications SET is_delivered = true WHERE id = $1`,
+          [notificationId]
+        );
+        return {
+          success: false,
+          successCount: 0,
+          failureCount: 0,
+          notificationId,
+          skipped: true,
+          reason: "push-disabled-for-environment",
+        };
       }
 
       // Step 4: Send to each subscription

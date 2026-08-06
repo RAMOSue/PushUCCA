@@ -38,6 +38,15 @@ class NotificationService {
   // Initialize service worker
   async init() {
     if (this.isLocalDevelopment()) {
+      try {
+        const existingReg = await navigator.serviceWorker?.getRegistration?.();
+        if (existingReg) {
+          await existingReg.unregister();
+          console.log("ℹ️ Unregistered any existing service worker on localhost");
+        }
+      } catch (e) {
+        console.warn("⚠️ Failed to unregister service worker on localhost:", e);
+      }
       console.log("ℹ️ Skipping service worker registration on localhost; push notifications are disabled locally");
       return false;
     }
@@ -90,6 +99,11 @@ class NotificationService {
 
   // Request user permission for notifications
   async requestPermission(userId) {
+    if (this.isLocalDevelopment()) {
+      console.log("ℹ️ Skipping push permission request on localhost; push notifications are disabled locally");
+      return false;
+    }
+
     try {
       console.log("🔔 Requesting notification permission...");
       const permission = await Notification.requestPermission();

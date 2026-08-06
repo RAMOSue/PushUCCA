@@ -90,9 +90,9 @@ const NotificationBadge = ({ isMobile = false }) => {
   useEffect(() => {
     const initNotifications = async () => {
       try {
-        await notificationService.init();
+        const initialized = await notificationService.init();
 
-        if (Notification.permission !== 'granted') {
+        if (initialized && Notification.permission !== 'granted') {
           await notificationService.requestPermission();
         }
 
