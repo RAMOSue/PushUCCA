@@ -88,6 +88,7 @@ export default function GetStarted() {
 	const navigate = useNavigate();
 	const location = useLocation();
 	const departmentsSectionRef = useRef(null);
+	const slideshowTransitionTimerRef = useRef(null);
 
 	// ✅ Local component states
 	const [showPassword, setShowPassword] = useState(false);
@@ -103,6 +104,7 @@ export default function GetStarted() {
 	const [slideImages, setSlideImages] = useState([]);
 	const [currentSlide, setCurrentSlide] = useState(0);
 	const [slideshowLoading, setSlideshowLoading] = useState(true);
+	const [slideshowTransition, setSlideshowTransition] = useState({ active: false, nextIndex: null });
 
 	const [searchTerm, setSearchTerm] = useState("");
 	const [selectedFilters, setSelectedFilters] = useState({
@@ -289,14 +291,31 @@ export default function GetStarted() {
 		fetchSlideImages();
 	}, []);
 
-	// ✅ SLIDESHOW: Auto-transition effect
+	// ✅ SLIDESHOW: Auto-transition effect with a smooth wipe shimmer
 	useEffect(() => {
 		if (slideImages.length === 0) return;
-		const interval = setInterval(() => {
-			setCurrentSlide((prev) => (prev + 1) % slideImages.length);
+
+		const interval = window.setInterval(() => {
+			const nextIndex = (currentSlide + 1) % slideImages.length;
+			setSlideshowTransition({ active: true, nextIndex });
+
+			if (slideshowTransitionTimerRef.current) {
+				window.clearTimeout(slideshowTransitionTimerRef.current);
+			}
+
+			slideshowTransitionTimerRef.current = window.setTimeout(() => {
+				setCurrentSlide(nextIndex);
+				setSlideshowTransition({ active: false, nextIndex: null });
+			}, 900);
 		}, 10000);
-		return () => clearInterval(interval);
-	}, [slideImages]);
+
+		return () => {
+			window.clearInterval(interval);
+			if (slideshowTransitionTimerRef.current) {
+				window.clearTimeout(slideshowTransitionTimerRef.current);
+			}
+		};
+	}, [slideImages, currentSlide]);
 
 	const scrollToSection = (sectionId) => {
 		const target = document.getElementById(sectionId);
@@ -679,18 +698,43 @@ export default function GetStarted() {
 			{/* ============================================ */}
 			{slideImages.length > 0 ? (
 				<Section className="relative w-full h-[320px] sm:h-[460px] md:h-[560px] lg:h-[660px] overflow-hidden bg-[#001800]">
-					<AnimatePresence mode="wait">
+					<div className="absolute inset-0 overflow-hidden">
 						<motion.img
-							key={slideImages[currentSlide]?.id ?? currentSlide}
+							key={`current-${slideImages[currentSlide]?.id ?? currentSlide}`}
 							src={slideImages[currentSlide]?.imageUrl}
 							alt={slideImages[currentSlide]?.title || "Heritage slideshow"}
 							className="absolute inset-0 h-full w-full object-cover"
-							initial={{ opacity: 0, x: 30 }}
-							animate={{ opacity: 1, x: 0 }}
-							exit={{ opacity: 0, x: -30 }}
-							transition={{ duration: 1.4, ease: "easeInOut" }}
+							initial={false}
+							animate={{ clipPath: slideshowTransition.active ? "inset(0 100% 0 0)" : "inset(0 0 0 0)" }}
+							transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
 						/>
-					</AnimatePresence>
+
+						{slideshowTransition.active && slideImages[slideshowTransition.nextIndex] && (
+							<>
+								<motion.img
+									key={`next-${slideImages[slideshowTransition.nextIndex]?.id ?? slideshowTransition.nextIndex}`}
+									src={slideImages[slideshowTransition.nextIndex]?.imageUrl}
+									alt={slideImages[slideshowTransition.nextIndex]?.title || "Upcoming heritage slideshow"}
+									className="absolute inset-0 h-full w-full object-cover"
+									initial={{ clipPath: "inset(0 100% 0 0)" }}
+									animate={{ clipPath: "inset(0 0 0 0)" }}
+									transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
+								/>
+
+								<motion.div
+									className="pointer-events-none absolute inset-y-0 z-20 w-[38%] max-w-[420px]"
+									initial={{ x: "110%" }}
+									animate={{ x: "-110%" }}
+									transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
+									style={{
+										background: "linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.28) 24%, rgba(255,255,255,0.72) 48%, rgba(255,255,255,0.28) 76%, rgba(255,255,255,0) 100%)",
+										boxShadow: "0 0 24px rgba(255,255,255,0.24)",
+										transform: "skewX(-18deg)",
+									}}
+								/>
+							</>
+						)}
+					</div>
 
 					<div className="absolute inset-0 bg-black/45" />
 
