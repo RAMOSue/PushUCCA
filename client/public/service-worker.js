@@ -51,6 +51,11 @@ self.addEventListener('push', function(event) {
 
   try { console.log('[ServiceWorker] 📦 Raw push payload received:', JSON.stringify(data).substring(0, 500)); } catch (e) {}
 
+  if (isLocalHost) {
+    console.log('[ServiceWorker] ℹ️ Skipping push handling on localhost so no local browser notification is shown');
+    return;
+  }
+
   // Extract notification ID - support multiple formats
   const incomingId = data && (data.notificationId || (data.data && data.data._notificationId));
   

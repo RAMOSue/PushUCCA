@@ -26,10 +26,22 @@ class NotificationService {
     this._messageCallbacks = new Set();
     this._clickCallbacks = new Set();
     this._messageHandler = null;
+    this._processedMessageKeys = new Set();
+  }
+
+  isLocalDevelopment() {
+    if (typeof window === "undefined" || !window.location) return false;
+    const hostname = (window.location.hostname || "").toLowerCase();
+    return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1" || hostname.endsWith(".local");
   }
 
   // Initialize service worker
   async init() {
+    if (this.isLocalDevelopment()) {
+      console.log("ℹ️ Skipping service worker registration on localhost; push notifications are disabled locally");
+      return false;
+    }
+
     if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
       console.warn("❌ Push notifications not supported in this browser");
       return false;
@@ -101,6 +113,11 @@ class NotificationService {
 
   // Subscribe user to push notifications
   async subscribe(userId) {
+    if (this.isLocalDevelopment()) {
+      console.log("ℹ️ Skipping push subscription on localhost; push notifications are disabled locally");
+      return false;
+    }
+
     try {
       console.log(`📲 Subscribing user ${userId} to push notifications...`);
       
@@ -446,6 +463,17 @@ class NotificationService {
           const messagePayload = payload || event.data?.notification || event.data;
 
           if (type === "PUSH_RECEIVED") {
+            const dedupeKey = messagePayload?.notificationId || messagePayload?.id || messagePayload?.data?.notificationId || messagePayload?.data?.id || messagePayload?.message || JSON.stringify(messagePayload || {});
+            const dedupeEntry = `push:${String(dedupeKey)}`;
+
+            if (this._processedMessageKeys.has(dedupeEntry)) {
+              console.log("📨 [Client] Skipping duplicate PUSH_RECEIVED message:", dedupeEntry);
+              return;
+            }
+
+            this._processedMessageKeys.add(dedupeEntry);
+            setTimeout(() => this._processedMessageKeys.delete(dedupeEntry), 30000);
+
             console.log("📨 [Client] ✅ Received PUSH_RECEIVED message from service worker:", messagePayload);
 
             this._messageCallbacks.forEach((listener) => {
