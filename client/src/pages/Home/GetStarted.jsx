@@ -751,8 +751,8 @@ export default function GetStarted() {
 									className="absolute inset-0 h-full w-full object-cover"
 									initial={false}
 									animate={{
-										WebkitMaskPosition: ["125% 50%", "-125% 50%"],
-										maskPosition: ["125% 50%", "-125% 50%"],
+										WebkitMaskPosition: ["-125% 50%", "125% 50%"],
+										maskPosition: ["-125% 50%", "125% 50%"],
 									}}
 									transition={{ duration: slideshowTransitionDuration, ease: [0.23, 1, 0.32, 1] }}
 									style={{
