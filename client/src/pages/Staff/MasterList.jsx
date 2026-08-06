@@ -28,6 +28,7 @@ import {
   Image,
   Upload,
   Users,
+  GripVertical,
 } from "lucide-react";
 
 export default function MasterList() {
@@ -97,6 +98,49 @@ export default function MasterList() {
   const previewRef = useRef(null);
   const [imageError, setImageError] = useState(null);
 
+  const slideshowStorageKey = (imageId) => `slideshow-edit-state:${imageId}`;
+
+  const readStoredSlideshowState = (imageId) => {
+    if (!imageId) return null;
+    try {
+      const raw = localStorage.getItem(slideshowStorageKey(imageId));
+      return raw ? JSON.parse(raw) : null;
+    } catch (err) {
+      return null;
+    }
+  };
+
+  const writeStoredSlideshowState = (imageId, state) => {
+    if (!imageId) return;
+    try {
+      localStorage.setItem(slideshowStorageKey(imageId), JSON.stringify(state));
+    } catch (err) {
+      console.warn("Unable to persist slideshow edit state", err);
+    }
+  };
+
+  const createImageFileFromDataUrl = async (dataUrl, fallbackName = "slideshow-image", fallbackType = "image/jpeg") => {
+    if (!dataUrl) return null;
+    try {
+      const response = await fetch(dataUrl);
+      if (!response.ok) throw new Error("Unable to read image");
+      const blob = await response.blob();
+      const mimeType = blob.type || fallbackType;
+      const extension = mimeType.includes("png")
+        ? ".png"
+        : mimeType.includes("webp")
+          ? ".webp"
+          : mimeType.includes("gif")
+            ? ".gif"
+            : ".jpg";
+      const baseName = (fallbackName || "slideshow-image").replace(/\s+/g, "_").replace(/\.[^/.]+$/, "");
+      return new File([blob], `${baseName}${extension}`, { type: mimeType });
+    } catch (err) {
+      console.warn("Unable to create slideshow file from stored preview", err);
+      return null;
+    }
+  };
+
   // Modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
@@ -105,6 +149,8 @@ export default function MasterList() {
   // Image viewer modal state
   const [selectedImage, setSelectedImage] = useState(null);
   const [viewerMenuOpen, setViewerMenuOpen] = useState(false);
+  const [draggedImageId, setDraggedImageId] = useState(null);
+  const [savingOrder, setSavingOrder] = useState(false);
 
   // Tab configuration with API endpoints and form fields
   const tabs = {
@@ -526,6 +572,17 @@ export default function MasterList() {
         headers: { "Content-Type": "multipart/form-data" },
       });
 
+      if (res?.data?.id) {
+        writeStoredSlideshowState(res.data.id, {
+          sourcePreview: imagePreview,
+          fileName: imageFile.name,
+          fileType: imageFile.type,
+          offset: imageOffset,
+          zoom,
+          mirrored,
+        });
+      }
+
       toast.success("✅ Image uploaded successfully");
       setImageFile(null);
       setImagePreview(null);
@@ -705,8 +762,16 @@ export default function MasterList() {
         {dataList.map((image) => (
           <div
             key={image.id}
-            className="group relative bg-surface-container-low dark:bg-[#222] rounded-lg shadow-sm dark:shadow-black/40 border border-outline-variant/10 dark:border-gray-700 overflow-hidden hover:shadow-lg dark:hover:shadow-black/60 transition-shadow"
+            draggable
+            onDragStart={() => setDraggedImageId(image.id)}
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={() => handleReorderImages(draggedImageId, image.id)}
+            onDragEnd={() => setDraggedImageId(null)}
+            className={`group relative bg-surface-container-low dark:bg-[#222] rounded-lg shadow-sm dark:shadow-black/40 border border-outline-variant/10 dark:border-gray-700 overflow-hidden hover:shadow-lg dark:hover:shadow-black/60 transition-shadow ${draggedImageId === image.id ? "opacity-60" : ""}`}
           >
+            <div className="absolute left-2 top-2 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-black/50 text-white shadow-sm">
+              <GripVertical className="w-4 h-4" />
+            </div>
             {/* Image Container - Clickable */}
             <div
               className="aspect-[3/1] bg-surface-container-high dark:bg-[#1a1a1a] overflow-hidden cursor-pointer"
@@ -764,6 +829,9 @@ export default function MasterList() {
 
   const startSlideshowEditorForImage = async (image) => {
     const sourceUrl = image.image_url || image.imageUrl;
+    const imageId = image?.id;
+    const storedState = readStoredSlideshowState(imageId);
+
     setSelectedImage(null);
     setViewerMenuOpen(false);
     setImageError(null);
@@ -772,6 +840,23 @@ export default function MasterList() {
     setMirrored(false);
 
     try {
+      if (storedState?.sourcePreview) {
+        const restoredFile = await createImageFileFromDataUrl(
+          storedState.sourcePreview,
+          storedState.fileName || image.title || "slideshow-image",
+          storedState.fileType || "image/jpeg"
+        );
+
+        if (restoredFile) {
+          setImageFile(restoredFile);
+          setImagePreview(storedState.sourcePreview);
+          setImageOffset(storedState.offset || { x: 0, y: 0 });
+          setZoom(storedState.zoom || 1);
+          setMirrored(Boolean(storedState.mirrored));
+          return;
+        }
+      }
+
       const response = await fetch(sourceUrl);
       if (!response.ok) throw new Error("Failed to load image");
       const blob = await response.blob();
@@ -784,6 +869,37 @@ export default function MasterList() {
       setImagePreview(sourceUrl);
       setImageFile(null);
       toast.error("Unable to open the editor for this image.");
+    }
+  };
+
+  const handleReorderImages = async (draggedId, targetId) => {
+    if (!draggedId || !targetId || draggedId === targetId) return;
+
+    const originalOrder = [...dataList];
+    const reordered = [...dataList];
+    const fromIndex = reordered.findIndex((image) => image.id === draggedId);
+    const toIndex = reordered.findIndex((image) => image.id === targetId);
+
+    if (fromIndex === -1 || toIndex === -1) return;
+
+    const [movedItem] = reordered.splice(fromIndex, 1);
+    reordered.splice(toIndex, 0, movedItem);
+    setDataList(reordered);
+
+    try {
+      setSavingOrder(true);
+      await axios.post(`${currentTab.endpoint}/reorder`, {
+        imageOrders: reordered.map((image, index) => ({ id: image.id, display_order: index })),
+      });
+      toast.success("✅ Slideshow order updated");
+      await fetchData();
+    } catch (err) {
+      const errorMsg = err.response?.data?.error || "Failed to reorder slideshow images";
+      setDataList(originalOrder);
+      toast.error(errorMsg);
+    } finally {
+      setSavingOrder(false);
+      setDraggedImageId(null);
     }
   };
 
