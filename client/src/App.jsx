@@ -170,7 +170,7 @@ function AppContent() {
     
     return () => {
       // Cleanup message listener on unmount
-      notificationService.removeMessageListener();
+      notificationService.removeMessageListener(handlePushReceived);
     };
   }, []);
 
@@ -215,7 +215,7 @@ function AppContent() {
 
     notificationService.setupClickListener(handleClick);
     return () => {
-      // no cleanup for service worker message listeners currently
+      notificationService.removeClickListener(handleClick);
     };
   }, [navigate]);
 

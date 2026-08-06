@@ -23,6 +23,9 @@ class NotificationService {
     this.vapidPublicKey = import.meta.env.VITE_VAPID_PUBLIC_KEY;
     this.swRegistration = null;
     this.isSubscribed = false;
+    this._messageCallbacks = new Set();
+    this._clickCallbacks = new Set();
+    this._messageHandler = null;
   }
 
   // Initialize service worker
@@ -417,20 +420,22 @@ class NotificationService {
   // Listen for messages from the service worker
   // callback will be called with payload for PUSH_RECEIVED
   setupMessageListener(callback) {
+    if (typeof callback !== "function") {
+      return;
+    }
+
+    this._messageCallbacks.add(callback);
+
     if (!("serviceWorker" in navigator)) {
       console.warn("⚠️ [Client] serviceWorker not available in navigator");
       return;
     }
 
     try {
-      // Remove old listener if exists
       if (this._messageHandler) {
-        try {
-          navigator.serviceWorker.removeEventListener("message", this._messageHandler);
-        } catch (e) {}
+        return;
       }
 
-      // Create new message handler
       this._messageHandler = (event) => {
         try {
           if (!event || !event.data) {
@@ -438,53 +443,27 @@ class NotificationService {
           }
 
           const { type, payload } = event.data;
-          
+          const messagePayload = payload || event.data?.notification || event.data;
+
           if (type === "PUSH_RECEIVED") {
-            console.log("📨 [Client] ✅ Received PUSH_RECEIVED message from service worker:", payload);
-            
-            // If tab is focused and browser supports notification API, show desktop notification too
-            if (document.visibilityState === 'visible' && 'Notification' in window && Notification.permission === 'granted') {
+            console.log("📨 [Client] ✅ Received PUSH_RECEIVED message from service worker:", messagePayload);
+
+            this._messageCallbacks.forEach((listener) => {
               try {
-                const title = payload?.title || 'Notification';
-                const message = payload?.message || '';
-                const notifOptions = {
-                  body: message,
-                  icon: '/icon-192x192.png',
-                  badge: '/badge-96x96.png',
-                  tag: `tab-notif-${payload?.notificationId || Date.now()}`,
-                  requireInteraction: true,
-                  vibrate: [200, 100, 200]
-                };
-                
-                const notif = new Notification(title, notifOptions);
-                console.log("🔔 [Client] ✅ Shown focused-tab notification");
-                
-                notif.onclick = () => {
-                  window.focus();
-                  notif.close();
-                };
-              } catch (err) {
-                console.error("❌ [Client] Failed to show focused-tab notification:", err);
-              }
-            } else {
-              const reasons = [];
-              if (document.visibilityState !== 'visible') reasons.push('tab not visible');
-              if (!('Notification' in window)) reasons.push('Notification API not available');
-              if (Notification.permission !== 'granted') reasons.push(`permission is ${Notification.permission}`);
-              console.log(`📨 [Client] ℹ️ Not showing focused notification (${reasons.join(', ')})`);
-            }
-            
-            // Call the callback
-            if (typeof callback === 'function') {
-              try {
-                console.log("📨 [Client] Calling callback with payload:", payload);
-                callback(payload);
+                listener(messagePayload);
               } catch (err) {
                 console.error("❌ [Client] Error in PUSH_RECEIVED callback:", err);
               }
-            }
+            });
           } else if (type === "NOTIFICATION_CLICK") {
-            console.log("📨 [Client] Received NOTIFICATION_CLICK message:", payload);
+            console.log("📨 [Client] Received NOTIFICATION_CLICK message:", messagePayload);
+            this._clickCallbacks.forEach((listener) => {
+              try {
+                listener(messagePayload);
+              } catch (err) {
+                console.error("❌ [Client] Error in NOTIFICATION_CLICK callback:", err);
+              }
+            });
           } else {
             console.log("📨 [Client] Received unknown message type:", type);
           }
@@ -502,26 +481,45 @@ class NotificationService {
 
   // Listen for notification click events forwarded from the service worker
   setupClickListener(callback) {
-    if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.addEventListener("message", (event) => {
-        if (!event.data) return;
-        const { type, payload } = event.data;
-        if (type === "NOTIFICATION_CLICK") {
-          callback(payload);
-        }
-      });
+    if (typeof callback !== "function") {
+      return;
     }
+
+    this._clickCallbacks.add(callback);
+    if (!("serviceWorker" in navigator)) {
+      return;
+    }
+
+    if (this._messageHandler) {
+      return;
+    }
+
+    this.setupMessageListener(() => {});
   }
 
   // Remove previously attached message listener (if any)
-  removeMessageListener() {
+  removeMessageListener(callback) {
+    if (typeof callback === "function") {
+      this._messageCallbacks.delete(callback);
+    } else {
+      this._messageCallbacks.clear();
+    }
+
     try {
-      if (this._messageHandler && "serviceWorker" in navigator) {
+      if (this._messageCallbacks.size === 0 && this._messageHandler && "serviceWorker" in navigator) {
         navigator.serviceWorker.removeEventListener("message", this._messageHandler);
         this._messageHandler = null;
       }
     } catch (e) {
       // ignore removal errors
+    }
+  }
+
+  removeClickListener(callback) {
+    if (typeof callback === "function") {
+      this._clickCallbacks.delete(callback);
+    } else {
+      this._clickCallbacks.clear();
     }
   }
 

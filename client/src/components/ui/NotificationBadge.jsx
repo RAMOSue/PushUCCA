@@ -13,6 +13,7 @@ const NotificationBadge = ({ isMobile = false }) => {
   const [profilePics, setProfilePics] = useState({});
   const refreshTimerRef = useRef(null);
   const profilePicsRef = useRef({});
+  const notificationKeysRef = useRef(new Set());
 
   useEffect(() => {
     profilePicsRef.current = profilePics;
@@ -128,26 +129,46 @@ const NotificationBadge = ({ isMobile = false }) => {
 
   // Listen updates
   useEffect(() => {
-    const handleNotification = (event) => {
-      const incoming = event.data?.notification || event.data;
-      if (!incoming) return;
+    const getNotificationKey = (item) => {
+      if (!item) return null;
+      return item.id ? `id:${item.id}` : `sig:${item.title || ''}|${item.message || ''}|${item.timestamp || item.created_at || ''}`;
+    };
 
-      const newNotif = notificationService.normalizeNotification(incoming);
+    const handleNotification = (incoming) => {
+      const normalizedIncoming = incoming?.data?.notification || incoming;
+      if (!normalizedIncoming) return;
+
+      const newNotif = notificationService.normalizeNotification(normalizedIncoming);
+      const notificationKey = getNotificationKey(newNotif);
+
+      if (notificationKey && notificationKeysRef.current.has(notificationKey)) {
+        return;
+      }
+
+      if (notificationKey) {
+        notificationKeysRef.current.add(notificationKey);
+      }
+
       setNotificationList(prev => {
         const merged = [newNotif, ...prev];
         const unique = [];
         const seen = new Set();
 
         merged.forEach((item) => {
-          const key = item.id ? `id:${item.id}` : `sig:${item.title}|${item.message}|${item.timestamp}`;
-          if (seen.has(key)) return;
+          const key = getNotificationKey(item);
+          if (!key || seen.has(key)) return;
           seen.add(key);
           unique.push(item);
         });
 
         return unique.slice(0, 50);
       });
-      if (!newNotif.is_read) setNotificationCount(prev => prev + 1);
+
+      if (!newNotif.is_read) {
+        setNotificationCount(prev => prev + 1);
+      }
+
+      window.dispatchEvent(new Event('notifications:updated'));
 
       if (refreshTimerRef.current) {
         clearTimeout(refreshTimerRef.current);
@@ -170,7 +191,7 @@ const NotificationBadge = ({ isMobile = false }) => {
         clearTimeout(refreshTimerRef.current);
       }
       window.removeEventListener('notifications:updated', onUpdated);
-      notificationService.removeMessageListener();
+      notificationService.removeMessageListener(handleNotification);
     };
   }, []);
 
