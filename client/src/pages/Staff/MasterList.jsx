@@ -104,6 +104,7 @@ export default function MasterList() {
 
   // Image viewer modal state
   const [selectedImage, setSelectedImage] = useState(null);
+  const [viewerMenuOpen, setViewerMenuOpen] = useState(false);
 
   // Tab configuration with API endpoints and form fields
   const tabs = {
@@ -761,6 +762,31 @@ export default function MasterList() {
     }
   };
 
+  const startSlideshowEditorForImage = async (image) => {
+    const sourceUrl = image.image_url || image.imageUrl;
+    setSelectedImage(null);
+    setViewerMenuOpen(false);
+    setImageError(null);
+    setImageOffset({ x: 0, y: 0 });
+    setZoom(1);
+    setMirrored(false);
+
+    try {
+      const response = await fetch(sourceUrl);
+      if (!response.ok) throw new Error("Failed to load image");
+      const blob = await response.blob();
+      const extension = blob.type.includes("png") ? ".png" : blob.type.includes("webp") ? ".webp" : ".jpg";
+      const fileName = (image.title || "slideshow-image").replace(/\s+/g, "_") + extension;
+      setImageFile(new File([blob], fileName, { type: blob.type || "image/jpeg" }));
+      setImagePreview(sourceUrl);
+    } catch (err) {
+      console.error("Unable to preload slideshow image for editing", err);
+      setImagePreview(sourceUrl);
+      setImageFile(null);
+      toast.error("Unable to open the editor for this image.");
+    }
+  };
+
   // Render upload form for slideshow tab
   const renderImageUploadForm = () => {
     return (
@@ -1212,79 +1238,75 @@ export default function MasterList() {
         {/* Image Viewer Modal */}
         {selectedImage && (
           <div
-            className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4"
-            onClick={() => setSelectedImage(null)}
+            className="fixed inset-0 bg-black/85 flex items-center justify-center z-50 p-3 sm:p-4"
+            onClick={() => {
+              setSelectedImage(null);
+              setViewerMenuOpen(false);
+            }}
           >
             <div
-              className="bg-white dark:bg-[#1a1a1a] rounded-2xl shadow-2xl dark:shadow-black/60 max-w-4xl w-full max-h-[90vh] overflow-y-auto"
+              className="relative w-full max-w-6xl max-h-[90vh] overflow-hidden rounded-[1.5rem] border border-white/10 bg-slate-950 shadow-2xl"
               onClick={(e) => e.stopPropagation()}
             >
-              {/* Viewer Header */}
-              <div className="sticky top-0 bg-gradient-to-r from-primary to-primary-container dark:from-blue-600 dark:to-blue-700 px-6 py-4 flex items-center justify-between">
-                <h3 className="text-xl font-bold text-white truncate">{selectedImage.title}</h3>
+              <div className="absolute top-3 right-3 z-20 flex items-center gap-2">
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setViewerMenuOpen((prev) => !prev)}
+                    className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-xl text-white backdrop-blur-sm transition hover:bg-white/20"
+                    aria-label="More actions"
+                  >
+                    ⋮
+                  </button>
+
+                  {viewerMenuOpen && (
+                    <div className="absolute right-0 top-12 flex min-w-[120px] flex-col rounded-xl border border-white/10 bg-white/95 p-1 shadow-xl">
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          setViewerMenuOpen(false);
+                          await startSlideshowEditorForImage(selectedImage);
+                        }}
+                        className="rounded-lg px-3 py-2 text-left text-sm font-medium text-slate-800 hover:bg-slate-100"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setViewerMenuOpen(false);
+                          if (window.confirm("Are you sure you want to delete this image?")) {
+                            handleDeleteImage(selectedImage.id);
+                            setSelectedImage(null);
+                          }
+                        }}
+                        className="rounded-lg px-3 py-2 text-left text-sm font-medium text-red-600 hover:bg-red-50"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  )}
+                </div>
+
                 <button
-                  onClick={() => setSelectedImage(null)}
-                  className="p-1 hover:bg-white/20 rounded transition"
+                  type="button"
+                  onClick={() => {
+                    setSelectedImage(null);
+                    setViewerMenuOpen(false);
+                  }}
+                  className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-2xl text-white backdrop-blur-sm transition hover:bg-white/20"
+                  aria-label="Close image viewer"
                 >
-                  <X className="w-6 h-6 text-white" />
+                  ×
                 </button>
               </div>
 
-              {/* Viewer Body */}
-              <div className="p-6 space-y-4">
-                {/* Full Image */}
-                <div className="w-full bg-slate-100 dark:bg-[#222] rounded-lg overflow-hidden">
-                  <img
-                    src={selectedImage.image_url || selectedImage.imageUrl}
-                    alt={selectedImage.title}
-                    className="w-full h-auto object-contain"
-                  />
-                </div>
-
-                {/* Image Details */}
-                <div className="space-y-3">
-                  <div>
-                    <p className="text-sm font-semibold text-slate-600 dark:text-gray-400">Title</p>
-                    <p className="text-lg text-slate-900 dark:text-white">{selectedImage.title}</p>
-                  </div>
-
-                  {selectedImage.description && (
-                    <div>
-                      <p className="text-sm font-semibold text-slate-600 dark:text-gray-400">Description</p>
-                      <p className="text-slate-700 dark:text-gray-300">{selectedImage.description}</p>
-                    </div>
-                  )}
-
-                  <div>
-                    <p className="text-sm font-semibold text-slate-600 dark:text-gray-400">Uploaded</p>
-                    <p className="text-slate-700 dark:text-gray-300">
-                      {new Date(selectedImage.created_at).toLocaleDateString()} at{" "}
-                      {new Date(selectedImage.created_at).toLocaleTimeString()}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Actions */}
-                <div className="flex gap-3 pt-4 border-t border-outline-variant/20 dark:border-gray-700">
-                  <button
-                    type="button"
-                    onClick={() => setSelectedImage(null)}
-                    className="flex-1 px-4 py-2 bg-slate-200 dark:bg-[#222] text-slate-900 dark:text-gray-300 rounded-lg font-medium hover:bg-slate-300 dark:hover:bg-[#2a2a2a] transition"
-                  >
-                    Close
-                  </button>
-                  <button
-                    onClick={() => {
-                      if (window.confirm("Are you sure you want to delete this image?")) {
-                        handleDeleteImage(selectedImage.id);
-                        setSelectedImage(null);
-                      }
-                    }}
-                    className="flex-1 px-4 py-2 bg-error dark:bg-red-600 text-white rounded-lg font-medium hover:bg-error/90 dark:hover:bg-red-700 transition"
-                  >
-                    Delete Image
-                  </button>
-                </div>
+              <div className="flex max-h-[90vh] items-center justify-center bg-slate-950">
+                <img
+                  src={selectedImage.image_url || selectedImage.imageUrl}
+                  alt={selectedImage.title || "Slideshow image"}
+                  className="max-h-[90vh] w-full object-contain"
+                />
               </div>
             </div>
           </div>
