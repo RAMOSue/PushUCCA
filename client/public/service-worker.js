@@ -15,6 +15,8 @@ setInterval(() => {
   }
 }, 15 * 1000);
 
+const isLocalHost = ['localhost', '127.0.0.1', '::1'].includes(self.location.hostname);
+
 // Listen for push events
 self.addEventListener('push', function(event) {
   console.log('[ServiceWorker] 🎯 PUSH EVENT RECEIVED AT:', new Date().toISOString());
@@ -108,17 +110,23 @@ self.addEventListener('push', function(event) {
   event.waitUntil(
     (async () => {
       try {
-        console.log('[ServiceWorker] 🔔 About to call showNotification with options:', JSON.stringify(options).substring(0, 300));
-        
+        if (isLocalHost) {
+          console.log('[ServiceWorker] ℹ️ Skipping browser notification on localhost so only deployed environments show push notifications');
+        } else {
+          console.log('[ServiceWorker] 🔔 About to call showNotification with options:', JSON.stringify(options).substring(0, 300));
+        }
+
         let notifError = null;
         let notif = null;
-        
-        try {
-          notif = await self.registration.showNotification(data.title || 'Notification', options);
-          console.log('[ServiceWorker] ✅ Notification displayed successfully:', notif);
-        } catch (showNotifErr) {
-          notifError = showNotifErr;
-          console.error('[ServiceWorker] ❌ showNotification threw error:', showNotifErr.toString(), showNotifErr.message, showNotifErr.stack);
+
+        if (!isLocalHost) {
+          try {
+            notif = await self.registration.showNotification(data.title || 'Notification', options);
+            console.log('[ServiceWorker] ✅ Notification displayed successfully:', notif);
+          } catch (showNotifErr) {
+            notifError = showNotifErr;
+            console.error('[ServiceWorker] ❌ showNotification threw error:', showNotifErr.toString(), showNotifErr.message, showNotifErr.stack);
+          }
         }
         
         // CRITICAL: Notify all clients that push was received (even if notification failed)

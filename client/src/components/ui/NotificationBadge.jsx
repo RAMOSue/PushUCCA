@@ -105,6 +105,27 @@ const NotificationBadge = ({ isMobile = false }) => {
     initNotifications();
   }, []);
 
+  useEffect(() => {
+    const handleVisibilityRefresh = () => {
+      if (!document.hidden) {
+        refreshNotifications();
+      }
+    };
+
+    const refreshInterval = window.setInterval(() => {
+      refreshNotifications();
+    }, 10000);
+
+    window.addEventListener('focus', handleVisibilityRefresh);
+    document.addEventListener('visibilitychange', handleVisibilityRefresh);
+
+    return () => {
+      window.clearInterval(refreshInterval);
+      window.removeEventListener('focus', handleVisibilityRefresh);
+      document.removeEventListener('visibilitychange', handleVisibilityRefresh);
+    };
+  }, []);
+
   // Click notification
   const handleNotificationClick = (notification) => {
     setNotificationList(prev =>
