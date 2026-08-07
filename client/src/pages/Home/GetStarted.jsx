@@ -1034,7 +1034,7 @@ export default function GetStarted() {
 				initial={{ x: "100%" }}
 				animate={{ x: showLoginModal ? 0 : "100%" }}
 				transition={{ duration: 0.4, ease: "easeInOut" }}
-				className="fixed left-0 right-0 top-14 sm:top-16 md:right-0 md:left-auto bottom-0 w-full md:w-1/2 bg-white z-40 overflow-hidden"
+				className="fixed left-0 right-0 top-0 bottom-0 w-full h-[100dvh] bg-white z-40 overflow-hidden sm:top-14 sm:bottom-0 sm:h-auto md:right-0 md:left-auto md:top-16 md:w-1/2"
 				style={{ clipPath: isMobile ? 'polygon(0 0, 100% 0, 100% 100%, 0 100%)' : 'polygon(15% 0, 100% 0, 100% 100%, 0% 100%)' }}
 				onClick={(e) => e.stopPropagation()}
 			>
@@ -1052,7 +1052,7 @@ export default function GetStarted() {
 					initial={{ x: "-100%" }}
 					animate={{ x: showLoginModal ? 0 : "-100%" }}
 					transition={{ duration: 0.4, ease: "easeInOut" }}
-					className="h-full w-full overflow-y-auto p-4 sm:p-8 md:p-12"
+					className="h-full min-h-[100dvh] w-full overflow-y-auto p-4 sm:p-8 md:p-12 sm:min-h-0"
 				>
 					<div className="max-w-md ml-0 md:ml-[180px] mx-auto md:mx-0">
 						<div className="bg-white rounded-2xl p-6 sm:p-8 border border-gray-200">
@@ -1204,7 +1204,7 @@ export default function GetStarted() {
 				initial={{ x: "100%" }}
 				animate={{ x: showRegisterModal ? 0 : "100%" }}
 				transition={{ duration: 0.4, ease: "easeInOut" }}
-				className="fixed left-0 right-0 top-14 sm:top-16 md:right-0 md:left-auto bottom-0 w-full md:w-1/2 bg-white z-40 overflow-hidden"
+				className="fixed left-0 right-0 top-0 bottom-0 w-full h-[100dvh] bg-white z-40 overflow-hidden sm:top-14 sm:bottom-0 sm:h-auto md:right-0 md:left-auto md:top-16 md:w-1/2"
 				style={{ clipPath: isMobile ? 'polygon(0 0, 100% 0, 100% 100%, 0 100%)' : 'polygon(15% 0, 100% 0, 100% 100%, 0% 100%)' }}
 				onClick={(e) => e.stopPropagation()}
 			>
@@ -1219,7 +1219,7 @@ export default function GetStarted() {
 					initial={{ x: "-100%" }}
 					animate={{ x: showRegisterModal ? 0 : "-100%" }}
 					transition={{ duration: 0.4, ease: "easeInOut" }}
-					className="h-full w-full overflow-y-auto p-4 sm:p-8 md:p-12"
+					className="h-full min-h-[100dvh] w-full overflow-y-auto p-4 sm:p-8 md:p-12 sm:min-h-0"
 				>
 					<div className="max-w-md ml-0 md:ml-[180px] mx-auto md:mx-0">
 						<div className="bg-white rounded-2xl p-6 sm:p-8 border border-gray-200">
