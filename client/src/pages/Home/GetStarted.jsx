@@ -751,15 +751,15 @@ export default function GetStarted() {
 							className="absolute inset-0 h-full w-full object-cover z-10"
 							initial={false}
 							animate={{
-								WebkitMaskPosition: ["100% 50%", "-100% 50%"],
-								maskPosition: ["100% 50%", "-100% 50%"],
+								WebkitMaskPosition: ["-100% 50%", "100% 50%"],
+								maskPosition: ["-100% 50%", "100% 50%"],
 							}}
 							transition={{ duration: slideshowTransitionDuration, ease: [0.23, 1, 0.32, 1] }}
 							style={{
-								WebkitMaskImage: "linear-gradient(90deg, rgba(0,0,0,1) 0%, rgba(0,0,0,1) 78%, rgba(0,0,0,0) 100%)",
-								maskImage: "linear-gradient(90deg, rgba(0,0,0,1) 0%, rgba(0,0,0,1) 78%, rgba(0,0,0,0) 100%)",
-								WebkitMaskSize: "200% 100%",
-								maskSize: "200% 100%",
+								WebkitMaskImage: "linear-gradient(90deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.08) 10%, rgba(0,0,0,0.22) 24%, rgba(0,0,0,0.46) 42%, rgba(0,0,0,0.72) 60%, rgba(0,0,0,0.92) 78%, rgba(0,0,0,1) 100%)",
+								maskImage: "linear-gradient(90deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.08) 10%, rgba(0,0,0,0.22) 24%, rgba(0,0,0,0.46) 42%, rgba(0,0,0,0.72) 60%, rgba(0,0,0,0.92) 78%, rgba(0,0,0,1) 100%)",
+								WebkitMaskSize: "220% 100%",
+								maskSize: "220% 100%",
 								WebkitMaskRepeat: "no-repeat",
 								maskRepeat: "no-repeat",
 								willChange: "mask-position",
