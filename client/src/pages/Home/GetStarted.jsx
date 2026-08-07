@@ -1052,9 +1052,9 @@ export default function GetStarted() {
 					initial={{ x: "-100%" }}
 					animate={{ x: showLoginModal ? 0 : "-100%" }}
 					transition={{ duration: 0.4, ease: "easeInOut" }}
-					className="h-full min-h-[100dvh] w-full overflow-y-hidden sm:overflow-y-auto p-2 sm:p-8 md:p-12 sm:min-h-0"
+					className="flex h-full min-h-[100dvh] w-full items-center justify-center overflow-y-auto p-3 sm:min-h-0 sm:items-start sm:justify-start sm:overflow-y-auto sm:p-8 md:p-12"
 				>
-					<div className="max-w-md ml-0 md:ml-[180px] mx-auto md:mx-0 pt-8 sm:pt-0">
+					<div className="w-full max-w-md ml-0 md:ml-[180px] mx-auto md:mx-0 pt-2 pb-4 sm:pt-0 sm:pb-0">
 						<div className="bg-white rounded-lg sm:rounded-2xl p-3 sm:p-8 border border-gray-200">
 							<div className="text-center mb-3 sm:mb-8">
 							<h1 className="text-base sm:text-2xl md:text-4xl font-bold text-gray-900 mb-1 sm:mb-2">Madiyaw!</h1>
@@ -1162,9 +1162,9 @@ export default function GetStarted() {
 
 								<a
 									href={`${import.meta.env.VITE_API_URL || window.location.origin}/api/auth/google?mode=login`}
-									className="w-full px-4 py-2.5 sm:px-6 sm:py-3 bg-gray-100 hover:bg-gray-200 border border-gray-300 text-gray-900 font-semibold rounded-lg transition-all duration-300 flex items-center justify-center gap-2 text-xs sm:text-sm"
+									className="w-full px-3 py-2 sm:px-6 sm:py-3 font-bold rounded-lg border border-gray-300 bg-gray-100 text-gray-900 text-[13px] sm:text-sm transition-all duration-300 flex items-center justify-center gap-2 shadow-sm hover:bg-gray-200"
 								>
-									<svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+									<svg className="w-4 h-4 sm:w-5 sm:h-5" viewBox="0 0 24 24" fill="currentColor">
 										<path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
 										<path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
 										<path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
@@ -1219,9 +1219,9 @@ export default function GetStarted() {
 					initial={{ x: "-100%" }}
 					animate={{ x: showRegisterModal ? 0 : "-100%" }}
 					transition={{ duration: 0.4, ease: "easeInOut" }}
-					className="h-full min-h-[100dvh] w-full overflow-y-auto p-4 sm:p-8 md:p-12 sm:min-h-0"
+					className="flex h-full min-h-[100dvh] w-full items-center justify-center overflow-y-auto p-3 sm:p-8 md:p-12 sm:min-h-0 sm:items-start sm:justify-start"
 				>
-					<div className="max-w-md ml-0 md:ml-[180px] mx-auto md:mx-0">
+					<div className="w-full max-w-md ml-0 md:ml-[180px] mx-auto md:mx-0 py-2 sm:py-0">
 						<div className="bg-white rounded-lg sm:rounded-2xl p-3 sm:p-8 border border-gray-200">
 							<div className="text-center mb-3 sm:mb-8">
 							<h1 className="text-base sm:text-2xl md:text-4xl font-bold text-gray-900 mb-1 sm:mb-2">Create Account</h1>
@@ -1245,11 +1245,11 @@ export default function GetStarted() {
 								</div>
 
 								<div>
-									<label className="block text-gray-700 font-semibold text-sm mb-2">Email Address</label>
+									<label className="block text-gray-700 font-semibold text-[11px] sm:text-sm mb-1.5 sm:mb-2">Email Address</label>
 									<div className="relative">
 										<input
 											type="email"
-											className={`w-full px-4 py-3 pr-10 bg-gray-50 border rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 transition duration-300 ${
+											className={`w-full px-3 py-2.5 sm:px-4 sm:py-3 pr-10 bg-gray-50 border rounded-lg text-sm sm:text-base text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 transition duration-300 ${
 												emailStatus
 													? emailStatus.valid
 														? "border-green-400 focus:ring-green-400"
@@ -1361,9 +1361,9 @@ export default function GetStarted() {
 
 								<a
 									href={`${import.meta.env.VITE_API_URL || window.location.origin}/api/auth/google?mode=register`}
-									className="w-full px-4 py-2.5 sm:px-6 sm:py-3 bg-gray-100 hover:bg-gray-200 border border-gray-300 text-gray-900 font-semibold rounded-lg transition-all duration-300 flex items-center justify-center gap-2 text-xs sm:text-sm"
+									className="w-full px-3 py-2 sm:px-6 sm:py-3 font-bold rounded-lg border border-gray-300 bg-gray-100 text-gray-900 text-[13px] sm:text-sm transition-all duration-300 flex items-center justify-center gap-2 shadow-sm hover:bg-gray-200"
 								>
-									<svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+									<svg className="w-4 h-4 sm:w-5 sm:h-5" viewBox="0 0 24 24" fill="currentColor">
 										<path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
 										<path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
 										<path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
