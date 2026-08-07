@@ -1052,12 +1052,12 @@ export default function GetStarted() {
 					initial={{ x: "-100%" }}
 					animate={{ x: showLoginModal ? 0 : "-100%" }}
 					transition={{ duration: 0.4, ease: "easeInOut" }}
-					className="h-full min-h-[100dvh] w-full overflow-y-auto p-4 sm:p-8 md:p-12 sm:min-h-0"
+					className="h-full min-h-[100dvh] w-full overflow-y-hidden sm:overflow-y-auto p-2 sm:p-8 md:p-12 sm:min-h-0"
 				>
-					<div className="max-w-md ml-0 md:ml-[180px] mx-auto md:mx-0">
-						<div className="bg-white rounded-2xl p-6 sm:p-8 border border-gray-200">
-							<div className="text-center mb-6 sm:mb-8">
-							<h1 className="text-xl sm:text-2xl md:text-4xl font-bold text-gray-900 mb-2">Madiyaw!</h1>
+					<div className="max-w-md ml-0 md:ml-[180px] mx-auto md:mx-0 pt-8 sm:pt-0">
+						<div className="bg-white rounded-lg sm:rounded-2xl p-3 sm:p-8 border border-gray-200">
+							<div className="text-center mb-3 sm:mb-8">
+							<h1 className="text-base sm:text-2xl md:text-4xl font-bold text-gray-900 mb-1 sm:mb-2">Madiyaw!</h1>
 							</div>
 
 							{isLoginLocked && (
@@ -1074,12 +1074,12 @@ export default function GetStarted() {
 								</motion.div>
 							)}
 
-							<form onSubmit={handleLogin} className="space-y-5">
+							<form onSubmit={handleLogin} className="space-y-2 sm:space-y-5">
 								<div>
-									<label className="block text-gray-700 font-semibold text-sm mb-2">Email Address</label>
+									<label className="block text-gray-700 font-semibold text-[11px] sm:text-sm mb-1.5 sm:mb-2">Email Address</label>
 									<input
 										type="email"
-										className={`w-full px-4 py-3 bg-gray-50 border rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 transition duration-300 ${
+										className={`w-full px-3 py-2.5 sm:px-4 sm:py-3 bg-gray-50 border rounded-lg text-sm sm:text-base text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 transition duration-300 ${
 											loginErrors.email ? "border-red-500 focus:ring-red-400" : "border-gray-300 focus:ring-[#004d1a] focus:border-transparent"
 										}`}
 										placeholder="Enter your email..."
@@ -1088,15 +1088,15 @@ export default function GetStarted() {
 										disabled={isLoginLocked || isLoading}
 										required
 									/>
-									{loginErrors.email && <p className="text-red-600 text-xs mt-1">⚠️ {loginErrors.email}</p>}
+									{loginErrors.email && <p className="text-red-600 text-[10px] sm:text-xs mt-1">⚠️ {loginErrors.email}</p>}
 								</div>
 
 								<div>
-									<label className="block text-gray-700 font-semibold text-sm mb-2">Password</label>
+									<label className="block text-gray-700 font-semibold text-[11px] sm:text-sm mb-1.5 sm:mb-2">Password</label>
 									<div className="relative">
 										<input
 											type={showPassword ? "text" : "password"}
-											className={`w-full px-4 py-3 pr-12 bg-gray-50 border rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 transition duration-300 ${
+											className={`w-full px-3 py-2.5 sm:px-4 sm:py-3 pr-10 sm:pr-12 bg-gray-50 border rounded-lg text-sm sm:text-base text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 transition duration-300 ${
 												loginErrors.password ? "border-red-500 focus:ring-red-400" : "border-gray-300 focus:ring-[#004d1a] focus:border-transparent"
 											}`}
 											placeholder="Enter your password..."
@@ -1109,19 +1109,19 @@ export default function GetStarted() {
 											type="button"
 											onClick={() => setShowPassword(!showPassword)}
 											disabled={isLoginLocked || isLoading}
-											className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700 transition disabled:opacity-50"
+											className="absolute right-2.5 sm:right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700 transition disabled:opacity-50"
 										>
 											{showPassword ? (
-												<EyeOff className="w-5 h-5" />
+												<EyeOff className="w-4 h-4 sm:w-5 sm:h-5" />
 											) : (
-												<Eye className="w-5 h-5" />
+												<Eye className="w-4 h-4 sm:w-5 sm:h-5" />
 											)}
 										</button>
 									</div>
-									{loginErrors.password && <p className="text-red-600 text-xs mt-1">⚠️ {loginErrors.password}</p>}
+									{loginErrors.password && <p className="text-red-600 text-[10px] sm:text-xs mt-1">⚠️ {loginErrors.password}</p>}
 								</div>
 
-								<div className="flex items-center justify-between text-xs">
+								<div className="flex items-center justify-between text-[11px] sm:text-xs">
 									<label className="flex items-center gap-2 text-gray-600 cursor-pointer">
 										<input type="checkbox" className="rounded" />
 										<span>Remember me</span>
@@ -1134,7 +1134,7 @@ export default function GetStarted() {
 								<button
 									type="submit"
 									disabled={isLoading || isLoginLocked || loginErrors.email || loginErrors.password || !loginData.email || !loginData.password}
-									className={`w-full mt-6 px-6 py-3 font-bold rounded-lg shadow-xl transition-all duration-300 transform text-sm ${
+									className={`w-full mt-2 sm:mt-6 px-3 py-2 sm:px-6 sm:py-3 font-bold rounded-lg shadow-xl transition-all duration-300 transform text-[13px] sm:text-sm ${
 										isLoginLocked
 											? "bg-gray-500 cursor-not-allowed opacity-50 text-gray-300"
 											: isLoading
@@ -1144,7 +1144,7 @@ export default function GetStarted() {
 								>
 									{isLoading ? (
 										<span className="flex items-center justify-center gap-2">
-											<div className="animate-spin h-5 w-5 border-b-2 border-white"></div>
+											<div className="animate-spin h-4 w-4 sm:h-5 sm:w-5 border-b-2 border-white"></div>
 											Logging in...
 										</span>
 									) : isLoginLocked ? (
@@ -1154,7 +1154,7 @@ export default function GetStarted() {
 									)}
 								</button>
 
-								<div className="flex items-center gap-4 my-6">
+								<div className="flex items-center gap-4 my-4 sm:my-6">
 									<div className="flex-1 h-px bg-gray-300"></div>
 									<span className="text-gray-500 text-xs">OR</span>
 									<div className="flex-1 h-px bg-gray-300"></div>
@@ -1162,7 +1162,7 @@ export default function GetStarted() {
 
 								<a
 									href={`${import.meta.env.VITE_API_URL || window.location.origin}/api/auth/google?mode=login`}
-									className="w-full px-6 py-3 bg-gray-100 hover:bg-gray-200 border border-gray-300 text-gray-900 font-semibold rounded-lg transition-all duration-300 flex items-center justify-center gap-2 text-sm"
+									className="w-full px-4 py-2.5 sm:px-6 sm:py-3 bg-gray-100 hover:bg-gray-200 border border-gray-300 text-gray-900 font-semibold rounded-lg transition-all duration-300 flex items-center justify-center gap-2 text-xs sm:text-sm"
 								>
 									<svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
 										<path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
@@ -1174,7 +1174,7 @@ export default function GetStarted() {
 								</a>
 							</form>
 
-							<p className="text-center text-gray-600 text-sm mt-6">
+							<p className="text-center text-gray-600 text-[10px] sm:text-sm mt-3 sm:mt-6">
 								Don't have an account?{" "}
 								<button
 									type="button"
@@ -1222,17 +1222,17 @@ export default function GetStarted() {
 					className="h-full min-h-[100dvh] w-full overflow-y-auto p-4 sm:p-8 md:p-12 sm:min-h-0"
 				>
 					<div className="max-w-md ml-0 md:ml-[180px] mx-auto md:mx-0">
-						<div className="bg-white rounded-2xl p-6 sm:p-8 border border-gray-200">
-							<div className="text-center mb-6 sm:mb-8">
-							<h1 className="text-xl sm:text-2xl md:text-4xl font-bold text-gray-900 mb-2">Create Account</h1>
+						<div className="bg-white rounded-lg sm:rounded-2xl p-3 sm:p-8 border border-gray-200">
+							<div className="text-center mb-3 sm:mb-8">
+							<h1 className="text-base sm:text-2xl md:text-4xl font-bold text-gray-900 mb-1 sm:mb-2">Create Account</h1>
 							</div>
 
-							<form onSubmit={handleRegister} className="space-y-5">
+							<form onSubmit={handleRegister} className="space-y-2 sm:space-y-5">
 								<div>
-									<label className="block text-gray-700 font-semibold text-sm mb-2">Full Name</label>
+									<label className="block text-gray-700 font-semibold text-[11px] sm:text-sm mb-1.5 sm:mb-2">Full Name</label>
 									<input
 										type="text"
-										className={`w-full px-4 py-3 bg-gray-50 border rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 transition duration-300 ${
+										className={`w-full px-3 py-2.5 sm:px-4 sm:py-3 bg-gray-50 border rounded-lg text-sm sm:text-base text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 transition duration-300 ${
 											registerErrors.name ? "border-red-500 focus:ring-red-400" : "border-gray-300 focus:ring-[#004d1a] focus:border-transparent"
 										}`}
 										placeholder="Enter your full name..."
@@ -1241,7 +1241,7 @@ export default function GetStarted() {
 										disabled={isLoading}
 										required
 									/>
-									{registerErrors.name && <p className="text-red-600 text-xs mt-1">⚠️ {registerErrors.name}</p>}
+									{registerErrors.name && <p className="text-red-600 text-[10px] sm:text-xs mt-1">⚠️ {registerErrors.name}</p>}
 								</div>
 
 								<div>
@@ -1266,9 +1266,9 @@ export default function GetStarted() {
 										{emailStatus && (
 											<div className="absolute right-3 top-1/2 transform -translate-y-1/2">
 												{emailStatus.valid ? (
-													<span className="text-green-500 text-lg">✓</span>
+													<span className="text-green-500 text-sm sm:text-lg">✓</span>
 												) : (
-													<span className="text-red-500 text-lg">✕</span>
+													<span className="text-red-500 text-sm sm:text-lg">✕</span>
 												)}
 											</div>
 										)}
@@ -1289,10 +1289,10 @@ export default function GetStarted() {
 								</div>
 
 								<div>
-									<label className="block text-gray-700 font-semibold text-sm mb-2">Phone Number</label>
+									<label className="block text-gray-700 font-semibold text-[11px] sm:text-sm mb-1.5 sm:mb-2">Phone Number</label>
 									<input
 										type="tel"
-										className={`w-full px-4 py-3 bg-gray-50 border rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 transition duration-300 ${
+										className={`w-full px-3 py-2.5 sm:px-4 sm:py-3 bg-gray-50 border rounded-lg text-sm sm:text-base text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 transition duration-300 ${
 											registerErrors.phone ? "border-red-500 focus:ring-red-400" : "border-gray-300 focus:ring-[#004d1a] focus:border-transparent"
 										}`}
 										placeholder="+63 9XX XXX XXXX"
@@ -1305,11 +1305,11 @@ export default function GetStarted() {
 								</div>
 
 								<div>
-									<label className="block text-gray-700 font-semibold text-sm mb-2">Password</label>
+									<label className="block text-gray-700 font-semibold text-[11px] sm:text-sm mb-1.5 sm:mb-2">Password</label>
 									<div className="relative">
 										<input
 											type={showPassword ? "text" : "password"}
-											className={`w-full px-4 py-3 pr-12 bg-gray-50 border rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 transition duration-300 ${
+											className={`w-full px-3 py-2.5 sm:px-4 sm:py-3 pr-10 sm:pr-12 bg-gray-50 border rounded-lg text-sm sm:text-base text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 transition duration-300 ${
 												registerErrors.password ? "border-red-500 focus:ring-red-400" : "border-gray-300 focus:ring-[#004d1a] focus:border-transparent"
 											}`}
 											placeholder="Enter your password..."
@@ -1322,22 +1322,22 @@ export default function GetStarted() {
 											type="button"
 											onClick={() => setShowPassword(!showPassword)}
 											disabled={isLoading}
-											className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700 transition disabled:opacity-50"
+											className="absolute right-2.5 sm:right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700 transition disabled:opacity-50"
 										>
 											{showPassword ? (
-												<EyeOff className="w-5 h-5" />
+												<EyeOff className="w-4 h-4 sm:w-5 sm:h-5" />
 											) : (
-												<Eye className="w-5 h-5" />
+												<Eye className="w-4 h-4 sm:w-5 sm:h-5" />
 											)}
 										</button>
 									</div>
-									{registerErrors.password && <p className="text-red-600 text-xs mt-1">⚠️ {registerErrors.password}</p>}
+									{registerErrors.password && <p className="text-red-600 text-[10px] sm:text-xs mt-1">⚠️ {registerErrors.password}</p>}
 								</div>
 
 								<button
 									type="submit"
 									disabled={isLoading}
-									className={`w-full mt-6 px-6 py-3 font-bold rounded-lg shadow-xl transition-all duration-300 transform text-sm ${
+									className={`w-full mt-2 sm:mt-6 px-3 py-2 sm:px-6 sm:py-3 font-bold rounded-lg shadow-xl transition-all duration-300 transform text-[13px] sm:text-sm ${
 										isLoading
 											? "bg-[#004d1a] text-white scale-105"
 											: "bg-gradient-to-r from-[#004d1a] to-[#003300] hover:from-[#003d15] hover:to-[#002a0c] text-white hover:shadow-2xl hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -1345,7 +1345,7 @@ export default function GetStarted() {
 								>
 									{isLoading ? (
 										<span className="inline-flex items-center justify-center gap-2">
-											<div className="h-5 w-5 animate-spin rounded-full border-2 border-white/40 border-t-white"></div>
+											<div className="h-4 w-4 sm:h-5 sm:w-5 animate-spin rounded-full border-2 border-white/40 border-t-white"></div>
 											<span>Creating Account...</span>
 										</span>
 									) : (
@@ -1353,7 +1353,7 @@ export default function GetStarted() {
 									)}
 								</button>
 
-								<div className="flex items-center gap-4 my-6">
+								<div className="flex items-center gap-4 my-4 sm:my-6">
 									<div className="flex-1 h-px bg-gray-300"></div>
 									<span className="text-gray-500 text-xs">OR</span>
 									<div className="flex-1 h-px bg-gray-300"></div>
@@ -1361,7 +1361,7 @@ export default function GetStarted() {
 
 								<a
 									href={`${import.meta.env.VITE_API_URL || window.location.origin}/api/auth/google?mode=register`}
-									className="w-full px-6 py-3 bg-gray-100 hover:bg-gray-200 border border-gray-300 text-gray-900 font-semibold rounded-lg transition-all duration-300 flex items-center justify-center gap-2 text-sm"
+									className="w-full px-4 py-2.5 sm:px-6 sm:py-3 bg-gray-100 hover:bg-gray-200 border border-gray-300 text-gray-900 font-semibold rounded-lg transition-all duration-300 flex items-center justify-center gap-2 text-xs sm:text-sm"
 								>
 									<svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
 										<path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
@@ -1373,7 +1373,7 @@ export default function GetStarted() {
 								</a>
 							</form>
 
-							<p className="text-center text-gray-600 text-sm mt-6">
+							<p className="text-center text-gray-600 text-[10px] sm:text-sm mt-3 sm:mt-6">
 								Already have an account?{" "}
 								<button
 									type="button"
