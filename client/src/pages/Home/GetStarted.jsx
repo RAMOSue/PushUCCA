@@ -102,7 +102,7 @@ export default function GetStarted() {
 	// ✅ SLIDESHOW: Image carousel state
 	const [slideImages, setSlideImages] = useState([]);
 	const [currentSlide, setCurrentSlide] = useState(0);
-	const [pendingSlide, setPendingSlide] = useState(0);
+	const [nextSlide, setNextSlide] = useState(0);
 	const [isTransitioning, setIsTransitioning] = useState(false);
 	const [slideshowLoading, setSlideshowLoading] = useState(true);
 	const [slideshowTransitionDuration] = useState(10.8);
@@ -308,12 +308,11 @@ export default function GetStarted() {
 	}, []);
 
 	useEffect(() => {
-		if (slideImages.length <= 1) return;
-		if (isTransitioning) return;
+		if (slideImages.length <= 1 || isTransitioning) return;
 
 		autoplayTimeoutRef.current = window.setTimeout(() => {
-			const nextSlide = (currentSlide + 1) % slideImages.length;
-			setPendingSlide(nextSlide);
+			const upcomingSlide = (currentSlide + 1) % slideImages.length;
+			setNextSlide(upcomingSlide);
 			setIsTransitioning(true);
 		}, slideshowAutoAdvanceDelay);
 
@@ -333,7 +332,8 @@ export default function GetStarted() {
 		}
 
 		swipeTimeoutRef.current = window.setTimeout(() => {
-			setCurrentSlide(pendingSlide);
+			setCurrentSlide(nextSlide);
+			setNextSlide(nextSlide);
 			setIsTransitioning(false);
 			swipeTimeoutRef.current = null;
 		}, slideshowTransitionDuration * 1000);
@@ -344,7 +344,7 @@ export default function GetStarted() {
 				swipeTimeoutRef.current = null;
 			}
 		};
-	}, [isTransitioning, pendingSlide, slideshowTransitionDuration]);
+	}, [isTransitioning, nextSlide, slideshowTransitionDuration]);
 
 	const scrollToSection = (sectionId) => {
 		const target = document.getElementById(sectionId);
@@ -716,7 +716,7 @@ export default function GetStarted() {
 	}
 
 	const currentHeroImage = slideImages[currentSlide] || null;
-	const pendingHeroImage = isTransitioning ? (slideImages[pendingSlide] || currentHeroImage) : null;
+	const upcomingHeroImage = isTransitioning ? (slideImages[nextSlide] || currentHeroImage) : null;
 
 	return (
 		<div className="min-h-screen bg-white overflow-hidden">
@@ -731,42 +731,40 @@ export default function GetStarted() {
 			{slideImages.length > 0 ? (
 				<Section className="relative w-full h-[320px] sm:h-[460px] md:h-[560px] lg:h-[660px] overflow-hidden bg-[#001800]">
 						<div className="absolute inset-0">
-						{isTransitioning && pendingHeroImage ? (
+						{upcomingHeroImage ? (
 							<img
-								src={pendingHeroImage.imageUrl}
-								alt={pendingHeroImage.title || "Heritage slideshow"}
+								src={upcomingHeroImage.imageUrl}
+								alt={upcomingHeroImage.title || "Heritage slideshow"}
 								className="absolute inset-0 h-full w-full object-cover z-0"
 							/>
-						) : (
-							<img
-								src={currentHeroImage?.imageUrl}
-								alt={currentHeroImage?.title || "Heritage slideshow"}
-								className="absolute inset-0 h-full w-full object-cover z-0"
+						) : null}
+						{currentHeroImage ? (
+							<motion.img
+								key={`${currentSlide}-${nextSlide}-${isTransitioning ? "transition" : "idle"}`}
+								src={currentHeroImage.imageUrl}
+								alt={currentHeroImage.title || "Heritage slideshow"}
+								className="absolute inset-0 h-full w-full object-cover z-10"
+								initial={isTransitioning ? { WebkitMaskPosition: "100% 50%", maskPosition: "100% 50%" } : false}
+								animate={isTransitioning ? {
+									WebkitMaskPosition: "-100% 50%",
+									maskPosition: "-100% 50%",
+								} : {
+									WebkitMaskPosition: "100% 50%",
+									maskPosition: "100% 50%",
+								}}
+								transition={{ duration: slideshowTransitionDuration, ease: [0.23, 1, 0.32, 1] }}
+								style={{
+									WebkitMaskImage: "linear-gradient(90deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.08) 10%, rgba(0,0,0,0.22) 24%, rgba(0,0,0,0.46) 42%, rgba(0,0,0,0.72) 60%, rgba(0,0,0,0.92) 78%, rgba(0,0,0,1) 100%)",
+									maskImage: "linear-gradient(90deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.08) 10%, rgba(0,0,0,0.22) 24%, rgba(0,0,0,0.46) 42%, rgba(0,0,0,0.72) 60%, rgba(0,0,0,0.92) 78%, rgba(0,0,0,1) 100%)",
+									WebkitMaskSize: "220% 100%",
+									maskSize: "220% 100%",
+									WebkitMaskRepeat: "no-repeat",
+									maskRepeat: "no-repeat",
+									willChange: "mask-position",
+								}}
 							/>
-						)}
-						<motion.img
-							key={`${currentSlide}-${pendingSlide}`}
-							src={currentHeroImage?.imageUrl}
-							alt={currentHeroImage?.title || "Heritage slideshow"}
-							className="absolute inset-0 h-full w-full object-cover z-10"
-							initial={false}
-							animate={{
-								WebkitMaskPosition: ["-100% 50%", "100% 50%"],
-								maskPosition: ["-100% 50%", "100% 50%"],
-							}}
-							transition={{ duration: slideshowTransitionDuration, ease: [0.23, 1, 0.32, 1] }}
-							style={{
-								WebkitMaskImage: "linear-gradient(90deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.08) 10%, rgba(0,0,0,0.22) 24%, rgba(0,0,0,0.46) 42%, rgba(0,0,0,0.72) 60%, rgba(0,0,0,0.92) 78%, rgba(0,0,0,1) 100%)",
-								maskImage: "linear-gradient(90deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.08) 10%, rgba(0,0,0,0.22) 24%, rgba(0,0,0,0.46) 42%, rgba(0,0,0,0.72) 60%, rgba(0,0,0,0.92) 78%, rgba(0,0,0,1) 100%)",
-								WebkitMaskSize: "220% 100%",
-								maskSize: "220% 100%",
-								WebkitMaskRepeat: "no-repeat",
-								maskRepeat: "no-repeat",
-								willChange: "mask-position",
-							}}
-						/>
+						) : null}
 					</div>
-
 					<motion.div
 						className="absolute inset-0 flex flex-col justify-center items-center sm:items-start text-center sm:text-left px-4 sm:px-8 md:px-14 lg:px-20 z-20"
 						initial={{ opacity: 0, y: 20 }}
