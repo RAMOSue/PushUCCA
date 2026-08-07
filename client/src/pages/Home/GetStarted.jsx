@@ -748,12 +748,9 @@ export default function GetStarted() {
 								animate={isTransitioning ? {
 									WebkitMaskPosition: "-100% 50%",
 									maskPosition: "-100% 50%",
-								} : {
-									WebkitMaskPosition: "100% 50%",
-									maskPosition: "100% 50%",
-								}}
-								transition={{ duration: slideshowTransitionDuration, ease: [0.23, 1, 0.32, 1] }}
-								style={{
+								} : false}
+								transition={isTransitioning ? { duration: slideshowTransitionDuration, ease: [0.23, 1, 0.32, 1] } : { duration: 0 }}
+								style={isTransitioning ? {
 									WebkitMaskImage: "linear-gradient(90deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.08) 10%, rgba(0,0,0,0.22) 24%, rgba(0,0,0,0.46) 42%, rgba(0,0,0,0.72) 60%, rgba(0,0,0,0.92) 78%, rgba(0,0,0,1) 100%)",
 									maskImage: "linear-gradient(90deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.08) 10%, rgba(0,0,0,0.22) 24%, rgba(0,0,0,0.46) 42%, rgba(0,0,0,0.72) 60%, rgba(0,0,0,0.92) 78%, rgba(0,0,0,1) 100%)",
 									WebkitMaskSize: "220% 100%",
@@ -761,6 +758,9 @@ export default function GetStarted() {
 									WebkitMaskRepeat: "no-repeat",
 									maskRepeat: "no-repeat",
 									willChange: "mask-position",
+								} : {
+									WebkitMaskImage: "none",
+									maskImage: "none",
 								}}
 							/>
 						) : null}
