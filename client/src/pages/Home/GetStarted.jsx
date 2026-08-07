@@ -744,10 +744,10 @@ export default function GetStarted() {
 								src={currentHeroImage.imageUrl}
 								alt={currentHeroImage.title || "Heritage slideshow"}
 								className="absolute inset-0 h-full w-full object-cover z-10"
-								initial={isTransitioning ? { WebkitMaskPosition: "100% 50%", maskPosition: "100% 50%" } : false}
+								initial={isTransitioning ? { WebkitMaskPosition: "-100% 50%", maskPosition: "-100% 50%" } : false}
 								animate={isTransitioning ? {
-									WebkitMaskPosition: "-100% 50%",
-									maskPosition: "-100% 50%",
+									WebkitMaskPosition: "100% 50%",
+									maskPosition: "100% 50%",
 								} : false}
 								transition={isTransitioning ? { duration: slideshowTransitionDuration, ease: [0.23, 1, 0.32, 1] } : { duration: 0 }}
 								style={isTransitioning ? {
