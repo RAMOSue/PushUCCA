@@ -105,8 +105,8 @@ export default function GetStarted() {
 	const [nextSlide, setNextSlide] = useState(0);
 	const [isTransitioning, setIsTransitioning] = useState(false);
 	const [slideshowLoading, setSlideshowLoading] = useState(true);
-	const [slideshowTransitionDuration] = useState(10.8);
-	const [slideshowAutoAdvanceDelay] = useState(10000);
+	const [slideshowTransitionDuration] = useState(2.8);
+	const [slideshowAutoAdvanceDelay] = useState(8500);
 	const swipeTimeoutRef = useRef(null);
 	const autoplayTimeoutRef = useRef(null);
 
@@ -744,20 +744,22 @@ export default function GetStarted() {
 								src={currentHeroImage.imageUrl}
 								alt={currentHeroImage.title || "Heritage slideshow"}
 								className="absolute inset-0 h-full w-full object-cover z-10"
-								initial={isTransitioning ? { WebkitMaskPosition: "100% 50%", maskPosition: "100% 50%" } : false}
+								initial={isTransitioning ? { WebkitMaskPosition: "115% 50%", maskPosition: "115% 50%", opacity: 0.96, scale: 1.01 } : false}
 								animate={isTransitioning ? {
-									WebkitMaskPosition: "-100% 50%",
-									maskPosition: "-100% 50%",
+									WebkitMaskPosition: "-115% 50%",
+									maskPosition: "-115% 50%",
+									opacity: 1,
+									scale: 1,
 								} : false}
-								transition={isTransitioning ? { duration: slideshowTransitionDuration, ease: [0.23, 1, 0.32, 1] } : { duration: 0 }}
+								transition={isTransitioning ? { duration: slideshowTransitionDuration, ease: [0.22, 1, 0.36, 1] } : { duration: 0 }}
 								style={isTransitioning ? {
-									WebkitMaskImage: "linear-gradient(90deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.08) 10%, rgba(0,0,0,0.22) 24%, rgba(0,0,0,0.46) 42%, rgba(0,0,0,0.72) 60%, rgba(0,0,0,0.92) 78%, rgba(0,0,0,1) 100%)",
-									maskImage: "linear-gradient(90deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.08) 10%, rgba(0,0,0,0.22) 24%, rgba(0,0,0,0.46) 42%, rgba(0,0,0,0.72) 60%, rgba(0,0,0,0.92) 78%, rgba(0,0,0,1) 100%)",
-									WebkitMaskSize: "220% 100%",
-									maskSize: "220% 100%",
+									WebkitMaskImage: "linear-gradient(90deg, rgba(0,0,0,0.02) 0%, rgba(0,0,0,0.08) 12%, rgba(0,0,0,0.24) 28%, rgba(0,0,0,0.48) 48%, rgba(0,0,0,0.72) 70%, rgba(0,0,0,0.92) 86%, rgba(0,0,0,1) 100%)",
+									maskImage: "linear-gradient(90deg, rgba(0,0,0,0.02) 0%, rgba(0,0,0,0.08) 12%, rgba(0,0,0,0.24) 28%, rgba(0,0,0,0.48) 48%, rgba(0,0,0,0.72) 70%, rgba(0,0,0,0.92) 86%, rgba(0,0,0,1) 100%)",
+									WebkitMaskSize: "240% 100%",
+									maskSize: "240% 100%",
 									WebkitMaskRepeat: "no-repeat",
 									maskRepeat: "no-repeat",
-									willChange: "mask-position",
+									willChange: "mask-position, opacity, transform",
 								} : {
 									WebkitMaskImage: "none",
 									maskImage: "none",
