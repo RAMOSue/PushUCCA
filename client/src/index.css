@@ -4,106 +4,23 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 0 0% 3.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 0 0% 3.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 3.9%;
-    --primary: 0 0% 9%;
-    --primary-foreground: 0 0% 98%;
-    --secondary: 0 0% 96.1%;
-    --secondary-foreground: 0 0% 9%;
-    --muted: 0 0% 96.1%;
-    --muted-foreground: 0 0% 45.1%;
-    --accent: 0 0% 96.1%;
-    --accent-foreground: 0 0% 9%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 89.8%;
-    --input: 0 0% 89.8%;
-    --ring: 0 0% 3.9%;
-    --chart-1: 12 76% 61%;
-    --chart-2: 173 58% 39%;
-    --chart-3: 197 37% 24%;
-    --chart-4: 43 74% 66%;
-    --chart-5: 27 87% 67%;
-    --radius: 0.5rem
-  }
-  .dark {
-    --background: 0 0% 3.9%;
-    --foreground: 0 0% 98%;
-    --card: 0 0% 3.9%;
-    --card-foreground: 0 0% 98%;
-    --popover: 0 0% 3.9%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 0 0% 98%;
-    --primary-foreground: 0 0% 9%;
-    --secondary: 0 0% 14.9%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 0 0% 14.9%;
-    --muted-foreground: 0 0% 63.9%;
-    --accent: 0 0% 14.9%;
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 14.9%;
-    --input: 0 0% 14.9%;
-    --ring: 0 0% 83.1%;
-    --chart-1: 220 70% 50%;
-    --chart-2: 160 60% 45%;
-    --chart-3: 30 80% 55%;
-    --chart-4: 280 65% 60%;
-    --chart-5: 340 75% 55%;
-    
-    /* Material Design 3 Dark Mode Colors */
-    --on-secondary-fixed-variant: #c0b0ff;
-    --on-tertiary-fixed-variant: #ffc4d9;
-    --on-background: #e1e1e6;
-    --error-container: #8c1f1a;
-    --secondary-fixed-dim: #a59601;
-    --primary-fixed-dim: #87da73;
-    --outline-variant: #49473c;
-    --on-primary-container: #1edc54;
-    --surface-bright: #262629;
-    --surface-container-lowest: #171717;
-    --primary-fixed: #a2f78c;
-    --background: #1a1a1a;
-    --inverse-surface: #e1e1e6;
-    --secondary-container: #664004;
-    --on-primary: #ffffff;
-    --secondary: #ffb600;
-    --surface-container-highest: #37373b;
-    --on-surface: #e1e1e6;
-    --tertiary-container: #c23565;
-    --on-error-container: #d8c3c2;
-    --on-tertiary-fixed: #ffc4d9;
-    --on-surface-variant: #c4c7b8;
-    --surface-container-high: #2f2f33;
-    --on-primary-fixed-variant: #003c00;
-    --on-secondary: #ffffff;
-    --on-tertiary: #ffffff;
-    --surface-variant: #49473c;
-    --primary-container: #003c00;
-    --tertiary: #ff99bb;
-    --on-secondary-container: #fff0d4;
-    --on-tertiary-container: #ffd9e5;
-    --inverse-on-surface: #171717;
-    --error: #ff6b6b;
-    --secondary-fixed: #ffdf90;
-    --primary: #87da73;
-    --surface: #171717;
-    --outline: #8f9089;
-    --on-secondary-fixed: #241a00;
-    --surface-tint: #87da73;
-    --tertiary-fixed-dim: #ffb0cf;
-    --surface-dim: #0f0f13;
-    --on-primary-fixed: #002200;
-    --inverse-primary: #4f8d3f;
-    --on-error: #ffffff;
-    --tertiary-fixed: #ffd9e5;
-    --surface-container: #1f1f23;
-    --surface-container-low: #1a1a1f;
+    --background: 0 0% 10%;
+    --foreground: 0 0% 96%;
+    --primary: 119 99% 46%;
+    --primary-foreground: 0 0% 4%;
+    --secondary: 0 0% 18%;
+    --secondary-foreground: 0 0% 96%;
+    --muted: 0 0% 16%;
+    --muted-foreground: 0 0% 60%;
+    --accent: 119 99% 46%;
+    --accent-foreground: 0 0% 4%;
+    --destructive: 0 84% 60%;
+    --border: 0 0% 20%;
+    --input: 0 0% 20%;
+    --ring: 119 99% 46%;
+    --radius: 0.5rem;
+    --nav-button: 0 0% 18%;
+    --hero-bg: 0 0% 8%;
   }
 }
 
@@ -111,8 +28,9 @@
   * {
     @apply border-border;
   }
+
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-sora antialiased;
   }
 }
 
@@ -120,6 +38,7 @@
   .no-scrollbar::-webkit-scrollbar {
     display: none;
   }
+
   .no-scrollbar {
     -ms-overflow-style: none;
     scrollbar-width: none;
@@ -136,3 +55,4 @@
     transform: translateY(0);
   }
 }
+
