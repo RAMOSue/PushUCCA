@@ -17,6 +17,8 @@ type AuthContextValue = {
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<LoginResponse>;
+  register: (input: { name: string; email: string; password: string; phone: string }) => Promise<LoginResponse>;
+  completeOAuthSession: (token: string, user: AuthUser) => Promise<void>;
   logout: () => Promise<void>;
   restoreSession: () => Promise<void>;
 };
@@ -83,6 +85,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return response.data;
   }, [persistToken]);
 
+  const register = useCallback(async (input: { name: string; email: string; password: string; phone: string }) => {
+    const response = await api.post<LoginResponse>("/api/auth/register", input);
+
+    const { token: nextToken, user: nextUser } = response.data;
+    setUser(nextUser);
+    setToken(nextToken);
+    setApiAuthToken(nextToken);
+    await persistToken(nextToken);
+
+    return response.data;
+  }, [persistToken]);
+
+  const completeOAuthSession = useCallback(async (nextToken: string, nextUser: AuthUser) => {
+    setUser(nextUser);
+    setToken(nextToken);
+    setApiAuthToken(nextToken);
+    await persistToken(nextToken);
+  }, [persistToken]);
+
   const logout = useCallback(async () => {
     setUser(null);
     setToken(null);
@@ -103,10 +124,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       isAuthenticated: Boolean(user && token),
       isLoading,
       login,
+      register,
+      completeOAuthSession,
       logout,
       restoreSession,
     }),
-    [isLoading, login, logout, restoreSession, token, user]
+    [completeOAuthSession, isLoading, login, logout, register, restoreSession, token, user]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
