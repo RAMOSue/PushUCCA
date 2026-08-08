@@ -122,6 +122,7 @@ const legacyUploadsDir = path.join(__dirname, "uploads"); // ✅ Also support ex
 const qrCodesDir = path.join(__dirname, "public", "qr_codes");
 
 ensureDir(uploadsDir);
+ensureDir(legacyUploadsDir);
 ensureDir(qrCodesDir);
 
 /* -------------------- Static file serving -------------------- */

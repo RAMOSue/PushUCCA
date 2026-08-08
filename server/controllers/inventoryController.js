@@ -8,7 +8,21 @@ const { v4: uuidv4 } = require("uuid");
 
 // Backend base URL (set in .env). In production, ensure BASE_URL is the full https:// URL.
 const isProd = process.env.NODE_ENV === 'production';
-const BASE_URL = process.env.BASE_URL || (isProd ? '' : 'http://localhost:8000');
+const BASE_URL = process.env.BASE_URL || process.env.SERVER_URL || process.env.PUBLIC_URL || process.env.RENDER_EXTERNAL_URL || (isProd ? '' : 'http://localhost:8000');
+
+function normalizeAssetPath(filePath) {
+  if (!filePath) return null;
+
+  const trimmed = String(filePath).trim();
+  if (!trimmed) return null;
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+
+  if (trimmed.startsWith('/')) {
+    return trimmed.startsWith('/uploads') ? trimmed : `/uploads/${trimmed.replace(/^\/+/, '')}`;
+  }
+
+  return trimmed.startsWith('uploads') ? `/${trimmed}` : `/uploads/${trimmed}`;
+}
 
 // Helper: convert relative or absolute path to full URL
 function toFullUrl(filePath) {
@@ -16,11 +30,15 @@ function toFullUrl(filePath) {
   if (/^https?:\/\//i.test(filePath)) {
     return isProd ? filePath.replace(/^http:\/\//i, 'https://') : filePath;
   }
+
+  const normalized = normalizeAssetPath(filePath);
   if (BASE_URL) {
     const base = isProd ? BASE_URL.replace(/^http:\/\//i, 'https://') : BASE_URL;
-    return base + filePath;
+    const baseClean = base.endsWith('/') ? base.slice(0, -1) : base;
+    return `${baseClean}${normalized}`;
   }
-  return filePath;
+
+  return normalized;
 }
 
 function buildPublicUrl(req, relativePath) {
@@ -119,9 +137,14 @@ function attachDivisionInfo(item, divisions) {
 /* -------------------------------------------------------------- */
 /* File Upload Setup                                               */
 /* -------------------------------------------------------------- */
-const uploadDir = path.join(__dirname, "../uploads");
+const uploadDir = path.join(__dirname, "../public/uploads");
+const legacyUploadDir = path.join(__dirname, "../uploads");
+
 if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir);
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
+if (!fs.existsSync(legacyUploadDir)) {
+  fs.mkdirSync(legacyUploadDir, { recursive: true });
 }
 
 const storage = multer.diskStorage({
