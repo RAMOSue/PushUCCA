@@ -24,8 +24,7 @@
     },
 
     "web": {
-      "output": "static",
-      "favicon": "./assets/images/DuBudKa.png"
+      "output": "static"
     },
 
     "plugins": [
@@ -33,9 +32,6 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/DuBudKa.png",
-          "imageWidth": 200,
-          "resizeMode": "contain",
           "backgroundColor": "#ffffff"
         }
       ],
