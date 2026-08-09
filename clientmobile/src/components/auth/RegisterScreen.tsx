@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
+  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -10,7 +12,6 @@ import {
   Text,
   TextInput,
   View,
-  Alert,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -29,6 +30,14 @@ type FieldErrors = {
 const EMPTY_ERRORS: FieldErrors = {};
 const ALLOWED_EMAIL_DOMAINS = ["@carsu.edu.ph", "@gmail.com"];
 const isValidEmail = (email: string) => ALLOWED_EMAIL_DOMAINS.some((domain) => email.toLowerCase().endsWith(domain));
+
+const GoogleGLogo = () => (
+  <Image
+    source={{ uri: "https://developers.google.com/static/identity/images/g-logo.png" }}
+    style={styles.googleLogo}
+    resizeMode="contain"
+  />
+);
 
 const getErrorMessage = (error: unknown) => {
   if (!error || typeof error !== "object") {
@@ -150,16 +159,16 @@ export default function RegisterScreen() {
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
         <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-          <View style={styles.form}>
+          <View style={[styles.form, styles.registerForm]}>
             <View style={styles.logoWrap}>
-              <Text style={styles.logoText}>
-                <Text style={styles.logoBlue}>Du</Text>
-                <Text style={styles.logoYellow}>Bud</Text>
-                <Text style={styles.logoRed}>Ka</Text>
-              </Text>
+              <Image
+                source={require("../../../../../assets/images/Logo/DuBudKa.png")}
+                style={styles.logo}
+                resizeMode="contain"
+              />
             </View>
 
-            <View style={styles.field}>
+            <View style={[styles.field, styles.firstField]}>
               <Text style={styles.label}>Full Name</Text>
               <View style={[styles.inputShell, errors.name ? styles.inputShellError : null]}>
                 <Ionicons name="person-outline" size={17} color="#9ca3af" />
@@ -203,16 +212,15 @@ export default function RegisterScreen() {
             <Pressable onPress={handleRegister} disabled={isSubmitting} style={({ pressed }) => [styles.button, isSubmitting ? styles.buttonDisabled : null, pressed && !isSubmitting ? styles.buttonPressed : null]}>
               {isSubmitting ? <ActivityIndicator color="#ffffff" /> : <Text style={styles.buttonText}>Create Account</Text>}
             </Pressable>
-
-            <Pressable onPress={() => setGoogleVisible(true)} style={({ pressed }) => [styles.googleButton, isSubmitting ? styles.buttonDisabled : null, pressed && !isSubmitting ? styles.buttonPressed : null]} disabled={isSubmitting}>
-              <Ionicons name="logo-google" size={18} color="#4285F4" />
-              <Text style={styles.googleButtonText}>Sign Up with Google</Text>
-            </Pressable>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
 
       <View style={[styles.footer, { paddingBottom: Math.max(14, insets.bottom + 8) }]}>
+        <Pressable onPress={() => setGoogleVisible(true)} style={({ pressed }) => [styles.googleButton, isSubmitting ? styles.buttonDisabled : null, pressed && !isSubmitting ? styles.buttonPressed : null]} disabled={isSubmitting}>
+          <GoogleGLogo />
+          <Text style={styles.googleButtonText}>Sign Up with Google</Text>
+        </Pressable>
         <Pressable onPress={() => router.back()} disabled={isSubmitting} style={({ pressed }) => [styles.backButton, pressed ? styles.buttonPressed : null]}>
           <Text style={styles.backButtonText}>Go Back</Text>
         </Pressable>
@@ -240,9 +248,17 @@ const styles = StyleSheet.create({
   form: {
     width: "100%",
   },
+  registerForm: {
+    marginTop: 12,
+  },
   logoWrap: {
     alignItems: "center",
-    marginBottom: 20,
+    marginBottom: 24,
+    marginTop: 4,
+  },
+  logo: {
+    width: 180,
+    height: 70,
   },
   logoText: {
     fontSize: 30,
@@ -260,6 +276,9 @@ const styles = StyleSheet.create({
   },
   field: {
     marginBottom: 12,
+  },
+  firstField: {
+    marginTop: 2,
   },
   label: {
     marginBottom: 6,
@@ -326,13 +345,17 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     width: "100%",
-    marginTop: 8,
+    marginTop: 14,
     backgroundColor: "transparent",
     borderWidth: 1,
     borderColor: "#d1d5db",
     flexDirection: "row",
     gap: 8,
     paddingHorizontal: 16,
+  },
+  googleLogo: {
+    width: 18,
+    height: 18,
   },
   googleButtonText: {
     color: "#111827",

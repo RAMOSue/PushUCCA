@@ -252,27 +252,11 @@ export default function TabsLayout() {
 
   const drawerItems = [
     {
-      label: "Announcements",
-      icon: "megaphone-outline" as const,
-      onPress: () => {
-        closeDrawer();
-        router.push("/(tabs)/announcements");
-      },
-    },
-    {
       label: "About UCCA",
       icon: "business-outline" as const,
       onPress: () => {
         closeDrawer();
         router.push("/(tabs)/about-ucca");
-      },
-    },
-    {
-      label: "Divisions",
-      icon: "people-outline" as const,
-      onPress: () => {
-        closeDrawer();
-        router.push("/(tabs)/divisions");
       },
     },
     {
@@ -297,6 +281,14 @@ export default function TabsLayout() {
       onPress: () => {
         closeDrawer();
         router.push("/(tabs)/help");
+      },
+    },
+    {
+      label: "Announcements",
+      icon: "megaphone-outline" as const,
+      onPress: () => {
+        closeDrawer();
+        router.push("/(tabs)/announcements");
       },
     },
     {
@@ -666,40 +658,97 @@ export default function TabsLayout() {
           ]}
         >
           <View style={styles.drawerHeader}>
-            <View style={styles.drawerAvatar}>
-              {drawerProfile?.profile_pic_url ? (
-                <Image source={{ uri: drawerProfile.profile_pic_url }} style={styles.drawerAvatarImage} />
-              ) : (
-                <Ionicons name="person-circle" size={48} color="#ffffff" />
-              )}
-            </View>
-            <View style={styles.drawerUserInfo}>
-              <Text style={styles.drawerName}>{drawerProfile?.name || user?.name || "Guest User"}</Text>
-              <Text style={styles.drawerSubtitle}>{drawerProfile?.department_name || "No division assigned"}</Text>
+            <View style={styles.drawerProfileRow}>
+              <View style={styles.drawerAvatar}>
+                {drawerProfile?.profile_pic_url ? (
+                  <Image source={{ uri: drawerProfile.profile_pic_url }} style={styles.drawerAvatarImage} />
+                ) : (
+                  <Ionicons name="person-circle" size={48} color="#ffffff" />
+                )}
+              </View>
+              <View style={styles.drawerUserInfo}>
+                <Text numberOfLines={1} ellipsizeMode="tail" style={styles.drawerName}>{drawerProfile?.name || user?.name || "Guest User"}</Text>
+                <Text numberOfLines={1} ellipsizeMode="tail" style={styles.drawerSubtitle}>{drawerProfile?.department_name || "No division assigned"}</Text>
+              </View>
             </View>
           </View>
 
           <View style={styles.drawerBody}>
-            {drawerItems.map((item) => (
+            <View style={styles.drawerMainMenu}>
               <Pressable
-                key={item.label}
+                key="Announcements"
                 style={({ pressed }) => [styles.drawerItem, pressed && styles.drawerItemPressed]}
-                onPress={item.onPress}
+                onPress={drawerItems.find((item) => item.label === "Announcements")?.onPress}
               >
-                <Ionicons name={item.icon} size={20} color="#334155" />
-                <Text style={styles.drawerItemText}>{item.label}</Text>
+                <Ionicons name="megaphone-outline" size={20} color="#334155" />
+                <Text style={styles.drawerItemText}>Announcements</Text>
               </Pressable>
-            ))}
-            <Pressable
-              style={({ pressed }) => [styles.drawerItem, pressed && styles.drawerItemPressed]}
-              onPress={() => {
-                closeDrawer();
-                void handleLogout();
-              }}
-            >
-              <Ionicons name="log-out-outline" size={20} color="#dc2626" />
-              <Text style={[styles.drawerItemText, styles.drawerItemTextDanger]}>Logout</Text>
-            </Pressable>
+
+              {drawerItems
+                .filter((item) => item.label !== "Announcements" && item.label !== "Settings")
+                .map((item) => (
+                  <Pressable
+                    key={item.label}
+                    style={({ pressed }) => [styles.drawerItem, pressed && styles.drawerItemPressed]}
+                    onPress={item.onPress}
+                  >
+                    <Ionicons name={item.icon} size={20} color="#334155" />
+                    <Text style={styles.drawerItemText}>{item.label}</Text>
+                  </Pressable>
+                ))}
+
+              <Pressable
+                style={({ pressed }) => [styles.drawerItem, pressed && styles.drawerItemPressed]}
+                onPress={drawerItems.find((item) => item.label === "Settings")?.onPress}
+              >
+                <Ionicons name="settings-outline" size={20} color="#334155" />
+                <Text style={styles.drawerItemText}>Settings</Text>
+              </Pressable>
+
+              <View style={styles.divisionButtonRow}>
+                <Pressable style={styles.divisionButton} onPress={() => {
+                  closeDrawer();
+                  router.push("/(tabs)/divisions");
+                }}>
+                  <View style={styles.divisionIconCircle}>
+                    <Text style={styles.divisionGlyph}>🎭</Text>
+                  </View>
+                  <Text style={styles.divisionButtonText}>Dulimbay</Text>
+                </Pressable>
+
+                <Pressable style={styles.divisionButton} onPress={() => {
+                  closeDrawer();
+                  router.push("/(tabs)/divisions");
+                }}>
+                  <View style={styles.divisionIconCircle}>
+                    <Text style={styles.divisionGlyph}>🐚</Text>
+                  </View>
+                  <Text style={styles.divisionButtonText}>Budjong</Text>
+                </Pressable>
+
+                <Pressable style={styles.divisionButton} onPress={() => {
+                  closeDrawer();
+                  router.push("/(tabs)/divisions");
+                }}>
+                  <View style={styles.divisionIconCircle}>
+                    <Text style={styles.divisionGlyph}>🎸</Text>
+                  </View>
+                  <Text style={styles.divisionButtonText}>Kayam</Text>
+                </Pressable>
+              </View>
+            </View>
+
+            <View style={styles.logoutWrap}>
+              <Pressable
+                style={({ pressed }) => [styles.drawerLogoutButton, pressed && styles.drawerLogoutButtonPressed]}
+                onPress={() => {
+                  closeDrawer();
+                  void handleLogout();
+                }}
+              >
+                <Text style={styles.drawerLogoutText}>Log out</Text>
+              </Pressable>
+            </View>
           </View>
         </Animated.View>
       </Animated.View>
@@ -900,48 +949,119 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   drawerHeader: {
-    paddingHorizontal: 18,
-    paddingTop: 24,
-    paddingBottom: 18,
+    paddingHorizontal: 16,
+    paddingTop: 20,
+    paddingBottom: 12,
     borderBottomWidth: 1,
     borderBottomColor: "#e2e8f0",
     backgroundColor: "#f8fafc",
+    minHeight: 56,
+  },
+  drawerProfileRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    minHeight: 56,
+    marginTop: 8,
   },
   drawerAvatar: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     backgroundColor: "#2563eb",
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 12,
     overflow: "hidden",
   },
   drawerAvatarImage: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
   },
   drawerUserInfo: {
+    flex: 1,
     gap: 2,
+    justifyContent: "center",
+    minWidth: 0,
   },
   drawerName: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: "800",
     color: "#0f172a",
-  },
-  drawerRole: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#475569",
+    maxWidth: 180,
   },
   drawerSubtitle: {
-    fontSize: 12,
+    fontSize: 11,
     color: "#94a3b8",
     marginTop: 2,
+    maxWidth: 180,
   },
   drawerBody: {
+    flex: 1,
     paddingVertical: 8,
+  },
+  drawerMainMenu: {
+    flex: 1,
+  },
+  logoutWrap: {
+    justifyContent: "flex-end",
+    paddingTop: 6,
+    marginTop: -10,
+    paddingHorizontal: 16,
+  },
+  drawerLogoutButton: {
+    backgroundColor: "#e2e8f0",
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "#cbd5e1",
+  },
+  drawerLogoutButtonPressed: {
+    backgroundColor: "#cbd5e1",
+  },
+  drawerLogoutText: {
+    fontSize: 13,
+    fontWeight: "800",
+    color: "#334155",
+    textAlign: "center",
+  },
+  divisionButtonRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 10,
+    paddingTop: 4,
+    paddingBottom: 10,
+  },
+  divisionButton: {
+    alignItems: "center",
+    justifyContent: "center",
+    minWidth: 78,
+  },
+  divisionIconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: "#cbd5e1",
+    backgroundColor: "#ffffff",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  divisionGlyph: {
+    fontSize: 20,
+    color: "#334155",
+    textAlign: "center",
+  },
+  divisionButtonText: {
+    marginTop: 4,
+    fontSize: 10,
+    fontWeight: "700",
+    color: "#334155",
+    textAlign: "center",
   },
   drawerItem: {
     flexDirection: "row",

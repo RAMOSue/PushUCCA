@@ -2,6 +2,7 @@ import { useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -25,6 +26,14 @@ type FieldErrors = {
 };
 
 const EMPTY_ERRORS: FieldErrors = {};
+
+const GoogleGLogo = () => (
+  <Image
+    source={{ uri: "https://developers.google.com/static/identity/images/g-logo.png" }}
+    style={styles.googleLogo}
+    resizeMode="contain"
+  />
+);
 
 const getErrorMessage = (error: unknown) => {
   if (!error || typeof error !== "object") {
@@ -125,6 +134,25 @@ export default function LoginScreen() {
 
     if (result.type === "login") {
       if (result.token && result.user) {
+        const role = String((result.user as { role?: string } | undefined)?.role ?? "").trim().toLowerCase();
+
+        if (role && role !== "borrower") {
+          const readableRole = role.charAt(0).toUpperCase() + role.slice(1).toLowerCase();
+          Alert.alert(
+            "Account Not Available",
+            `This account is registered as a ${readableRole} account and cannot be used to sign in to the Borrower mobile app. Please use a Borrower account.`
+          );
+          return;
+        }
+
+        if (role !== "borrower") {
+          Alert.alert(
+            "Account Not Available",
+            "This account is registered as an unsupported account and cannot be used to sign in to the Borrower mobile app. Please use a Borrower account."
+          );
+          return;
+        }
+
         await completeOAuthSession(result.token, result.user as any);
         router.replace("/(tabs)/available-items");
       }
@@ -155,14 +183,14 @@ export default function LoginScreen() {
         >
           <View style={styles.form}>
             <View style={styles.logoWrap}>
-              <Text style={styles.logoText}>
-                <Text style={styles.logoBlue}>Du</Text>
-                <Text style={styles.logoYellow}>Bud</Text>
-                <Text style={styles.logoRed}>Ka</Text>
-              </Text>
+              <Image
+                source={require("../../../../assets/images/Logo/DuBudKa.png")}
+                style={styles.logo}
+                resizeMode="contain"
+              />
             </View>
 
-            <View style={styles.field}>
+            <View style={[styles.field, styles.firstField]}>
               <Text style={styles.label}>Email</Text>
               <View style={[styles.inputShell, errors.email ? styles.inputShellError : null]}>
                 <Ionicons name="mail-outline" size={17} color="#9ca3af" />
@@ -222,16 +250,15 @@ export default function LoginScreen() {
             >
               {isSubmitting ? <ActivityIndicator color="#ffffff" /> : <Text style={styles.buttonText}>Login</Text>}
             </Pressable>
-
-            <Pressable onPress={() => setGoogleVisible(true)} style={({ pressed }) => [styles.googleButton, isSubmitting ? styles.buttonDisabled : null, pressed && !isSubmitting ? styles.buttonPressed : null]} disabled={isSubmitting}>
-              <Ionicons name="logo-google" size={18} color="#4285F4" />
-              <Text style={styles.googleButtonText}>Login with Google</Text>
-            </Pressable>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
 
       <View style={[styles.footer, { paddingBottom: Math.max(14, insets.bottom + 8) }] }>
+        <Pressable onPress={() => setGoogleVisible(true)} style={({ pressed }) => [styles.googleButton, isSubmitting ? styles.buttonDisabled : null, pressed && !isSubmitting ? styles.buttonPressed : null]} disabled={isSubmitting}>
+          <GoogleGLogo />
+          <Text style={styles.googleButtonText}>Login with Google</Text>
+        </Pressable>
         <Pressable onPress={() => router.push("/(auth)/register")} style={({ pressed }) => [styles.secondaryButton, pressed ? styles.buttonPressed : null]}>
           <Text style={styles.secondaryButtonText}>Create Account</Text>
         </Pressable>
@@ -263,8 +290,12 @@ const styles = StyleSheet.create({
   },
   logoWrap: {
     alignItems: "center",
-    marginBottom: 28,
-    marginTop: -24,
+    marginBottom: 34,
+    marginTop: -28,
+  },
+  logo: {
+    width: 180,
+    height: 70,
   },
   logoText: {
     fontSize: 32,
@@ -282,6 +313,9 @@ const styles = StyleSheet.create({
   },
   field: {
     marginBottom: 14,
+  },
+  firstField: {
+    marginTop: 4,
   },
   label: {
     marginBottom: 6,
@@ -365,13 +399,17 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     width: "100%",
-    marginTop: 8,
+    marginTop: 12,
     backgroundColor: "transparent",
     borderWidth: 1,
     borderColor: "#d1d5db",
     flexDirection: "row",
     gap: 8,
     paddingHorizontal: 16,
+  },
+  googleLogo: {
+    width: 18,
+    height: 18,
   },
   googleButtonText: {
     color: "#111827",
