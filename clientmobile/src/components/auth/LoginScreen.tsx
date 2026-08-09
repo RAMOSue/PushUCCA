@@ -183,11 +183,11 @@ export default function LoginScreen() {
         >
           <View style={styles.form}>
             <View style={styles.logoWrap}>
-              <Image
-                source={require("../../../assets/images/icon.png")}
-                style={styles.logo}
-                resizeMode="contain"
-              />
+              <Text style={styles.logoText}>
+                <Text style={styles.logoBlue}>Du</Text>
+                <Text style={styles.logoYellow}>Bud</Text>
+                <Text style={styles.logoRed}>Ka</Text>
+              </Text>
             </View>
 
             <View style={[styles.field, styles.firstField]}>
@@ -292,10 +292,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 34,
     marginTop: -28,
-  },
-  logo: {
-    width: 180,
-    height: 70,
   },
   logoText: {
     fontSize: 32,

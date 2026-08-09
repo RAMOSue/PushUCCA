@@ -161,11 +161,11 @@ export default function RegisterScreen() {
         <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
           <View style={[styles.form, styles.registerForm]}>
             <View style={styles.logoWrap}>
-              <Image
-                source={require("../../../assets/images/icon.png")}
-                style={styles.logo}
-                resizeMode="contain"
-              />
+              <Text style={styles.logoText}>
+                <Text style={styles.logoBlue}>Du</Text>
+                <Text style={styles.logoYellow}>Bud</Text>
+                <Text style={styles.logoRed}>Ka</Text>
+              </Text>
             </View>
 
             <View style={[styles.field, styles.firstField]}>
@@ -255,10 +255,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 24,
     marginTop: 4,
-  },
-  logo: {
-    width: 180,
-    height: 70,
   },
   logoText: {
     fontSize: 30,

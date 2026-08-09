@@ -247,12 +247,9 @@ export default function ScanQrScreen() {
         const unitId = payload?.unit_id ?? payload?.inventory_unit_id ?? payload?.id ?? null;
         const itemId = payload?.item_id ?? payload?.id ?? null;
         const statusValue = payload?.status ?? scanData?.status ?? null;
-        const scannedUnitDisplay = String(
-          unitId ?? itemId ?? itemName ?? "ITEM"
-        ).toUpperCase();
 
         if (statusValue && String(statusValue).toLowerCase() !== "available") {
-          animateStatus("error", "This item is currently borrowed.", scannedUnitDisplay);
+          animateStatus("error", "This item is currently borrowed.", itemName);
           await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
           return;
         }
@@ -290,11 +287,11 @@ export default function ScanQrScreen() {
 
         const addedCount = Array.isArray(response.items) ? response.items.length : 0;
         if (addedCount > 0) {
-          animateStatus("success", "Added to Borrow Cart", scannedUnitDisplay);
+          animateStatus("success", "Added to Borrow Cart", itemName);
           await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         } else {
           const failureMessage = response?.failed_items?.[0]?.error || response?.error || "Unable to add scanned item to cart.";
-          animateStatus("error", getFriendlyScanMessage(failureMessage), scannedUnitDisplay);
+          animateStatus("error", getFriendlyScanMessage(failureMessage), itemName);
           await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
         }
       } catch (error: any) {
@@ -344,6 +341,9 @@ export default function ScanQrScreen() {
     return statusMessage;
   }, [isProcessing, statusKind, statusMessage]);
 
+  const statusIconName = statusKind === "success" ? "checkmark-circle-outline" : statusKind === "error" ? "alert-circle-outline" : isProcessing ? "sparkles-outline" : "qr-code-outline";
+  const statusAccentStyle = statusKind === "success" ? styles.successAccent : statusKind === "error" ? styles.errorAccent : styles.infoAccent;
+
   if (!permission) {
     return (
       <SafeAreaView style={styles.screen}>
@@ -388,10 +388,13 @@ export default function ScanQrScreen() {
           <Text style={styles.topTitle}>Scan QR Code</Text>
 
           <View style={styles.scanStatusPanel}>
-            <Animated.View style={[styles.scanStatusTextWrap, { opacity: fadeAnim }]}>
-              <Text style={styles.footerText}>{scanStatusLabel}</Text>
-              {statusDetail ? <Text style={styles.footerDetail}>{statusDetail}</Text> : null}
-            </Animated.View>
+            <View style={[styles.statusBadge, statusAccentStyle]}>
+              <Ionicons name={statusIconName} size={18} color="#ffffff" />
+              <Animated.View style={{ flex: 1, opacity: fadeAnim }}>
+                <Text style={styles.footerText}>{scanStatusLabel}</Text>
+                {statusDetail ? <Text style={styles.footerDetail}>{statusDetail}</Text> : null}
+              </Animated.View>
+            </View>
             {isProcessing ? <ActivityIndicator color="#ffffff" style={{ marginTop: 12 }} /> : null}
           </View>
         </View>
@@ -480,14 +483,7 @@ const styles = StyleSheet.create({
   },
   scanStatusPanel: {
     width: "100%",
-    marginTop: 4,
-    alignItems: "center",
-  },
-  scanStatusTextWrap: {
-    width: "100%",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 8,
+    marginTop: 16,
   },
   overlayContainer: {
     ...StyleSheet.absoluteFillObject,
@@ -515,7 +511,7 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.10)",
   },
   flashIcon: {
-    transform: [{ rotate: "-90deg" }],
+    transform: [{ rotate: "180deg" }],
   },
   frameShell: {
     width: "100%",
@@ -622,20 +618,33 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 6 },
     elevation: 8,
   },
+  statusBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    borderRadius: 16,
+  },
+  infoAccent: {
+    backgroundColor: "rgba(37, 99, 235, 0.24)",
+  },
+  successAccent: {
+    backgroundColor: "rgba(22, 163, 74, 0.24)",
+  },
+  errorAccent: {
+    backgroundColor: "rgba(239, 68, 68, 0.24)",
+  },
   footerText: {
     color: "#f8fafc",
     fontSize: 14,
     fontWeight: "800",
-    textAlign: "center",
-    textTransform: "uppercase",
+    textAlign: "left",
   },
   footerDetail: {
     color: "rgba(248, 250, 252, 0.84)",
-    fontSize: 24,
+    fontSize: 12,
     marginTop: 2,
-    textAlign: "center",
-    fontWeight: "900",
-    textTransform: "uppercase",
   },
   footerActions: {
     marginTop: 12,
