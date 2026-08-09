@@ -4,7 +4,7 @@
     "slug": "duBudKa",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/DuBudKa.png",
     "scheme": "DuBudKa",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
@@ -16,7 +16,7 @@
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#ffffff",
-        "foregroundImage": "./assets/images/ic_launcher_foreground.png"
+        "foregroundImage": "./assets/images/DuBudKa.png"
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
@@ -32,6 +32,9 @@
       [
         "expo-splash-screen",
         {
+          "image": "./assets/images/FlashScreen.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
           "backgroundColor": "#ffffff"
         }
       ],
