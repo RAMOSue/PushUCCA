@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Image, View } from "react-native";
 import { useRouter } from "expo-router";
 import { useAuth } from "../src/context/AuthContext";
 
@@ -32,11 +32,11 @@ export default function Index() {
   if (showSplash) {
     return (
       <View style={styles.splashScreen}>
-        <Text style={styles.logoText}>
-          <Text style={styles.logoBlue}>Du</Text>
-          <Text style={styles.logoYellow}>Bud</Text>
-          <Text style={styles.logoRed}>Ka</Text>
-        </Text>
+        <Image
+          source={require("../assets/images/DuBudKa.png")}
+          style={styles.logo}
+          resizeMode="contain"
+        />
       </View>
     );
   }
@@ -51,19 +51,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: "#ffffff",
   },
-  logoText: {
-    fontSize: 32,
-    fontWeight: "900",
-    letterSpacing: 0.4,
-    textAlign: "center",
-  },
-  logoBlue: {
-    color: "#0f2f6b",
-  },
-  logoYellow: {
-    color: "#fbbf24",
-  },
-  logoRed: {
-    color: "#dc2626",
+  logo: {
+    width: 280,
+    height: 120,
   },
 });
