@@ -4,7 +4,7 @@
     "slug": "duBudKa",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/DuBudKa.png",
+    "icon": "./assets/images/icon.png",
     "scheme": "DuBudKa",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
@@ -16,7 +16,7 @@
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#ffffff",
-        "foregroundImage": "./assets/images/DuBudKa.png"
+        "foregroundImage": "./assets/images/ic_launcher_foreground.png"
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
