@@ -184,7 +184,7 @@ export default function LoginScreen() {
           <View style={styles.form}>
             <View style={styles.logoWrap}>
               <Image
-                source={require("../../../../assets/images/Logo/DuBudKa.png")}
+                source={require("../../../assets/images/icon.png")}
                 style={styles.logo}
                 resizeMode="contain"
               />

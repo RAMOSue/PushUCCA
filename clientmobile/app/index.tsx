@@ -33,7 +33,7 @@ export default function Index() {
     return (
       <View style={styles.splashScreen}>
         <Image
-          source={require("../assets/images/Logo/DuBudKa.png")}
+          source={require("./assets/images/icon.png")}
           style={styles.logo}
           resizeMode="contain"
         />

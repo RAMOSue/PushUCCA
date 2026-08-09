@@ -162,7 +162,7 @@ export default function RegisterScreen() {
           <View style={[styles.form, styles.registerForm]}>
             <View style={styles.logoWrap}>
               <Image
-                source={require("../../../../../assets/images/Logo/DuBudKa.png")}
+                source={require("../../../assets/images/icon.png")}
                 style={styles.logo}
                 resizeMode="contain"
               />
